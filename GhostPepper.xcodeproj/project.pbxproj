@@ -798,7 +798,7 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/obra/LLM.swift.git";
 			requirement = {
-				branch = "codex/qwen35-support";
+				branch = main;
 				kind = branch;
 			};
 		};

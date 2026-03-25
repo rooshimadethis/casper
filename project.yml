@@ -11,7 +11,7 @@ packages:
     from: "0.16.0"
   LLM.swift:
     url: https://github.com/obra/LLM.swift.git
-    branch: codex/qwen35-support
+    branch: main
   Sparkle:
     url: https://github.com/sparkle-project/Sparkle.git
     from: "2.6.0"
