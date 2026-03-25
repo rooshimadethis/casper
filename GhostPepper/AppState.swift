@@ -77,14 +77,12 @@ class AppState: ObservableObject {
     private static let postPasteLearningEnabledDefaultsKey = "postPasteLearningEnabled"
 
     nonisolated static let defaultPushToTalkChord = KeyChord(keys: Set([
-        PhysicalKey(keyCode: 54),
-        PhysicalKey(keyCode: 61)
+        PhysicalKey(keyCode: 59)  // Left Control
     ]))!
 
     nonisolated static let defaultToggleToTalkChord = KeyChord(keys: Set([
-        PhysicalKey(keyCode: 54),
-        PhysicalKey(keyCode: 61),
-        PhysicalKey(keyCode: 49)
+        PhysicalKey(keyCode: 59),  // Left Control
+        PhysicalKey(keyCode: 49)   // Space
     ]))!
 
     nonisolated static let defaultShortcutBindings: [ChordAction: KeyChord] = [
