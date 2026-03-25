@@ -202,7 +202,7 @@ struct SetupStep: View {
     @StateObject private var screenRecordingPermission = ScreenRecordingPermissionController()
 
     private var allComplete: Bool {
-        micGranted && accessibilityGranted && screenRecordingPermission.isGranted && modelManager.isReady
+        micGranted && accessibilityGranted && modelManager.isReady
     }
 
     var body: some View {
@@ -309,12 +309,12 @@ struct SetupStep: View {
 
                 SetupRow(
                     icon: "rectangle.on.rectangle",
-                    title: "Screen Recording",
-                    subtitle: "To read on-screen text for smarter cleanup (never leaves your computer)",
+                    title: "Screen Recording (optional)",
+                    subtitle: "Enhances cleanup by reading on-screen text (never leaves your computer)",
                     isComplete: screenRecordingPermission.isGranted
                 ) {
                     if !screenRecordingPermission.isGranted {
-                        Button("Grant") {
+                        Button("Enable") {
                             // Schedule relaunch in case macOS kills us after granting
                             let appURL = Bundle.main.bundleURL
                             DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
@@ -326,14 +326,13 @@ struct SetupStep: View {
                             screenRecordingPermission.requestAccess()
                             PermissionChecker.openScreenRecordingSettings()
                         }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.orange)
+                        .buttonStyle(.bordered)
                         .controlSize(.small)
                     }
                 }
 
                 if !screenRecordingPermission.isGranted {
-                    Text("Grant Screen Recording access in System Settings, then return here.")
+                    Text("You can enable this later in Settings.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 4)
