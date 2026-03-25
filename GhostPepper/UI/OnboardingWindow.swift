@@ -617,8 +617,7 @@ struct TryItStep: View {
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 6) {
-                KeyCap(label: "⌘ right", highlighted: true, isActive: controller.isRecording)
-                KeyCap(label: "⌥ right", highlighted: true, isActive: controller.isRecording)
+                KeyCap(label: "⌃ control", highlighted: true, isActive: controller.isRecording)
             }
             .padding(.vertical, 8)
 
