@@ -2,7 +2,6 @@ import SwiftUI
 import AppKit
 import CoreAudio
 import ServiceManagement
-import AVFoundation
 
 final class SettingsWindowController: NSObject, NSWindowDelegate {
     private var window: NSWindow?
@@ -40,88 +39,49 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     }
 }
 
-// MARK: - Mic Level Monitor for Settings
-
-protocol MicLevelMonitoring: AnyObject {
-    func start()
-    func stop()
-    func restart()
-}
-
 @MainActor
-class SettingsMicMonitor: ObservableObject, MicLevelMonitoring {
-    @Published var level: Float = 0
-    private var engine: AVAudioEngine?
-    private var isRunning = false
+final class SettingsDictationTestController: ObservableObject {
+    @Published private(set) var isRecording = false
+    @Published private(set) var isTranscribing = false
+    @Published private(set) var transcript: String?
+    @Published private(set) var lastError: String?
+
+    private var recorder: AudioRecorder?
+    private let transcriber: SpeechTranscriber
+
+    init(transcriber: SpeechTranscriber) {
+        self.transcriber = transcriber
+    }
 
     func start() {
-        guard !isRunning else { return }
-        guard PermissionChecker.microphoneStatus() == .authorized else { return }
-        let engine = AVAudioEngine()
-        let inputNode = engine.inputNode
-        let format = inputNode.outputFormat(forBus: 0)
-        guard format.sampleRate > 0, format.channelCount > 0 else { return }
-
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-            guard let channelData = buffer.floatChannelData else { return }
-            let frames = Int(buffer.frameLength)
-            var sum: Float = 0
-            for i in 0..<frames {
-                let sample = channelData[0][i]
-                sum += sample * sample
-            }
-            let rms = sqrtf(sum / Float(max(frames, 1)))
-            let normalized = min(rms * 10, 1.0)
-            Task { @MainActor [weak self] in
-                self?.level = normalized
-            }
-        }
+        guard !isRecording else { return }
+        let recorder = AudioRecorder()
+        recorder.prewarm()
 
         do {
-            try engine.start()
-            self.engine = engine
-            isRunning = true
-        } catch {}
+            try recorder.startRecording()
+            self.recorder = recorder
+            transcript = nil
+            lastError = nil
+            isRecording = true
+        } catch {
+            lastError = "Could not start recording."
+        }
     }
 
     func stop() {
-        engine?.inputNode.removeTap(onBus: 0)
-        engine?.stop()
-        engine = nil
-        isRunning = false
-        level = 0
-    }
+        guard isRecording, let recorder else { return }
+        isRecording = false
+        isTranscribing = true
+        self.recorder = nil
 
-    func restart() {
-        stop()
-        start()
-    }
-}
-
-@MainActor
-final class MicPreviewController: ObservableObject {
-    @Published private(set) var isPreviewing = false
-
-    private let monitor: MicLevelMonitoring
-
-    init(monitor: MicLevelMonitoring) {
-        self.monitor = monitor
-    }
-
-    func setPreviewing(_ previewing: Bool) {
-        guard previewing != isPreviewing else { return }
-
-        isPreviewing = previewing
-        if previewing {
-            monitor.start()
-        } else {
-            monitor.stop()
+        Task { @MainActor in
+            let buffer = await recorder.stopRecording()
+            let text = await transcriber.transcribe(audioBuffer: buffer)
+            self.transcript = text
+            self.lastError = text == nil ? "Ghost Pepper could not transcribe that sample." : nil
+            self.isTranscribing = false
         }
-    }
-
-    func restartIfNeeded() {
-        guard isPreviewing else { return }
-        monitor.restart()
     }
 }
 
@@ -173,15 +133,14 @@ struct SettingsView: View {
     @State private var selectedDeviceID: AudioDeviceID = 0
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var hasScreenRecordingPermission = PermissionChecker.hasScreenRecordingPermission()
-    @State private var selectedSection: SettingsSection? = .recording
-    @StateObject private var micMonitor: SettingsMicMonitor
-    @StateObject private var micPreviewController: MicPreviewController
+    @State private var selectedSection: SettingsSection = .recording
+    @StateObject private var dictationTestController: SettingsDictationTestController
 
     init(appState: AppState) {
         self.appState = appState
-        let micMonitor = SettingsMicMonitor()
-        _micMonitor = StateObject(wrappedValue: micMonitor)
-        _micPreviewController = StateObject(wrappedValue: MicPreviewController(monitor: micMonitor))
+        _dictationTestController = StateObject(
+            wrappedValue: SettingsDictationTestController(transcriber: appState.transcriber)
+        )
     }
 
     private var modelRows: [RuntimeModelRow] {
@@ -204,14 +163,43 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        NavigationSplitView {
-            List(SettingsSection.allCases, selection: $selectedSection) { section in
-                Label(section.title, systemImage: section.systemImageName)
-                    .tag(Optional(section))
+        HSplitView {
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(SettingsSection.allCases) { section in
+                    Button {
+                        selectedSection = section
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: section.systemImageName)
+                                .frame(width: 18)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(section.title)
+                                    .font(.body.weight(.medium))
+                                Text(section.subtitle)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(2)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(selectedSection == section ? Color.accentColor.opacity(0.14) : .clear)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+
+                Spacer(minLength: 0)
             }
-            .listStyle(.sidebar)
-            .navigationSplitViewColumnWidth(min: 220, ideal: 240)
-        } detail: {
+            .frame(minWidth: 250, idealWidth: 270, maxWidth: 270, maxHeight: .infinity, alignment: .topLeading)
+            .padding(20)
+            .background(Color(nsColor: .underPageBackgroundColor))
+
             ScrollView {
                 detailContent
                     .padding(.horizontal, 40)
@@ -230,7 +218,9 @@ struct SettingsView: View {
             refreshScreenRecordingPermission()
         }
         .onDisappear {
-            micPreviewController.setPreviewing(false)
+            if dictationTestController.isRecording {
+                dictationTestController.stop()
+            }
         }
     }
 
@@ -259,34 +249,30 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var detailContent: some View {
-        if let selectedSection {
-            VStack(alignment: .leading, spacing: 28) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(selectedSection.title)
-                        .font(.system(size: 28, weight: .semibold))
-                    Text(selectedSection.subtitle)
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                switch selectedSection {
-                case .recording:
-                    recordingSection
-                case .cleanup:
-                    cleanupSection
-                case .corrections:
-                    correctionsSection
-                case .models:
-                    modelsSection
-                case .general:
-                    generalSection
-                }
-
-                Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 28) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(selectedSection.title)
+                    .font(.system(size: 28, weight: .semibold))
+                Text(selectedSection.subtitle)
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-        } else {
-            EmptyView()
+
+            switch selectedSection {
+            case .recording:
+                recordingSection
+            case .cleanup:
+                cleanupSection
+            case .corrections:
+                correctionsSection
+            case .models:
+                modelsSection
+            case .general:
+                generalSection
+            }
+
+            Spacer(minLength: 0)
         }
     }
 
@@ -333,61 +319,8 @@ struct SettingsView: View {
                         .labelsHidden()
                         .frame(maxWidth: 320, alignment: .leading)
                         .onChange(of: selectedDeviceID) { _, newValue in
-                            AudioDeviceManager.setDefaultInputDevice(newValue)
-                            micPreviewController.restartIfNeeded()
+                            _ = AudioDeviceManager.setDefaultInputDevice(newValue)
                         }
-                    }
-
-                    SettingsField("Speech Model") {
-                        Picker("Speech Model", selection: $appState.speechModel) {
-                            ForEach(ModelManager.availableModels) { model in
-                                Text(model.pickerLabel).tag(model.name)
-                            }
-                        }
-                        .labelsHidden()
-                        .frame(maxWidth: 320, alignment: .leading)
-                        .onChange(of: appState.speechModel) { _, newModel in
-                            Task {
-                                await appState.modelManager.loadModel(name: newModel)
-                            }
-                        }
-                    }
-
-                    Toggle(
-                        "Live mic level preview",
-                        isOn: Binding(
-                            get: { micPreviewController.isPreviewing },
-                            set: { micPreviewController.setPreviewing($0) }
-                        )
-                    )
-
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack(spacing: 10) {
-                            Image(systemName: "mic.fill")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-
-                            GeometryReader { geo in
-                                ZStack(alignment: .leading) {
-                                    RoundedRectangle(cornerRadius: 4)
-                                        .fill(Color(nsColor: .controlBackgroundColor))
-                                    RoundedRectangle(cornerRadius: 4)
-                                        .fill(micMonitor.level > 0.7 ? .red : micMonitor.level > 0.3 ? .orange : .green)
-                                        .frame(width: geo.size.width * CGFloat(micMonitor.level))
-                                        .animation(.easeOut(duration: 0.08), value: micMonitor.level)
-                                }
-                            }
-                            .frame(height: 10)
-
-                            Text("Level")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                        .frame(maxWidth: 420)
-
-                        Text("Microphone preview is off by default so Ghost Pepper only keeps the mic active while recording or while you explicitly preview levels here.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
                     }
 
                     Toggle(
@@ -397,6 +330,57 @@ struct SettingsView: View {
                             set: { appState.playSounds = $0 }
                         )
                     )
+                }
+            }
+
+            SettingsCard("Test dictation") {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Record a short sample with your current microphone and speech model without leaving Settings.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    HStack(spacing: 12) {
+                        Button(dictationTestController.isRecording ? "Stop test dictation" : "Start test dictation") {
+                            if dictationTestController.isRecording {
+                                dictationTestController.stop()
+                            } else {
+                                dictationTestController.start()
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        if dictationTestController.isRecording {
+                            HStack(spacing: 8) {
+                                Circle()
+                                    .fill(.red)
+                                    .frame(width: 10, height: 10)
+                                Text("Recording…")
+                                    .foregroundStyle(.secondary)
+                            }
+                        } else if dictationTestController.isTranscribing {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                    .controlSize(.small)
+                                Text("Transcribing…")
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+
+                    if let transcript = dictationTestController.transcript {
+                        Text(transcript)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(Color(nsColor: .controlBackgroundColor))
+                            )
+                    } else if let lastError = dictationTestController.lastError {
+                        Text(lastError)
+                            .font(.callout)
+                            .foregroundStyle(.red)
+                    }
                 }
             }
         }
@@ -523,35 +507,58 @@ struct SettingsView: View {
     }
 
     private var modelsSection: some View {
-        SettingsCard("Runtime models") {
-            VStack(alignment: .leading, spacing: 16) {
-                ModelInventoryCard(rows: modelRows)
-
-                if let activeDownloadText = RuntimeModelInventory.activeDownloadText(rows: modelRows) {
-                    Text(activeDownloadText)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                if hasMissingModels {
-                    Button {
-                        Task {
-                            await downloadMissingModels()
-                        }
-                    } label: {
-                        HStack {
-                            if modelsAreDownloading {
-                                ProgressView()
-                                    .controlSize(.small)
-                            } else {
-                                Image(systemName: "arrow.down.circle")
-                            }
-                            Text(modelsAreDownloading ? "Downloading Models..." : "Download Missing Models")
+        VStack(alignment: .leading, spacing: 24) {
+            SettingsCard("Speech model") {
+                SettingsField("Active speech model") {
+                    Picker("Speech Model", selection: $appState.speechModel) {
+                        ForEach(ModelManager.availableModels) { model in
+                            Text(model.pickerLabel).tag(model.name)
                         }
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.orange)
-                    .disabled(modelsAreDownloading)
+                    .labelsHidden()
+                    .frame(maxWidth: 320, alignment: .leading)
+                    .onChange(of: appState.speechModel) { _, newModel in
+                        Task {
+                            await appState.modelManager.loadModel(name: newModel)
+                        }
+                    }
+                }
+
+                Text("Ghost Pepper uses this model for speech recognition everywhere in the app.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            SettingsCard("Runtime models") {
+                VStack(alignment: .leading, spacing: 16) {
+                    ModelInventoryCard(rows: modelRows)
+
+                    if let activeDownloadText = RuntimeModelInventory.activeDownloadText(rows: modelRows) {
+                        Text(activeDownloadText)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if hasMissingModels {
+                        Button {
+                            Task {
+                                await downloadMissingModels()
+                            }
+                        } label: {
+                            HStack {
+                                if modelsAreDownloading {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                } else {
+                                    Image(systemName: "arrow.down.circle")
+                                }
+                                Text(modelsAreDownloading ? "Downloading Models..." : "Download Missing Models")
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.orange)
+                        .disabled(modelsAreDownloading)
+                    }
                 }
             }
         }
