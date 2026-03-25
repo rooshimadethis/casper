@@ -33,6 +33,7 @@
 		3972174DE774A173431A5EA7 /* TextCleanupManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCE81899A3B0F5CB9777BD6A /* TextCleanupManager.swift */; };
 		3989B83A45309986C17953D8 /* LocalLLMCleanupBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23B813180F29336A298BE44E /* LocalLLMCleanupBackend.swift */; };
 		3E0533A0DF5754339BF5C410 /* DeterministicCorrectionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E2627BAB1434095C84F80A8 /* DeterministicCorrectionEngine.swift */; };
+		408C8D6C7BE897429324F4F1 /* PerformanceTrace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 016C38149DDDAA03B88E35C0 /* PerformanceTrace.swift */; };
 		41C94A48B97D3A6861EA1E92 /* PostPasteLearningCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAC2D0F6C311FB1DA3E9ABF /* PostPasteLearningCoordinatorTests.swift */; };
 		4CFBE4928A2B811D649B4140 /* TextCleanupManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37C0D4F04FFD2C13DEACA238 /* TextCleanupManager.swift */; };
 		4EAE492B8F7F4CB18D2E0FE9 /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F5407DA5D09555EDD69CA54 /* AudioRecorder.swift */; };
@@ -98,6 +99,7 @@
 		E061E99A8C7A3977245EAEC5 /* TextCleanupManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 770403076BA384F3E35AA7A1 /* TextCleanupManagerTests.swift */; };
 		E06EAD2221790D5444E1F8E0 /* CleanupBackendTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 886EA12D06680BB95FB78309 /* CleanupBackendTests.swift */; };
 		E1592D455869910E6FE13200 /* sprite_frame_1@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 8E41EBD0A6F249D987AE8853 /* sprite_frame_1@2x.png */; };
+		E3302E239909CAEC0865A035 /* PerformanceTraceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59666FBC728BF70A61983188 /* PerformanceTraceTests.swift */; };
 		E3FB1CC9DA749F6CCCE3EBD3 /* DebugLogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29EC2918929DBE8F6F9743A1 /* DebugLogStore.swift */; };
 		E5E590FA60691DA4B57DA7CB /* OCRContextTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E051FC96D522216E8C2F01 /* OCRContextTests.swift */; };
 		EE25B297BB7834C3C90423B9 /* TextCleanerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49848DB685A19FBB6557B76E /* TextCleanerTests.swift */; };
@@ -119,6 +121,7 @@
 
 /* Begin PBXFileReference section */
 		0065F99395EEC3EB77997C2C /* CleanupSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupSettings.swift; sourceTree = "<group>"; };
+		016C38149DDDAA03B88E35C0 /* PerformanceTrace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceTrace.swift; sourceTree = "<group>"; };
 		029E36727193D8502C69FB38 /* sprite_frame_2@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "sprite_frame_2@2x.png"; sourceTree = "<group>"; };
 		0D91666EEE2CF7B4B78E3061 /* ChordBindingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChordBindingStore.swift; sourceTree = "<group>"; };
 		0EDE03E93B2A9E420B2C74CA /* PostPasteLearningCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostPasteLearningCoordinator.swift; sourceTree = "<group>"; };
@@ -158,6 +161,7 @@
 		518567C8CE0F7841ACE62BD1 /* ChordEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChordEngine.swift; sourceTree = "<group>"; };
 		52BCF852883B9E469B61B56B /* GhostPepper.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GhostPepper.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		589AC554EEF132B519736D92 /* HotkeyMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyMonitorTests.swift; sourceTree = "<group>"; };
+		59666FBC728BF70A61983188 /* PerformanceTraceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceTraceTests.swift; sourceTree = "<group>"; };
 		5D68EDD354F149B2EF3963B7 /* CleanupModelProbe */ = {isa = PBXFileReference; includeInIndex = 0; path = CleanupModelProbe; sourceTree = BUILT_PRODUCTS_DIR; };
 		5F85AD0262D40047E6FCA3D8 /* UpdaterController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterController.swift; sourceTree = "<group>"; };
 		65270DAE5CA7F1A37B4D890B /* ChordEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChordEngineTests.swift; sourceTree = "<group>"; };
@@ -294,6 +298,7 @@
 			isa = PBXGroup;
 			children = (
 				BB052D817F3005B509E9D479 /* DebugLogStore.swift */,
+				016C38149DDDAA03B88E35C0 /* PerformanceTrace.swift */,
 			);
 			path = Debug;
 			sourceTree = "<group>";
@@ -461,6 +466,7 @@
 				0F634CFD724E29ECA57C0BB6 /* KeyChordTests.swift */,
 				76A684AACE597180BC4B0169 /* MicPreviewControllerTests.swift */,
 				A2E051FC96D522216E8C2F01 /* OCRContextTests.swift */,
+				59666FBC728BF70A61983188 /* PerformanceTraceTests.swift */,
 				ABAC2D0F6C311FB1DA3E9ABF /* PostPasteLearningCoordinatorTests.swift */,
 				38C742095D3934D70BCE44E4 /* RuntimeModelInventoryTests.swift */,
 				9C9ECBFE04804AA79262A07B /* ScreenRecordingPermissionControllerTests.swift */,
@@ -634,6 +640,7 @@
 				CBDE26BEEBD0419A73D09DFC /* OCRRequestFactory.swift in Sources */,
 				CE62853358A180E54150BCA4 /* OnboardingWindow.swift in Sources */,
 				572FDC1B8744EECF73C0EA86 /* PasteSession.swift in Sources */,
+				408C8D6C7BE897429324F4F1 /* PerformanceTrace.swift in Sources */,
 				A3183D30BAD0A1C2712E033F /* PermissionChecker.swift in Sources */,
 				4F4C2206E3914B226A9DE4C0 /* PhysicalKey.swift in Sources */,
 				AF1DD5FE5059779E1D5D59C2 /* PostPasteLearningCoordinator.swift in Sources */,
@@ -692,6 +699,7 @@
 				AB0AC6DC19EC0DB440F5B123 /* KeyChordTests.swift in Sources */,
 				B6F20B2AC3141F58C5CC59F5 /* MicPreviewControllerTests.swift in Sources */,
 				E5E590FA60691DA4B57DA7CB /* OCRContextTests.swift in Sources */,
+				E3302E239909CAEC0865A035 /* PerformanceTraceTests.swift in Sources */,
 				41C94A48B97D3A6861EA1E92 /* PostPasteLearningCoordinatorTests.swift in Sources */,
 				571085951E318B0ADD2B00EA /* RuntimeModelInventoryTests.swift in Sources */,
 				0606E11E6F102BBB44ED08B6 /* ScreenRecordingPermissionControllerTests.swift in Sources */,

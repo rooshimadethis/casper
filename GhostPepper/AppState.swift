@@ -51,7 +51,7 @@ class AppState: ObservableObject {
     }
 
     let modelManager = ModelManager()
-    let audioRecorder = AudioRecorder()
+    let audioRecorder: AudioRecorder
     let transcriber: SpeechTranscriber
     let textPaster: TextPaster
     let soundEffects = SoundEffects()
@@ -80,6 +80,8 @@ class AppState: ObservableObject {
     }
 
     private var cleanupStateObserver: Any? = nil
+    private var activePerformanceTrace: PerformanceTrace?
+    private var activeCleanupAttempted = false
     private let cleanupSettingsDefaults: UserDefaults
     private let inputMonitoringChecker: () -> Bool
     private let inputMonitoringPrompter: () -> Void
@@ -114,6 +116,7 @@ class AppState: ObservableObject {
         frontmostWindowOCRService: FrontmostWindowOCRService = FrontmostWindowOCRService(),
         cleanupPromptBuilder: CleanupPromptBuilder = CleanupPromptBuilder(),
         correctionStore: CorrectionStore? = nil,
+        audioRecorder: AudioRecorder = AudioRecorder(),
         textPaster: TextPaster = TextPaster(),
         debugLogStore: DebugLogStore = DebugLogStore(),
         appRelauncher: AppRelaunching? = nil,
@@ -123,6 +126,7 @@ class AppState: ObservableObject {
         self.hotkeyMonitor = hotkeyMonitor
         self.chordBindingStore = chordBindingStore
         self.cleanupSettingsDefaults = cleanupSettingsDefaults
+        self.audioRecorder = audioRecorder
         self.textPaster = textPaster
         self.debugLogStore = debugLogStore
         self.appRelauncher = appRelauncher ?? AppRelauncher()
@@ -186,6 +190,26 @@ class AppState: ObservableObject {
         hotkeyMonitor.updateBindings(shortcutBindings)
         self.textPaster.onPaste = { [postPasteLearningCoordinator = self.postPasteLearningCoordinator] session in
             postPasteLearningCoordinator.handlePaste(session)
+        }
+        self.audioRecorder.onRecordingStarted = { [weak self] in
+            Task { @MainActor in
+                self?.activePerformanceTrace?.micLiveAt = Date()
+            }
+        }
+        self.audioRecorder.onRecordingStopped = { [weak self] in
+            Task { @MainActor in
+                self?.activePerformanceTrace?.micColdAt = Date()
+            }
+        }
+        self.textPaster.onPasteStart = { [weak self] in
+            Task { @MainActor in
+                self?.activePerformanceTrace?.pasteStartAt = Date()
+            }
+        }
+        self.textPaster.onPasteEnd = { [weak self] in
+            Task { @MainActor in
+                self?.completeActivePerformanceTraceIfNeeded()
+            }
         }
         self.postPasteLearningCoordinator.onLearnedCorrection = { [weak overlay] replacement in
             Task { @MainActor in
@@ -271,21 +295,25 @@ class AppState: ObservableObject {
 
         hotkeyMonitor.onPushToTalkStart = { [weak self] in
             Task { @MainActor in
+                self?.beginPerformanceTrace()
                 self?.startRecording()
             }
         }
         hotkeyMonitor.onPushToTalkStop = { [weak self] in
             Task { @MainActor in
+                self?.activePerformanceTrace?.hotkeyLiftedAt = Date()
                 await self?.stopRecordingAndTranscribe()
             }
         }
         hotkeyMonitor.onToggleToTalkStart = { [weak self] in
             Task { @MainActor in
+                self?.beginPerformanceTrace()
                 self?.startRecording()
             }
         }
         hotkeyMonitor.onToggleToTalkStop = { [weak self] in
             Task { @MainActor in
+                self?.activePerformanceTrace?.hotkeyLiftedAt = Date()
                 await self?.stopRecordingAndTranscribe()
             }
         }
@@ -332,6 +360,10 @@ class AppState: ObservableObject {
             return
         }
 
+        if activePerformanceTrace == nil {
+            beginPerformanceTrace()
+        }
+
         do {
             try audioRecorder.startRecording()
             debugLogStore.record(category: .hotkey, message: "Recording started.")
@@ -340,6 +372,7 @@ class AppState: ObservableObject {
             isRecording = true
             status = .recording
         } catch {
+            activePerformanceTrace = nil
             errorMessage = "Failed to start recording: \(error.localizedDescription)"
             status = .error
         }
@@ -354,10 +387,14 @@ class AppState: ObservableObject {
         isRecording = false
         status = .transcribing
         overlay.show(message: .transcribing)
+        activePerformanceTrace?.transcriptionStartAt = Date()
 
         if let text = await transcriber.transcribe(audioBuffer: buffer) {
+            activePerformanceTrace?.transcriptionEndAt = Date()
             var windowContext: OCRContext?
             if cleanupEnabled && canAttemptCleanup {
+                activeCleanupAttempted = true
+                activePerformanceTrace?.cleanupStartAt = Date()
                 status = .cleaningUp
                 overlay.show(message: .cleaningUp)
 
@@ -370,6 +407,10 @@ class AppState: ObservableObject {
             }
             let cleanupResult = await cleanedTranscriptionResult(text, windowContext: windowContext)
             let finalText = cleanupResult.text
+            activeCleanupAttempted = cleanupResult.attemptedCleanup
+            if cleanupResult.attemptedCleanup {
+                activePerformanceTrace?.cleanupEndAt = Date()
+            }
 
             recordCleanupDebugSnapshot(
                 rawTranscription: text,
@@ -381,6 +422,7 @@ class AppState: ObservableObject {
             overlay.dismiss()
             textPaster.paste(text: finalText)
         } else {
+            activePerformanceTrace?.transcriptionEndAt = Date()
             switch Self.emptyTranscriptionDisposition(forAudioSampleCount: buffer.count) {
             case .cancel:
                 overlay.dismiss()
@@ -390,6 +432,7 @@ class AppState: ObservableObject {
                 debugLogStore.record(category: .model, message: "No sound detected for a long recording.")
             }
             status = .ready
+            completeActivePerformanceTraceIfNeeded()
             return
         }
 
@@ -492,6 +535,35 @@ class AppState: ObservableObject {
             category: .cleanup,
             message: "Final cleaned output:\n\(cleanedOutput)"
         )
+    }
+
+    private func beginPerformanceTrace() {
+        var trace = PerformanceTrace(sessionID: UUID().uuidString)
+        trace.hotkeyDetectedAt = Date()
+        activePerformanceTrace = trace
+        activeCleanupAttempted = false
+    }
+
+    private func completeActivePerformanceTraceIfNeeded() {
+        guard var trace = activePerformanceTrace else {
+            return
+        }
+
+        if trace.pasteEndAt == nil {
+            trace.pasteEndAt = Date()
+        }
+
+        debugLogStore.record(
+            category: .performance,
+            message: trace.summary(
+                speechModelID: speechModel,
+                cleanupBackend: cleanupBackend,
+                cleanupAttempted: activeCleanupAttempted
+            )
+        )
+
+        activePerformanceTrace = nil
+        activeCleanupAttempted = false
     }
 
     func updateShortcut(_ chord: KeyChord, for action: ChordAction) {

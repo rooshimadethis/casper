@@ -45,6 +45,13 @@ private final class FakeAppRelauncher: AppRelaunching {
 
 @MainActor
 final class GhostPepperTests: XCTestCase {
+    private func makeDebugLogStore() -> DebugLogStore {
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+            .appendingPathComponent("debug-log.json")
+        return DebugLogStore(storageURL: fileURL)
+    }
+
     override func tearDown() {
         PermissionChecker.current = PermissionChecker.defaultClient
         super.tearDown()
@@ -546,7 +553,7 @@ final class GhostPepperTests: XCTestCase {
         closeWindows(titled: "Ghost Pepper Debug Log")
         defer { closeWindows(titled: "Ghost Pepper Debug Log") }
         let controller = DebugLogWindowController()
-        let debugLogStore = DebugLogStore()
+        let debugLogStore = makeDebugLogStore()
 
         controller.show(debugLogStore: debugLogStore)
         let window = try XCTUnwrap(
@@ -676,7 +683,7 @@ final class GhostPepperTests: XCTestCase {
     func testAppStateRecordsCleanupDebugSnapshotOnlyWhileDebugViewerIsOpen() throws {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: #function))
         defaults.removePersistentDomain(forName: #function)
-        let debugLogStore = DebugLogStore()
+        let debugLogStore = makeDebugLogStore()
         let appState = AppState(
             hotkeyMonitor: FakeHotkeyMonitor(),
             chordBindingStore: ChordBindingStore(defaults: defaults),
