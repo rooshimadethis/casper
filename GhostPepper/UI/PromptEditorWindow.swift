@@ -63,7 +63,7 @@ struct PromptEditorView: View {
                 .foregroundStyle(.secondary)
 
             TextEditor(text: $appState.cleanupPrompt)
-                .font(.system(.body, design: .monospaced))
+                .font(.body)
                 .frame(minHeight: 250)
 
             HStack {

@@ -1,5 +1,10 @@
 import Foundation
 
+struct TranscriptionLabStageTimings: Codable, Equatable {
+    let transcriptionDuration: TimeInterval?
+    let cleanupDuration: TimeInterval?
+}
+
 final class TranscriptionLabStore {
     private let directoryURL: URL
     private let maxEntries: Int
@@ -26,7 +31,27 @@ final class TranscriptionLabStore {
         return entries.sorted { $0.createdAt > $1.createdAt }
     }
 
-    func insert(_ entry: TranscriptionLabEntry, audioData: Data) throws {
+    func loadStageTimings() throws -> [UUID: TranscriptionLabStageTimings] {
+        guard FileManager.default.fileExists(atPath: timingsURL.path) else {
+            return [:]
+        }
+
+        let data = try Data(contentsOf: timingsURL)
+        let encodedTimings = try decoder.decode([String: TranscriptionLabStageTimings].self, from: data)
+        return Dictionary(uniqueKeysWithValues: encodedTimings.compactMap { key, value in
+            guard let entryID = UUID(uuidString: key) else {
+                return nil
+            }
+
+            return (entryID, value)
+        })
+    }
+
+    func insert(
+        _ entry: TranscriptionLabEntry,
+        audioData: Data,
+        stageTimings: TranscriptionLabStageTimings
+    ) throws {
         try FileManager.default.createDirectory(at: audioDirectoryURL, withIntermediateDirectories: true)
         try audioData.write(to: audioURL(for: entry.audioFileName), options: .atomic)
 
@@ -34,16 +59,28 @@ final class TranscriptionLabStore {
         entries.removeAll { $0.id == entry.id }
         entries.append(entry)
         entries.sort { $0.createdAt > $1.createdAt }
+        var timings = try loadStageTimings()
+        timings[entry.id] = stageTimings
 
         let prunedEntries = Array(entries.prefix(maxEntries))
+        let prunedEntryIDs = Set(entries.dropFirst(maxEntries).map(\.id))
         let prunedFileNames = Set(entries.dropFirst(maxEntries).map(\.audioFileName))
         for fileName in prunedFileNames {
             try? FileManager.default.removeItem(at: audioURL(for: fileName))
+        }
+        for entryID in prunedEntryIDs {
+            timings.removeValue(forKey: entryID)
         }
 
         let data = try encoder.encode(prunedEntries)
         try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
         try data.write(to: indexURL, options: .atomic)
+
+        let encodedTimings = Dictionary(uniqueKeysWithValues: timings.map { key, value in
+            (key.uuidString, value)
+        })
+        let timingsData = try encoder.encode(encodedTimings)
+        try timingsData.write(to: timingsURL, options: .atomic)
     }
 
     func audioURL(for audioFileName: String) -> URL {
@@ -56,6 +93,10 @@ final class TranscriptionLabStore {
 
     private var audioDirectoryURL: URL {
         directoryURL.appendingPathComponent("audio", isDirectory: true)
+    }
+
+    private var timingsURL: URL {
+        directoryURL.appendingPathComponent("transcription-lab-timings.json")
     }
 
     private static var defaultDirectoryURL: URL {

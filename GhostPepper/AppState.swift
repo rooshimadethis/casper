@@ -683,6 +683,20 @@ class AppState: ObservableObject {
         let audioFileName = "\(entryID.uuidString).wav"
         do {
             let audioData = try AudioRecorder.serializePlayableArchiveAudioBuffer(audioBuffer)
+            let transcriptionDuration: TimeInterval?
+            if let start = activePerformanceTrace?.transcriptionStartAt,
+               let end = activePerformanceTrace?.transcriptionEndAt {
+                transcriptionDuration = end.timeIntervalSince(start)
+            } else {
+                transcriptionDuration = nil
+            }
+            let cleanupDuration: TimeInterval?
+            if let start = activePerformanceTrace?.cleanupStartAt,
+               let end = activePerformanceTrace?.cleanupEndAt {
+                cleanupDuration = end.timeIntervalSince(start)
+            } else {
+                cleanupDuration = nil
+            }
             let entry = TranscriptionLabEntry(
                 id: entryID,
                 createdAt: Date(),
@@ -695,7 +709,11 @@ class AppState: ObservableObject {
                 cleanupModelName: cleanupEnabled ? textCleanupManager.localModelPolicy.title : "Cleanup disabled",
                 cleanupUsedFallback: cleanupUsedFallback
             )
-            try transcriptionLabStore.insert(entry, audioData: audioData)
+            let stageTimings = TranscriptionLabStageTimings(
+                transcriptionDuration: transcriptionDuration,
+                cleanupDuration: cleanupDuration
+            )
+            try transcriptionLabStore.insert(entry, audioData: audioData, stageTimings: stageTimings)
         } catch {
             debugLogStore.record(category: .model, message: "Failed to archive transcription lab recording: \(error.localizedDescription)")
         }
@@ -703,6 +721,10 @@ class AppState: ObservableObject {
 
     func loadTranscriptionLabEntries() throws -> [TranscriptionLabEntry] {
         try transcriptionLabStore.loadEntries()
+    }
+
+    func loadTranscriptionLabStageTimings() throws -> [UUID: TranscriptionLabStageTimings] {
+        try transcriptionLabStore.loadStageTimings()
     }
 
     func transcriptionLabAudioURL(for entry: TranscriptionLabEntry) -> URL {
@@ -741,7 +763,8 @@ class AppState: ObservableObject {
         _ entry: TranscriptionLabEntry,
         rawTranscription: String,
         cleanupModelKind: LocalCleanupModelKind,
-        prompt: String
+        prompt: String,
+        includeWindowContext: Bool
     ) async throws -> TranscriptionLabCleanupResult {
         guard acquirePipeline(for: .transcriptionLab) else {
             throw TranscriptionLabRunnerError.pipelineBusy
@@ -755,7 +778,7 @@ class AppState: ObservableObject {
                 rawTranscription: rawTranscription,
                 cleanupModelKind: cleanupModelKind,
                 prompt: prompt,
-                includeWindowContext: true,
+                includeWindowContext: includeWindowContext,
                 acquirePipeline: { true },
                 releasePipeline: {}
             )

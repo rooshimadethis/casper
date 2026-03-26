@@ -40,8 +40,8 @@ final class TranscriptionLabStoreTests: XCTestCase {
             audioFileName: "newer.bin"
         )
 
-        try store.insert(olderEntry, audioData: Data([0x01]))
-        try store.insert(newerEntry, audioData: Data([0x02]))
+        try store.insert(olderEntry, audioData: Data([0x01]), stageTimings: makeStageTimings())
+        try store.insert(newerEntry, audioData: Data([0x02]), stageTimings: makeStageTimings())
 
         let entries = try store.loadEntries()
 
@@ -71,9 +71,9 @@ final class TranscriptionLabStoreTests: XCTestCase {
             audioFileName: "third.bin"
         )
 
-        try store.insert(firstEntry, audioData: Data([0x01]))
-        try store.insert(secondEntry, audioData: Data([0x02]))
-        try store.insert(thirdEntry, audioData: Data([0x03]))
+        try store.insert(firstEntry, audioData: Data([0x01]), stageTimings: makeStageTimings())
+        try store.insert(secondEntry, audioData: Data([0x02]), stageTimings: makeStageTimings())
+        try store.insert(thirdEntry, audioData: Data([0x03]), stageTimings: makeStageTimings())
 
         let entries = try store.loadEntries()
 
@@ -91,6 +91,30 @@ final class TranscriptionLabStoreTests: XCTestCase {
         let entries = try store.loadEntries()
 
         XCTAssertTrue(entries.isEmpty)
+    }
+
+    func testStorePersistsStageTimingsForNewEntries() throws {
+        let fixture = makeFixture()
+        let store = TranscriptionLabStore(
+            directoryURL: fixture.directoryURL,
+            maxEntries: 50
+        )
+        let entry = makeEntry(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000021")!,
+            createdAt: Date(timeIntervalSince1970: 123),
+            audioFileName: "timed.bin"
+        )
+        let stageTimings = TranscriptionLabStageTimings(
+            transcriptionDuration: 0.31,
+            cleanupDuration: 0.72
+        )
+
+        try store.insert(entry, audioData: Data([0x01]), stageTimings: stageTimings)
+
+        XCTAssertEqual(
+            try store.loadStageTimings()[entry.id],
+            stageTimings
+        )
     }
 
     private func makeEntry(
@@ -128,5 +152,12 @@ final class TranscriptionLabStoreTests: XCTestCase {
         func audioURL(named fileName: String) -> URL {
             directoryURL.appendingPathComponent("audio", isDirectory: true).appendingPathComponent(fileName)
         }
+    }
+
+    private func makeStageTimings() -> TranscriptionLabStageTimings {
+        TranscriptionLabStageTimings(
+            transcriptionDuration: 0.25,
+            cleanupDuration: 0.55
+        )
     }
 }

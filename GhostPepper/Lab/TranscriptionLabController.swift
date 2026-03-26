@@ -2,6 +2,7 @@ import Foundation
 
 @MainActor
 final class TranscriptionLabController: ObservableObject {
+    typealias StageTimingsLoader = () throws -> [UUID: TranscriptionLabStageTimings]
     typealias EntryLoader = () throws -> [TranscriptionLabEntry]
     typealias AudioURLProvider = (TranscriptionLabEntry) -> URL
     typealias TranscriptionRunner = (
@@ -12,7 +13,8 @@ final class TranscriptionLabController: ObservableObject {
         _ entry: TranscriptionLabEntry,
         _ rawTranscription: String,
         _ cleanupModelKind: LocalCleanupModelKind,
-        _ prompt: String
+        _ prompt: String,
+        _ includeWindowContext: Bool
     ) async throws -> TranscriptionLabCleanupResult
 
     enum RunningStage {
@@ -24,19 +26,25 @@ final class TranscriptionLabController: ObservableObject {
     @Published var selectedEntryID: UUID?
     @Published var selectedSpeechModelID: String
     @Published var selectedCleanupModelKind: LocalCleanupModelKind
+    @Published var usesCapturedOCR = true
     @Published private(set) var experimentRawTranscription: String = ""
     @Published private(set) var experimentCorrectedTranscription: String = ""
+    @Published private(set) var experimentTranscriptionDuration: TimeInterval?
+    @Published private(set) var experimentCleanupDuration: TimeInterval?
     @Published private(set) var runningStage: RunningStage?
     @Published private(set) var errorMessage: String?
 
+    private let loadStageTimings: StageTimingsLoader
     private let loadEntries: EntryLoader
     private let audioURLForEntry: AudioURLProvider
     private let runTranscription: TranscriptionRunner
     private let runCleanup: CleanupRunner
+    private var originalStageTimingsByEntryID: [UUID: TranscriptionLabStageTimings] = [:]
 
     init(
         defaultSpeechModelID: String,
         defaultCleanupModelKind: LocalCleanupModelKind = .full,
+        loadStageTimings: @escaping StageTimingsLoader = { [:] },
         loadEntries: @escaping EntryLoader,
         audioURLForEntry: @escaping AudioURLProvider,
         runTranscription: @escaping TranscriptionRunner,
@@ -44,6 +52,7 @@ final class TranscriptionLabController: ObservableObject {
     ) {
         self.selectedSpeechModelID = defaultSpeechModelID
         self.selectedCleanupModelKind = defaultCleanupModelKind
+        self.loadStageTimings = loadStageTimings
         self.loadEntries = loadEntries
         self.audioURLForEntry = audioURLForEntry
         self.runTranscription = runTranscription
@@ -90,6 +99,22 @@ final class TranscriptionLabController: ObservableObject {
         return selectedEntry?.correctedTranscription ?? ""
     }
 
+    var originalTranscriptionDuration: TimeInterval? {
+        guard let selectedEntryID else {
+            return nil
+        }
+
+        return originalStageTimingsByEntryID[selectedEntryID]?.transcriptionDuration
+    }
+
+    var originalCleanupDuration: TimeInterval? {
+        guard let selectedEntryID else {
+            return nil
+        }
+
+        return originalStageTimingsByEntryID[selectedEntryID]?.cleanupDuration
+    }
+
     func audioURL(for entry: TranscriptionLabEntry) -> URL {
         audioURLForEntry(entry)
     }
@@ -97,6 +122,7 @@ final class TranscriptionLabController: ObservableObject {
     func reloadEntries() {
         do {
             let loadedEntries = try loadEntries().sorted { $0.createdAt > $1.createdAt }
+            originalStageTimingsByEntryID = try loadStageTimings()
             entries = loadedEntries
 
             if let selectedEntryID,
@@ -105,14 +131,21 @@ final class TranscriptionLabController: ObservableObject {
             }
 
             selectedEntryID = nil
+            usesCapturedOCR = true
             experimentRawTranscription = ""
             experimentCorrectedTranscription = ""
+            experimentTranscriptionDuration = nil
+            experimentCleanupDuration = nil
             errorMessage = nil
         } catch {
             entries = []
             selectedEntryID = nil
+            usesCapturedOCR = true
             experimentRawTranscription = ""
             experimentCorrectedTranscription = ""
+            experimentTranscriptionDuration = nil
+            experimentCleanupDuration = nil
+            originalStageTimingsByEntryID = [:]
             errorMessage = "Could not load saved recordings."
         }
     }
@@ -125,15 +158,21 @@ final class TranscriptionLabController: ObservableObject {
         selectedEntryID = id
         selectedSpeechModelID = SpeechModelCatalog.model(named: entry.speechModelID)?.name ?? selectedSpeechModelID
         selectedCleanupModelKind = Self.cleanupModelKind(for: entry)
+        usesCapturedOCR = entry.windowContext != nil
         experimentRawTranscription = ""
         experimentCorrectedTranscription = ""
+        experimentTranscriptionDuration = nil
+        experimentCleanupDuration = nil
         errorMessage = nil
     }
 
     func closeDetail() {
         selectedEntryID = nil
+        usesCapturedOCR = true
         experimentRawTranscription = ""
         experimentCorrectedTranscription = ""
+        experimentTranscriptionDuration = nil
+        experimentCleanupDuration = nil
         errorMessage = nil
     }
 
@@ -145,10 +184,14 @@ final class TranscriptionLabController: ObservableObject {
 
         runningStage = .transcription
         errorMessage = nil
+        experimentTranscriptionDuration = nil
+        let start = Date()
 
         do {
             experimentRawTranscription = try await runTranscription(entry, selectedSpeechModelID)
             experimentCorrectedTranscription = ""
+            experimentTranscriptionDuration = Date().timeIntervalSince(start)
+            experimentCleanupDuration = nil
         } catch let error as TranscriptionLabRunnerError {
             switch error {
             case .pipelineBusy:
@@ -179,15 +222,19 @@ final class TranscriptionLabController: ObservableObject {
 
         runningStage = .cleanup
         errorMessage = nil
+        experimentCleanupDuration = nil
+        let start = Date()
 
         do {
             let result = try await runCleanup(
                 entry,
                 rawTranscription,
                 selectedCleanupModelKind,
-                prompt
+                prompt,
+                usesCapturedOCR
             )
             experimentCorrectedTranscription = result.correctedTranscription
+            experimentCleanupDuration = Date().timeIntervalSince(start)
         } catch let error as TranscriptionLabRunnerError {
             switch error {
             case .pipelineBusy:
