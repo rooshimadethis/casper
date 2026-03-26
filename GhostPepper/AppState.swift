@@ -422,8 +422,12 @@ class AppState: ObservableObject {
         }
     }
 
+    private var isTranscribing = false
+
     private func stopRecordingAndTranscribe() async {
-        guard status == .recording else { return }
+        guard status == .recording, !isTranscribing else { return }
+        isTranscribing = true
+        defer { isTranscribing = false }
 
         debugLogStore.record(category: .hotkey, message: "Recording stopped. Starting transcription.")
         let buffer = await audioRecorder.stopRecording()
