@@ -9,6 +9,7 @@ private final class FakeHotkeyMonitor: HotkeyMonitoring {
     var onPushToTalkStop: (() -> Void)?
     var onToggleToTalkStart: (() -> Void)?
     var onToggleToTalkStop: (() -> Void)?
+    var onRecordingRestart: (() -> Void)?
 
     var updatedBindings: [ChordAction: KeyChord] = [:]
     var startResult = true
