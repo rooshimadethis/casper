@@ -93,10 +93,10 @@ final class TextCleanupManager: ObservableObject, TextCleaningManaging {
 
     static let fastModel = CleanupModelDescriptor(
         kind: .fast,
-        displayName: "Qwen 3 1.7B (fast cleanup)",
-        sizeDescription: "~1 GB",
-        fileName: "Qwen3-1.7B.Q4_K_M.gguf",
-        url: "https://huggingface.co/MaziyarPanahi/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B.Q4_K_M.gguf",
+        displayName: "Qwen 3.5 2B (fast cleanup)",
+        sizeDescription: "~1.3 GB",
+        fileName: "Qwen3.5-2B-Q4_K_M.gguf",
+        url: "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf",
         maxTokenCount: 2048
     )
 

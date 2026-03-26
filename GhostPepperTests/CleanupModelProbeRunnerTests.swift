@@ -21,7 +21,7 @@ final class CleanupModelProbeRunnerTests: XCTestCase {
     func testCLIFormatsTranscriptForOneShotRuns() {
         let transcript = CleanupModelProbeTranscript(
             modelKind: .fast,
-            modelDisplayName: "Qwen 3 1.7B (fast cleanup)",
+            modelDisplayName: "Qwen 3.5 2B (fast cleanup)",
             thinkingMode: .none,
             input: "Okay, it's running now.",
             correctedInput: "Okay, it's running now.",
@@ -34,7 +34,7 @@ final class CleanupModelProbeRunnerTests: XCTestCase {
 
         let formatted = CleanupModelProbeCLI.format(transcript)
 
-        XCTAssertTrue(formatted.contains("Model: Qwen 3 1.7B (fast cleanup) [fast]"))
+        XCTAssertTrue(formatted.contains("Model: Qwen 3.5 2B (fast cleanup) [fast]"))
         XCTAssertTrue(formatted.contains("Thinking mode: none"))
         XCTAssertTrue(formatted.contains("Prompt:\nSystem prompt"))
         XCTAssertTrue(formatted.contains("Raw model output:\n<think>\nReasoning"))
@@ -64,7 +64,7 @@ final class CleanupModelProbeRunnerTests: XCTestCase {
 
                 return CleanupModelProbeRawResult(
                     modelKind: .fast,
-                    modelDisplayName: "Qwen 3 1.7B (fast cleanup)",
+                    modelDisplayName: "Qwen 3.5 2B (fast cleanup)",
                     rawOutput: """
                     <think>
                     Okay, the user said "Okay, it's running now."
@@ -90,7 +90,7 @@ final class CleanupModelProbeRunnerTests: XCTestCase {
         )
         XCTAssertEqual(transcript.sanitizedOutput, "")
         XCTAssertEqual(transcript.finalOutput, "")
-        XCTAssertEqual(transcript.modelDisplayName, "Qwen 3 1.7B (fast cleanup)")
+        XCTAssertEqual(transcript.modelDisplayName, "Qwen 3.5 2B (fast cleanup)")
         XCTAssertEqual(transcript.elapsed, 1.25, accuracy: 0.001)
     }
 

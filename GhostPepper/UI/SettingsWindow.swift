@@ -652,7 +652,7 @@ struct SettingsView: View {
                     .frame(maxWidth: 360, alignment: .leading)
                 }
 
-                Text("Use Qwen 3 1.7B for faster cleanup or Qwen 3.5 4B for the highest-quality cleanup.")
+                Text("Use Qwen 3.5 2B for faster cleanup or Qwen 3.5 4B for the highest-quality cleanup.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

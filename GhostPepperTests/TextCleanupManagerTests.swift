@@ -32,11 +32,11 @@ final class TextCleanupManagerTests: XCTestCase {
     func testCleanupModelDescriptorsUseQwenThreeFamilyModels() {
         XCTAssertEqual(
             TextCleanupManager.fastModel.displayName,
-            "Qwen 3 1.7B (fast cleanup)"
+            "Qwen 3.5 2B (fast cleanup)"
         )
         XCTAssertEqual(
             TextCleanupManager.fastModel.fileName,
-            "Qwen3-1.7B.Q4_K_M.gguf"
+            "Qwen3.5-2B-Q4_K_M.gguf"
         )
         XCTAssertEqual(
             TextCleanupManager.fullModel.displayName,

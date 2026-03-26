@@ -7,7 +7,7 @@ final class TranscriptionLabControllerTests: XCTestCase {
         let olderEntry = makeEntry(
             createdAt: Date(timeIntervalSince1970: 10),
             speechModelID: "openai_whisper-small.en",
-            cleanupModelName: "Qwen 3 1.7B (fast cleanup)"
+            cleanupModelName: "Qwen 3.5 2B (fast cleanup)"
         )
         let newerEntry = makeEntry(
             createdAt: Date(timeIntervalSince1970: 20),
@@ -42,7 +42,7 @@ final class TranscriptionLabControllerTests: XCTestCase {
         let entry = makeEntry(
             createdAt: Date(),
             speechModelID: "openai_whisper-small.en",
-            cleanupModelName: "Qwen 3 1.7B (fast cleanup)"
+            cleanupModelName: "Qwen 3.5 2B (fast cleanup)"
         )
         var executedCleanupPrompt: String?
         var executedSpeechModelID: String?
@@ -116,7 +116,7 @@ final class TranscriptionLabControllerTests: XCTestCase {
         let entry = makeEntry(
             createdAt: Date(),
             speechModelID: "openai_whisper-small.en",
-            cleanupModelName: "Qwen 3 1.7B (fast cleanup)"
+            cleanupModelName: "Qwen 3.5 2B (fast cleanup)"
         )
         let controller = TranscriptionLabController(
             defaultSpeechModelID: SpeechModelCatalog.defaultModelID,

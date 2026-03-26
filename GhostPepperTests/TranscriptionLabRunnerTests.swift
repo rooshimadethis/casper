@@ -196,7 +196,7 @@ final class TranscriptionLabRunnerTests: XCTestCase {
             rawTranscription: "raw",
             correctedTranscription: "corrected",
             speechModelID: "openai_whisper-small.en",
-            cleanupModelName: "Qwen 3 1.7B (fast cleanup)",
+            cleanupModelName: "Qwen 3.5 2B (fast cleanup)",
             cleanupUsedFallback: false
         )
     }
