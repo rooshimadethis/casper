@@ -122,6 +122,22 @@ final class TranscriptionLabControllerTests: XCTestCase {
         )
     }
 
+    func testTranscriptionLabTextDiffRefinesSingleCharacterChangeWithinToken() {
+        let diff = TranscriptionLabTextDiff.segments(
+            from: "delegation,",
+            to: "delegation."
+        )
+
+        XCTAssertEqual(
+            diff,
+            [
+                .init(kind: .unchanged, text: "delegation"),
+                .init(kind: .removed, text: ","),
+                .init(kind: .inserted, text: ".")
+            ]
+        )
+    }
+
     private func makeEntry(
         createdAt: Date,
         speechModelID: String,
