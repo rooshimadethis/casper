@@ -700,7 +700,10 @@ class AppState: ObservableObject {
         windowContext: OCRContext?,
         rawTranscription: String?,
         correctedTranscription: String?,
-        cleanupUsedFallback: Bool
+        cleanupUsedFallback: Bool,
+        speakerFilteringEnabled: Bool = false,
+        speakerFilteringRan: Bool = false,
+        diarizationSummary: DiarizationSummary? = nil
     ) async {
         guard !audioBuffer.isEmpty else {
             return
@@ -734,7 +737,11 @@ class AppState: ObservableObject {
                 correctedTranscription: correctedTranscription,
                 speechModelID: speechModel,
                 cleanupModelName: cleanupEnabled ? textCleanupManager.localModelPolicy.title : "Cleanup disabled",
-                cleanupUsedFallback: cleanupUsedFallback
+                cleanupUsedFallback: cleanupUsedFallback,
+                speakerFilteringEnabled: speakerFilteringEnabled,
+                speakerFilteringRan: speakerFilteringRan,
+                speakerFilteringUsedFallback: diarizationSummary?.usedFallback ?? false,
+                diarizationSummary: diarizationSummary
             )
             let stageTimings = TranscriptionLabStageTimings(
                 transcriptionDuration: transcriptionDuration,

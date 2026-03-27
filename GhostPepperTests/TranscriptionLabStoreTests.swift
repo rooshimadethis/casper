@@ -13,7 +13,11 @@ final class TranscriptionLabStoreTests: XCTestCase {
             correctedTranscription: "The default is Qwen 3.5 4B.",
             speechModelID: "fluid_parakeet-v3",
             cleanupModelName: "Qwen 3.5 4B (full cleanup)",
-            cleanupUsedFallback: false
+            cleanupUsedFallback: false,
+            speakerFilteringEnabled: true,
+            speakerFilteringRan: true,
+            speakerFilteringUsedFallback: false,
+            diarizationSummary: makeDiarizationSummary()
         )
 
         let encoded = try JSONEncoder().encode(entry)
@@ -117,6 +121,44 @@ final class TranscriptionLabStoreTests: XCTestCase {
         )
     }
 
+    func testTranscriptionLabEntryRoundTripsDiarizationSummary() throws {
+        let entry = makeEntry(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000031")!,
+            createdAt: Date(timeIntervalSince1970: 456),
+            audioFileName: "diarized.wav"
+        )
+
+        let encoded = try JSONEncoder().encode(entry)
+        let decoded = try JSONDecoder().decode(TranscriptionLabEntry.self, from: encoded)
+
+        XCTAssertEqual(decoded.diarizationSummary, entry.diarizationSummary)
+        XCTAssertEqual(decoded.speakerFilteringEnabled, true)
+        XCTAssertEqual(decoded.speakerFilteringRan, true)
+        XCTAssertEqual(decoded.speakerFilteringUsedFallback, false)
+    }
+
+    func testTranscriptionLabStorePersistsDiarizationSummary() throws {
+        let fixture = makeFixture()
+        let store = TranscriptionLabStore(
+            directoryURL: fixture.directoryURL,
+            maxEntries: 50
+        )
+        let entry = makeEntry(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000032")!,
+            createdAt: Date(timeIntervalSince1970: 789),
+            audioFileName: "persisted-diarized.wav"
+        )
+
+        try store.insert(entry, audioData: Data([0x01]), stageTimings: makeStageTimings())
+
+        let entries = try store.loadEntries()
+        XCTAssertEqual(entries.count, 1)
+        XCTAssertEqual(entries[0].diarizationSummary, entry.diarizationSummary)
+        XCTAssertEqual(entries[0].speakerFilteringEnabled, true)
+        XCTAssertEqual(entries[0].speakerFilteringRan, true)
+        XCTAssertEqual(entries[0].speakerFilteringUsedFallback, false)
+    }
+
     private func makeEntry(
         id: UUID = UUID(),
         createdAt: Date = Date(),
@@ -132,7 +174,11 @@ final class TranscriptionLabStoreTests: XCTestCase {
             correctedTranscription: "corrected text",
             speechModelID: "openai_whisper-small.en",
             cleanupModelName: "Qwen 3.5 4B (full cleanup)",
-            cleanupUsedFallback: false
+            cleanupUsedFallback: false,
+            speakerFilteringEnabled: true,
+            speakerFilteringRan: true,
+            speakerFilteringUsedFallback: false,
+            diarizationSummary: makeDiarizationSummary()
         )
     }
 
@@ -158,6 +204,23 @@ final class TranscriptionLabStoreTests: XCTestCase {
         TranscriptionLabStageTimings(
             transcriptionDuration: 0.25,
             cleanupDuration: 0.55
+        )
+    }
+
+    private func makeDiarizationSummary() -> DiarizationSummary {
+        DiarizationSummary(
+            spans: [
+                DiarizationSummary.Span(speakerID: "speaker-a", startTime: 0.0, endTime: 0.6, isKept: true),
+                DiarizationSummary.Span(speakerID: "speaker-b", startTime: 0.7, endTime: 1.0, isKept: false)
+            ],
+            mergedKeptSpans: [
+                DiarizationSummary.MergedSpan(startTime: 0.0, endTime: 0.6)
+            ],
+            targetSpeakerID: "speaker-a",
+            targetSpeakerDuration: 0.6,
+            keptAudioDuration: 0.6,
+            usedFallback: false,
+            fallbackReason: nil
         )
     }
 }

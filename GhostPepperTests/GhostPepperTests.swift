@@ -970,6 +970,57 @@ final class GhostPepperTests: XCTestCase {
         XCTAssertNil(entries[0].correctedTranscription)
     }
 
+    func testAppStateArchivesRecordingWithDiarizationSummary() async throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: #function))
+        defaults.removePersistentDomain(forName: #function)
+        let storeDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let labStore = TranscriptionLabStore(directoryURL: storeDirectory, maxEntries: 50)
+        let appState = AppState(
+            hotkeyMonitor: FakeHotkeyMonitor(),
+            chordBindingStore: ChordBindingStore(defaults: defaults),
+            cleanupSettingsDefaults: defaults,
+            transcriptionLabStore: labStore
+        )
+        defer {
+            try? FileManager.default.removeItem(at: storeDirectory)
+        }
+
+        let diarizationSummary = DiarizationSummary(
+            spans: [
+                DiarizationSummary.Span(speakerID: "speaker-a", startTime: 0.0, endTime: 0.8, isKept: true),
+                DiarizationSummary.Span(speakerID: "speaker-b", startTime: 0.9, endTime: 1.2, isKept: false)
+            ],
+            mergedKeptSpans: [
+                DiarizationSummary.MergedSpan(startTime: 0.0, endTime: 0.8)
+            ],
+            targetSpeakerID: "speaker-a",
+            targetSpeakerDuration: 0.8,
+            keptAudioDuration: 0.8,
+            usedFallback: true,
+            fallbackReason: .emptyFilteredTranscription
+        )
+
+        await appState.archiveRecordingForLab(
+            audioBuffer: [0.1, 0.2, 0.3],
+            windowContext: OCRContext(windowContents: "Ghost Pepper"),
+            rawTranscription: "raw diarized transcription",
+            correctedTranscription: "clean diarized transcription",
+            cleanupUsedFallback: false,
+            speakerFilteringEnabled: true,
+            speakerFilteringRan: true,
+            diarizationSummary: diarizationSummary
+        )
+
+        let entries = try labStore.loadEntries()
+
+        XCTAssertEqual(entries.count, 1)
+        XCTAssertEqual(entries[0].diarizationSummary, diarizationSummary)
+        XCTAssertTrue(entries[0].speakerFilteringEnabled)
+        XCTAssertTrue(entries[0].speakerFilteringRan)
+        XCTAssertTrue(entries[0].speakerFilteringUsedFallback)
+    }
+
     private func closeWindows(titled title: String) {
         NSApp.windows
             .filter { $0.title == title }
