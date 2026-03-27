@@ -20,7 +20,7 @@ The first product need is narrower:
 This feature should therefore do two things at once:
 
 - ship a practical stop-and-paste improvement now
-- establish a session-oriented core that can grow into future speaker-aware streaming products later
+- avoid baking more one-shot assumptions into the recording pipeline
 
 ## Scope
 
@@ -34,7 +34,7 @@ In scope:
 - identify the first substantial speaker in the recording and keep that speaker’s later spans
 - transcribe only the kept spans
 - run cleanup as normal after the final speaker-filtered transcript is produced
-- preserve enough session structure internally to support future streaming-first work
+- preserve just enough chunk-oriented session structure to avoid an offline-only dead end
 - expose diarization visualization only in the Transcription Lab
 
 Out of scope for V1:
@@ -89,9 +89,16 @@ V1 intentionally uses a simple rule:
 “Substantial” means:
 
 - not a tiny fragment or incidental noise
-- enough voiced speech to be worth following for the rest of the clip
+- at least `0.5s` of cumulative voiced speech
 
-The exact threshold can be tuned during implementation, but it should be in the range of roughly half a second of voiced speech rather than a single tiny burst.
+The cumulative duration may be made up of multiple spans from the same speaker.
+
+Target selection rule:
+
+- diarization may revise provisional speaker spans while recording is in progress
+- Ghost Pepper does not permanently lock the target speaker during recording
+- on stop, Ghost Pepper uses the finalized diarization output and selects the earliest speaker in time order whose cumulative voiced speech reaches `0.5s`
+- if no speaker reaches that threshold, the feature falls back to the normal full-audio transcript path
 
 Known failure case Jesse explicitly accepts:
 
@@ -116,77 +123,57 @@ This design does not require exposing streaming transcript UI, but it does benef
 
 ### Design Principle
 
-Build streaming-capable internals now, but keep the first user-visible product behavior simple:
+Keep V1 architecture intentionally small:
 
-- internal timeline may revise while the recording is in progress
+- internal diarization work may run incrementally during recording
 - the user only sees the final result after stop
+- do not introduce more abstractions than this feature needs right now
 
-This avoids painting the app into an offline-only corner while keeping V1 behavior predictable.
+This avoids painting the app into an offline-only corner while still keeping the implementation proportional to one toggle.
 
 ### Core Components
 
 #### RecordingSessionCoordinator
 
-Owns one active dictation session.
+Owns one active dictation session when `Ignore other speakers` is enabled on a `FluidAudio` model.
 
 Responsibilities:
 
 - receive audio chunks from the recorder
-- fan those chunks out to downstream consumers
+- append those chunks to an in-memory session buffer
+- feed those chunks into the active `FluidAudio` diarization/transcription helper
 - own session lifecycle
-- finalize all session outputs when recording stops
+- finalize diarization metadata and filtered audio when recording stops
 
-This is the central seam that future continuous-transcript and online-analysis features can build on.
+V1 does not need a general-purpose transcript timeline type or a separate chunk-persistence subsystem.
 
-#### AudioChunkTimeline
+#### FluidAudioSpeechSession
 
-Represents the audio captured during a session as ordered chunks with timing metadata.
-
-Responsibilities:
-
-- preserve chunk ordering and timing
-- provide the source material for diarization and ASR
-- support extracting merged kept spans after diarization finalization
-
-V1 does not need a complicated storage layer here. An in-memory timeline backed by the existing final audio buffer is sufficient as long as the interfaces are chunk-oriented.
-
-#### SpeakerAttributionEngine
-
-Wraps `FluidAudio` diarization for the current recording session.
+Wraps the `FluidAudio`-specific work for one active recording.
 
 Responsibilities:
 
-- ingest audio chunks while recording
-- produce provisional speaker spans
-- select the first substantial speaker
-- decide which later spans belong to that same speaker
-- finalize the kept spans at stop
-
-The engine should expose “kept” vs “discarded” spans explicitly so the lab can visualize them later without reverse-engineering the decision.
-
-#### TargetSpeakerTranscriptBuilder
-
-Builds the transcription input from the kept spans.
-
-Responsibilities:
-
+- own the active Sortformer diarizer
+- accept 16 kHz mono Float32 chunks
+- maintain provisional speaker spans
+- finalize kept spans at stop
 - merge nearby kept spans with a small gap tolerance
-- extract the corresponding audio
-- hand only that audio to the selected `FluidAudio` ASR backend
+- extract filtered audio for transcription
+- run `FluidAudio` ASR on the filtered audio
 
-This component keeps the diarization policy separate from the ASR backend logic.
+This keeps backend-specific behavior out of `AppState` without forcing `ModelManager` to become a much larger abstraction than it is today.
 
-#### CleanupFinalizer
+#### DiarizationSummary
 
-Runs existing cleanup unchanged after the speaker-filtered transcript is finalized.
+Represents the final speaker-attribution result for one completed recording.
 
 Responsibilities:
 
-- accept the final raw transcript
-- reuse the existing cleanup pipeline
-- remain agnostic to whether the transcript came from full audio or filtered speaker spans
+- store finalized diarized spans
+- mark which spans were kept
+- record target-speaker coverage and whether fallback occurred
 
-This keeps cleanup from becoming entangled with diarization internals.
+This is the data model the lab and archive system consume. V1 does not need to persist provisional revisions.
 
 ## Data Flow
 
@@ -194,9 +181,9 @@ This keeps cleanup from becoming entangled with diarization internals.
 
 1. `AudioRecorder` starts capturing as it does today
 2. `RecordingSessionCoordinator` opens a new session
-3. audio chunks are appended to `AudioChunkTimeline`
+3. audio chunks are appended to the active session buffer
 4. if the selected speech model is `FluidAudio` and `Ignore other speakers` is enabled:
-   - feed chunks into `SpeakerAttributionEngine`
+   - feed chunks into `FluidAudioSpeechSession`
 5. if the setting is off, or the model is `WhisperKit`, skip speaker attribution entirely
 
 ### Recording Stop
@@ -223,24 +210,88 @@ If any of the following happens:
 
 - diarization initialization fails
 - diarization returns no usable speaker spans
-- the kept spans are too short to trust
+- no speaker reaches the `0.5s` cumulative voiced-speech threshold
+- merged kept spans total less than `0.75s` of audio
 - filtered audio extraction fails
+- filtered-audio ASR returns `nil` or an empty transcript
 
 then Ghost Pepper should fall back to the normal full-audio transcript path for that recording.
 
 This avoids losing dictation completely when the speaker filter is uncertain or broken.
 
+V1 should not attempt a semantic “degraded transcript” detector beyond these measurable fallback rules.
+
+## Recorder Contract
+
+`AudioRecorder` currently exposes a final 16 kHz mono Float32 buffer at stop.
+
+V1 needs one additional seam:
+
+- a chunk callback from the same converted 16 kHz mono Float32 capture path Ghost Pepper already uses for final transcription
+
+Required contract:
+
+- sample format: 16 kHz mono Float32
+- chunk source: the existing converted recorder path, not a second parallel capture path
+- chunk timing: monotonic chunk order plus sample-count-derived offsets, not wall-clock timestamps
+- chunk size: fixed-size chunks around `0.5s` of audio, or the nearest stable recorder-friendly equivalent
+
+The full final buffer should still be assembled exactly as it is today so the app can fall back to the normal path without special reconstruction logic.
+
+## Model-Manager Seam
+
+`ModelManager` should remain responsible for:
+
+- speech model identity
+- model loading and readiness
+- whole-buffer transcription on the existing path
+
+V1 should not force `ModelManager` to absorb diarization session orchestration.
+
+Instead:
+
+- `ModelManager` exposes enough `FluidAudio` access for a `FluidAudioSpeechSession` to use the already-loaded backend safely
+- `WhisperKit` continues using the existing one-shot path unchanged
+
+This keeps the current backend split explicit instead of making `ModelManager` a vague catch-all service.
+
+## Archive Schema For Lab Visualization
+
+For recordings created while `Ignore other speakers` is enabled on a `FluidAudio` model, archive one final diarization summary alongside the existing lab entry.
+
+Persist:
+
+- whether speaker filtering was enabled
+- whether speaker filtering actually ran
+- whether the session fell back to full-audio transcription
+- finalized diarized spans:
+  - start time
+  - end time
+  - speaker id
+  - kept vs discarded
+- target speaker id, if one was selected
+- total kept-audio duration
+
+Do not persist:
+
+- provisional diarization revisions
+- intermediate target-speaker guesses
+- a second stored unfiltered transcript for the same live run
+
+The archive write happens when the live recording finishes, at the same time Ghost Pepper stores the original raw and cleaned transcript data for the lab.
+
 ## Lab Behavior
 
 The Transcription Lab is the only place where diarization is visualized.
 
-For `FluidAudio` recordings with `Ignore other speakers` enabled, show:
+For archived `FluidAudio` recordings created with `Ignore other speakers` enabled, show:
 
 - diarized speaker spans across the clip
 - which spans were kept
 - which spans were discarded
-- the filtered transcript result
-- the normal transcript result when useful for comparison
+- the original filtered transcript result
+
+If the user wants a filtered-vs-unfiltered comparison, the lab can produce that comparison by rerunning the selected recording with the setting toggled on and off. V1 does not need to archive two transcripts for every live run.
 
 This is a debugging and trust-building surface, not a production interaction model.
 
@@ -264,7 +315,7 @@ That means V1 can be added by extending the current app structure instead of rew
 - `GhostPepper/AppState.swift`
   - own the new setting and route live recordings through diarization when applicable
 - `GhostPepper/Transcription/ModelManager.swift`
-  - expose enough backend capability to support `FluidAudio` diarization sessions
+  - expose enough backend capability to support `FluidAudioSpeechSession`
 - `GhostPepper/Transcription/SpeechModelCatalog.swift`
   - expose whether a speech model supports speaker filtering
 - `GhostPepper/UI/SettingsWindow.swift`
@@ -276,9 +327,8 @@ That means V1 can be added by extending the current app structure instead of rew
 ### New files likely to be added
 
 - `GhostPepper/Transcription/RecordingSessionCoordinator.swift`
-- `GhostPepper/Transcription/AudioChunkTimeline.swift`
-- `GhostPepper/Transcription/SpeakerAttributionEngine.swift`
-- `GhostPepper/Transcription/TargetSpeakerTranscriptBuilder.swift`
+- `GhostPepper/Transcription/FluidAudioSpeechSession.swift`
+- `GhostPepper/Transcription/DiarizationSummary.swift`
 
 These names describe domain responsibilities, not implementation history.
 
@@ -296,6 +346,7 @@ Debug visibility:
 - log whether it selected a target speaker
 - log whether it fell back to the full-audio path
 - log kept-span coverage for the session
+- log whether filtered-audio ASR returned an empty result
 
 This gives enough information for tuning without scaring the user with new failures.
 
@@ -322,9 +373,11 @@ This is a major reason to use a streaming-capable diarization core even though t
 ### Unit tests
 
 - first-substantial-speaker selection
+- cumulative-threshold target selection across multiple spans
 - kept/discarded span decisions
 - span merging and gap tolerance
 - fallback to full-audio transcription when diarization yields no safe result
+- fallback to full-audio transcription when filtered ASR returns an empty result
 - `Ignore other speakers` is disabled for `WhisperKit` models and enabled for `FluidAudio`
 
 ### Integration tests
@@ -361,12 +414,13 @@ This keeps product risk down now, but the speech stack remains more complex than
 
 ## Recommended Implementation Order
 
-1. add the new setting and backend-capability plumbing
-2. add session and chunk timeline primitives
-3. integrate `FluidAudio` diarization behind the new setting
-4. build filtered-audio transcription
-5. add lab visualization
-6. add performance logging and fallback diagnostics
+1. add the new setting and speech-model capability plumbing
+2. add chunk delivery from the existing recorder path
+3. add `FluidAudioSpeechSession` and `DiarizationSummary`
+4. integrate `FluidAudio` diarization behind the new setting
+5. archive finalized diarization metadata for lab use
+6. add lab visualization
+7. add performance logging and fallback diagnostics
 
 ## Success Criteria
 
