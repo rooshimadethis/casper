@@ -285,7 +285,9 @@ final class GhostPepperTests: XCTestCase {
             speechModel: SpeechModelCatalog.whisperSmallEnglish
         )
 
+        XCTAssertTrue(parakeetState.isVisible)
         XCTAssertTrue(parakeetState.isEnabled)
+        XCTAssertTrue(whisperState.isVisible)
         XCTAssertFalse(whisperState.isEnabled)
     }
 

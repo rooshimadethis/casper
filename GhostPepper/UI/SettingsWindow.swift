@@ -132,9 +132,11 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
 }
 
 struct RecordingSpeakerFilteringToggleState {
+    let isVisible: Bool
     let isEnabled: Bool
 
     init(speechModel: SpeechModelDescriptor?) {
+        isVisible = true
         isEnabled = speechModel?.supportsSpeakerFiltering ?? false
     }
 }
@@ -446,14 +448,16 @@ struct SettingsView: View {
                         )
                     )
 
-                    Toggle(
-                        "Ignore other speakers",
-                        isOn: Binding(
-                            get: { appState.ignoreOtherSpeakers },
-                            set: { appState.ignoreOtherSpeakers = $0 }
+                    if speakerFilteringToggleState.isVisible {
+                        Toggle(
+                            "Ignore other speakers",
+                            isOn: Binding(
+                                get: { appState.ignoreOtherSpeakers },
+                                set: { appState.ignoreOtherSpeakers = $0 }
+                            )
                         )
-                    )
-                    .disabled(!speakerFilteringToggleState.isEnabled)
+                        .disabled(!speakerFilteringToggleState.isEnabled)
+                    }
                 }
             }
 
