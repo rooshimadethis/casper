@@ -1,4 +1,3 @@
-import AVFoundation
 import XCTest
 @testable import GhostPepper
 
@@ -47,16 +46,8 @@ final class AudioRecorderTests: XCTestCase {
             deliveredChunks.append(chunk)
         }
 
-        let inputFormat = AVAudioFormat(
-            commonFormat: .pcmFormatFloat32,
-            sampleRate: 16_000,
-            channels: 1,
-            interleaved: false
-        )!
-        let converter = AVAudioConverter(from: inputFormat, to: inputFormat)!
-
-        recorder.convert(buffer: makePCMBuffer(samples: [0.1, 0.2], format: inputFormat), using: converter)
-        recorder.convert(buffer: makePCMBuffer(samples: [0.3, 0.4], format: inputFormat), using: converter)
+        recorder.appendConvertedFrames([0.1, 0.2])
+        recorder.appendConvertedFrames([0.3, 0.4])
 
         XCTAssertEqual(deliveredChunks, [[0.1, 0.2], [0.3, 0.4]])
     }
@@ -68,31 +59,10 @@ final class AudioRecorderTests: XCTestCase {
             deliveredSamples.append(contentsOf: chunk)
         }
 
-        let inputFormat = AVAudioFormat(
-            commonFormat: .pcmFormatFloat32,
-            sampleRate: 16_000,
-            channels: 1,
-            interleaved: false
-        )!
-        let converter = AVAudioConverter(from: inputFormat, to: inputFormat)!
-
-        recorder.convert(buffer: makePCMBuffer(samples: [0.1, 0.2], format: inputFormat), using: converter)
-        recorder.convert(buffer: makePCMBuffer(samples: [0.3, 0.4], format: inputFormat), using: converter)
+        recorder.appendConvertedFrames([0.1, 0.2])
+        recorder.appendConvertedFrames([0.3, 0.4])
 
         XCTAssertEqual(deliveredSamples, [0.1, 0.2, 0.3, 0.4])
         XCTAssertEqual(recorder.audioBuffer, [0.1, 0.2, 0.3, 0.4])
-    }
-
-    private func makePCMBuffer(samples: [Float], format: AVAudioFormat) -> AVAudioPCMBuffer {
-        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(samples.count))!
-        buffer.frameLength = AVAudioFrameCount(samples.count)
-
-        let channelData = buffer.floatChannelData!.pointee
-
-        for (index, sample) in samples.enumerated() {
-            channelData[index] = sample
-        }
-
-        return buffer
     }
 }

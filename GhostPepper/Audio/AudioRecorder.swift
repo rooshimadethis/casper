@@ -143,7 +143,7 @@ final class AudioRecorder {
 
     // MARK: - Private
 
-    func convert(buffer: AVAudioPCMBuffer, using converter: AVAudioConverter) {
+    private func convert(buffer: AVAudioPCMBuffer, using converter: AVAudioConverter) {
         let frameCapacity = AVAudioFrameCount(
             Double(buffer.frameLength) * (targetFormat.sampleRate / buffer.format.sampleRate)
         ) + 1 // +1 to avoid rounding down to zero
@@ -176,6 +176,10 @@ final class AudioRecorder {
 
         let frames = Array(UnsafeBufferPointer(start: channelData[0], count: Int(convertedBuffer.frameLength)))
 
+        appendConvertedFrames(frames)
+    }
+
+    func appendConvertedFrames(_ frames: [Float]) {
         bufferLock.lock()
         audioBuffer.append(contentsOf: frames)
         bufferLock.unlock()
