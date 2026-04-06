@@ -16,14 +16,26 @@
 
 ## How it works
 
-Ghost Pepper uses two open-source models that download automatically on first launch:
+Ghost Pepper uses open-source models that run entirely on your Mac. Models download automatically and are cached locally.
 
-| | Model | Size | What it does |
-|---|---|---|---|
-| Speech-to-text | [WhisperKit](https://github.com/argmaxinc/WhisperKit) (small.en) | ~466 MB | Transcribes your speech to text |
-| Text cleanup | [Qwen 2.5](https://huggingface.co/Qwen) (1.5B + 3B) | ~3 GB | Removes filler words and self-corrections |
+### Speech models
 
-Models are served by [Hugging Face](https://huggingface.co/) and cached locally after first download.
+| Model | Size | Best for |
+|---|---|---|
+| Whisper tiny.en | ~75 MB | Fastest, English only |
+| **Whisper small.en** (default) | ~466 MB | Best accuracy, English only |
+| Whisper small (multilingual) | ~466 MB | Multi-language support |
+| Parakeet v3 (25 languages) | ~1.4 GB | Multi-language via [FluidAudio](https://github.com/FluidInference/FluidAudio) |
+
+### Cleanup models
+
+| Model | Size | Speed |
+|---|---|---|
+| **Qwen 3.5 0.8B** (default) | ~535 MB | Very fast (~1-2s) |
+| Qwen 3.5 2B | ~1.3 GB | Fast (~4-5s) |
+| Qwen 3.5 4B | ~2.8 GB | Full quality (~5-7s) |
+
+Speech models powered by [WhisperKit](https://github.com/argmaxinc/WhisperKit). Cleanup models powered by [LLM.swift](https://github.com/eastriverlee/LLM.swift). All models served by [Hugging Face](https://huggingface.co/).
 
 ## Getting started
 
