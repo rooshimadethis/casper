@@ -58,14 +58,6 @@ final class TextPaster {
 
     // MARK: - Timing Constants
 
-    /// Bundle IDs of apps that support Cmd+V but don't expose standard Accessibility
-    /// text-editing attributes. For these apps the AX preflight is skipped so Ghost
-    /// Pepper pastes directly instead of falling back to the clipboard.
-    static let pasteAlwaysAllowedBundleIDs: Set<String> = [
-        "dev.zed.Zed",
-        "dev.zed.Zed-Preview",
-    ]
-
     /// Delay after writing text to clipboard before simulating Cmd+V.
     static let preKeystrokeDelay: TimeInterval = 0.05
 
@@ -164,10 +156,7 @@ final class TextPaster {
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
 
-        let frontmostBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? ""
-        let bypassPreflight = Self.pasteAlwaysAllowedBundleIDs.contains(frontmostBundleID)
-
-        guard bypassPreflight || canPasteIntoFocusedElement(), let postCommandV = prepareCommandV() else {
+        guard canPasteIntoFocusedElement() || Self.frontmostAppHasPasteMenuItem(), let postCommandV = prepareCommandV() else {
             onPasteEnd?()
             return .copiedToClipboard
         }
@@ -385,6 +374,54 @@ final class TextPaster {
 
             return unsafeBitCast(value, to: AXUIElement.self)
         }
+    }
+
+    // MARK: - Menu Bar Inspection
+
+    /// Duck-typing check: returns true if the frontmost app has an enabled Paste
+    /// menu item (Cmd+V). Apps that expose this command support pasting even when
+    /// their editor doesn't advertise standard AX text-editing attributes.
+    static func frontmostAppHasPasteMenuItem() -> Bool {
+        guard let app = NSWorkspace.shared.frontmostApplication else { return false }
+        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+
+        guard let menuBar = axElementAttribute(kAXMenuBarAttribute as CFString, on: appElement) else {
+            return false
+        }
+
+        let menuBarItems = children(of: menuBar)
+        for menuBarItem in menuBarItems {
+            let submenus = children(of: menuBarItem)
+            for submenu in submenus {
+                let menuItems = children(of: submenu)
+                for menuItem in menuItems {
+                    if isPasteMenuItem(menuItem) {
+                        return boolAttribute(kAXEnabledAttribute as CFString, on: menuItem) ?? true
+                    }
+                }
+            }
+        }
+
+        return false
+    }
+
+    private static func isPasteMenuItem(_ element: AXUIElement) -> Bool {
+        var cmdCharRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, "AXMenuItemCmdChar" as CFString, &cmdCharRef) == .success,
+              let cmdChar = cmdCharRef as? String,
+              cmdChar.lowercased() == "v" else {
+            return false
+        }
+
+        // AXMenuItemCmdModifiers: 0 = Command only (no Shift/Option/Control)
+        var modRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(element, "AXMenuItemCmdModifiers" as CFString, &modRef) == .success,
+           let modifiers = modRef as? Int,
+           modifiers != 0 {
+            return false
+        }
+
+        return true
     }
 
     // MARK: - Key Simulation

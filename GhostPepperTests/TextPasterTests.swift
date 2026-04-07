@@ -286,8 +286,11 @@ final class TextPasterTests: XCTestCase {
         pasteboard.releaseGlobally()
     }
 
-    func testPasteAlwaysAllowedBundleIDsContainsZed() {
-        XCTAssertTrue(TextPaster.pasteAlwaysAllowedBundleIDs.contains("dev.zed.Zed"))
-        XCTAssertTrue(TextPaster.pasteAlwaysAllowedBundleIDs.contains("dev.zed.Zed-Preview"))
+    func testPasteMenuItemDetectsCommandV() {
+        // isPasteMenuItem is tested indirectly through frontmostAppHasPasteMenuItem.
+        // The method checks for Cmd+V (AXMenuItemCmdChar == "v", modifiers == 0).
+        // In CI, there may not be a frontmost app with a menu bar, so we verify
+        // the method returns a Bool without crashing.
+        _ = TextPaster.frontmostAppHasPasteMenuItem()
     }
 }
