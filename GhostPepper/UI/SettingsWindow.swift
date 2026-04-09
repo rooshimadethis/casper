@@ -1049,6 +1049,8 @@ struct SettingsView: View {
                     maximumHeight: 140,
                     monospaced: false
                 )
+
+                addCorrectionSection
             }
 
             VStack(alignment: .leading, spacing: 16) {
@@ -1162,12 +1164,141 @@ struct SettingsView: View {
                     monospaced: false
                 )
 
+                addExampleSection(for: entry)
+
                 if let errorMessage = transcriptionLabController.errorMessage {
                     Text(errorMessage)
                         .font(.callout)
                         .foregroundStyle(.red)
                 }
             }
+
+            // (Correction and example sections are inline above)
+        }
+    }
+
+    @State private var exampleInput: String = ""
+    @State private var exampleOutput: String = ""
+    @State private var exampleAdded: Bool = false
+    @State private var correctionWrong: String = ""
+    @State private var correctionRight: String = ""
+    @State private var correctionAdded: Bool = false
+
+    private var addCorrectionSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Add a word correction")
+                .font(.title3.weight(.semibold))
+
+            Text("If a word is consistently misheard, add it here. This applies before and after every cleanup.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Misheard as:")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    TextField("e.g. open claw", text: $correctionWrong)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 200)
+                }
+
+                Image(systemName: "arrow.right")
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 16)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Should be:")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    TextField("e.g. OpenClaw", text: $correctionRight)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 200)
+                }
+
+                Button(action: {
+                    guard !correctionWrong.isEmpty, !correctionRight.isEmpty else { return }
+                    appState.correctionStore.appendCommonlyMisheard(
+                        MisheardReplacement(wrong: correctionWrong, right: correctionRight)
+                    )
+                    correctionAdded = true
+                    correctionWrong = ""
+                    correctionRight = ""
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) { correctionAdded = false }
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: correctionAdded ? "checkmark" : "plus.circle")
+                        Text(correctionAdded ? "Added!" : "Add")
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.orange)
+                .padding(.top, 16)
+                .disabled(correctionWrong.isEmpty || correctionRight.isEmpty)
+            }
+        }
+    }
+
+    private func addExampleSection(for entry: TranscriptionLabEntry) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Add an example to the cleanup prompt")
+                .font(.title3.weight(.semibold))
+
+            Text("If the cleanup got it wrong, add an example so it handles similar cases correctly in the future.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Input (what was said):")
+                    .font(.subheadline.weight(.medium))
+                BorderedTextEditor(
+                    text: $exampleInput,
+                    minimumHeight: 50,
+                    maximumHeight: 80,
+                    monospaced: false
+                )
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Output (what it should be):")
+                    .font(.subheadline.weight(.medium))
+                BorderedTextEditor(
+                    text: $exampleOutput,
+                    minimumHeight: 50,
+                    maximumHeight: 80,
+                    monospaced: false
+                )
+            }
+
+            HStack {
+                Button(action: {
+                    guard !exampleInput.isEmpty, !exampleOutput.isEmpty else { return }
+                    let example = "\n\nInput: \"\(exampleInput)\"\nOutput: \(exampleOutput)\n"
+                    if let range = appState.cleanupPrompt.range(of: "</EXAMPLES>") {
+                        appState.cleanupPrompt.insert(contentsOf: example, at: range.lowerBound)
+                    } else {
+                        // No EXAMPLES block — append to end
+                        appState.cleanupPrompt += "\n\n<EXAMPLES>\(example)</EXAMPLES>"
+                    }
+                    exampleAdded = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) { exampleAdded = false }
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: exampleAdded ? "checkmark" : "plus.circle")
+                        Text(exampleAdded ? "Example added!" : "Add Example")
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.orange)
+                .disabled(exampleInput.isEmpty || exampleOutput.isEmpty)
+
+                Spacer()
+            }
+        }
+        .onAppear {
+            exampleInput = entry.rawTranscription ?? ""
+            exampleOutput = entry.correctedTranscription ?? ""
+            exampleAdded = false
         }
     }
 
