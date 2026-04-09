@@ -895,10 +895,9 @@ class AppState: ObservableObject {
         return session
     }
 
-    func startMeetingTranscription(meetingName: String) {
-        // Show the window and trigger consent dialog — recording starts after consent
+    func startMeetingTranscription(meetingName: String, skipConsent: Bool = false, sourceURL: String? = nil) {
         meetingTranscriptWindowController.show()
-        meetingTranscriptWindowController.requestRecording(name: meetingName)
+        meetingTranscriptWindowController.requestRecording(name: meetingName, skipConsent: skipConsent, sourceURL: sourceURL)
     }
 
     func showMeetingTranscriptWindow() {
@@ -941,7 +940,11 @@ class AppState: ObservableObject {
         meetingDetector.onMeetingDetected = { [weak self] meeting in
             guard let self = self, self.activeMeetingSession == nil else { return }
             self.pepperChatSession.showMeetingPrompt(meeting: meeting) { [weak self] in
-                self?.startMeetingTranscription(meetingName: meeting.suggestedName)
+                self?.startMeetingTranscription(
+                    meetingName: meeting.suggestedName,
+                    skipConsent: meeting.isVideo,
+                    sourceURL: meeting.sourceURL
+                )
             }
             self.pepperChatWindowController.show(session: self.pepperChatSession)
         }

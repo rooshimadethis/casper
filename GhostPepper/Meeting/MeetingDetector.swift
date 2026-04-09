@@ -7,6 +7,8 @@ struct DetectedMeeting {
     let appName: String
     let bundleIdentifier: String
     let suggestedName: String // e.g. "Zoom — 10:03 AM"
+    var isVideo: Bool = false
+    var sourceURL: String? = nil
 }
 
 /// Monitors for running meeting/video call apps and notifies when one is detected.
@@ -57,13 +59,15 @@ final class MeetingDetector {
     }
 
     private static let videoSiteRules: [VideoSiteRule] = [
-        VideoSiteRule(urlPattern: "youtube.com", siteName: "YouTube", playingPrefix: "▶"),
-        VideoSiteRule(urlPattern: "youtu.be", siteName: "YouTube", playingPrefix: "▶"),
+        VideoSiteRule(urlPattern: "- youtube", siteName: "YouTube", playingPrefix: nil),
+        VideoSiteRule(urlPattern: "youtube.com", siteName: "YouTube", playingPrefix: nil),
         VideoSiteRule(urlPattern: "loom.com", siteName: "Loom", playingPrefix: nil),
-        VideoSiteRule(urlPattern: "vimeo.com", siteName: "Vimeo", playingPrefix: "▶"),
+        VideoSiteRule(urlPattern: "- vimeo", siteName: "Vimeo", playingPrefix: nil),
+        VideoSiteRule(urlPattern: "vimeo.com", siteName: "Vimeo", playingPrefix: nil),
         VideoSiteRule(urlPattern: "twitch.tv", siteName: "Twitch", playingPrefix: nil),
+        VideoSiteRule(urlPattern: "- twitch", siteName: "Twitch", playingPrefix: nil),
         VideoSiteRule(urlPattern: "netflix.com", siteName: "Netflix", playingPrefix: nil),
-        VideoSiteRule(urlPattern: "dailymotion.com", siteName: "Dailymotion", playingPrefix: "▶"),
+        VideoSiteRule(urlPattern: "dailymotion.com", siteName: "Dailymotion", playingPrefix: nil),
     ]
 
     /// Bundle IDs of common browsers.
@@ -160,10 +164,13 @@ final class MeetingDetector {
                 } else {
                     suggestedName = Self.suggestedMeetingName(appName: siteName)
                 }
+                let url = browserURL(app: frontmost)
                 let meeting = DetectedMeeting(
                     appName: siteName,
                     bundleIdentifier: bundleID,
-                    suggestedName: suggestedName
+                    suggestedName: suggestedName,
+                    isVideo: true,
+                    sourceURL: url
                 )
                 onMeetingDetected?(meeting)
             }
@@ -171,6 +178,45 @@ final class MeetingDetector {
     }
 
     /// Get all window titles from a browser app.
+    /// Read the URL from the browser's address bar via Accessibility API.
+    private func browserURL(app: NSRunningApplication) -> String? {
+        let pid = app.processIdentifier
+        let appElement = AXUIElementCreateApplication(pid)
+
+        // Get the focused window
+        var windowValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(appElement, kAXFocusedWindowAttribute as CFString, &windowValue) == .success else {
+            return nil
+        }
+        let window = windowValue as! AXUIElement
+
+        // Search for a text field with role AXTextField that contains a URL-like value
+        func findURLField(in element: AXUIElement) -> String? {
+            var roleValue: CFTypeRef?
+            if AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleValue) == .success,
+               let role = roleValue as? String, role == "AXTextField" {
+                var valueRef: CFTypeRef?
+                if AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &valueRef) == .success,
+                   let value = valueRef as? String,
+                   value.contains(".com") || value.contains("http") || value.contains(".") {
+                    return value
+                }
+            }
+
+            var childrenValue: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &childrenValue) == .success,
+                  let children = childrenValue as? [AXUIElement] else {
+                return nil
+            }
+            for child in children.prefix(20) { // limit depth
+                if let url = findURLField(in: child) { return url }
+            }
+            return nil
+        }
+
+        return findURLField(in: window)
+    }
+
     private func browserWindowTitles(app: NSRunningApplication) -> [String] {
         let pid = app.processIdentifier
         let appElement = AXUIElementCreateApplication(pid)

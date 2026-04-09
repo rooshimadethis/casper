@@ -74,11 +74,17 @@ final class MeetingTranscriptWindowController: NSObject, NSWindowDelegate {
     }
 
     /// Request a recording — shows consent dialog first (or starts immediately if user opted out).
-    func requestRecording(name: String) {
+    func requestRecording(name: String, skipConsent: Bool = false, sourceURL: String? = nil) {
         guard let state = windowState else { return }
-        if UserDefaults.standard.bool(forKey: "skipConsentDialog") {
+        state.pendingSourceURL = sourceURL
+        if skipConsent || UserDefaults.standard.bool(forKey: "skipConsentDialog") {
             guard let session = state.onStartRecording?(name) else { return }
             state.addRecordingTab(session: session)
+            // Add URL to notes if provided
+            if let url = sourceURL {
+                session.transcript.notes = "Source: \(url)\n\n"
+            }
+            state.pendingSourceURL = nil
         } else {
             state.pendingRecordingName = name
             state.showConsentDialog = true
@@ -134,6 +140,7 @@ final class MeetingWindowState: ObservableObject {
     @Published var historyGroups: [(date: String, entries: [MeetingHistoryEntry])] = []
     @Published var showConsentDialog = false
     var pendingRecordingName: String?
+    var pendingSourceURL: String?
 
     var onOpenSettings: (() -> Void)?
     var onStartRecording: ((_ name: String) -> MeetingSession?)?
@@ -200,14 +207,20 @@ final class MeetingWindowState: ObservableObject {
     func confirmRecording() {
         showConsentDialog = false
         guard let name = pendingRecordingName else { return }
+        let url = pendingSourceURL
         pendingRecordingName = nil
+        pendingSourceURL = nil
         guard let session = onStartRecording?(name) else { return }
+        if let url = url {
+            session.transcript.notes = "Source: \(url)\n\n"
+        }
         addRecordingTab(session: session)
     }
 
     func cancelRecording() {
         showConsentDialog = false
         pendingRecordingName = nil
+        pendingSourceURL = nil
     }
 
     func loadHistory() {
