@@ -73,6 +73,18 @@ final class MeetingTranscriptWindowController: NSObject, NSWindowDelegate {
         NSApp.setActivationPolicy(.accessory)
     }
 
+    /// Request a recording — shows consent dialog first (or starts immediately if user opted out).
+    func requestRecording(name: String) {
+        guard let state = windowState else { return }
+        if UserDefaults.standard.bool(forKey: "skipConsentDialog") {
+            guard let session = state.onStartRecording?(name) else { return }
+            state.addRecordingTab(session: session)
+        } else {
+            state.pendingRecordingName = name
+            state.showConsentDialog = true
+        }
+    }
+
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         sender.orderOut(nil)
         NSApp.setActivationPolicy(.accessory)
@@ -120,6 +132,8 @@ final class MeetingWindowState: ObservableObject {
     @Published var activeTabID: UUID?
     @Published var showSidebar = false
     @Published var historyGroups: [(date: String, entries: [MeetingHistoryEntry])] = []
+    @Published var showConsentDialog = false
+    var pendingRecordingName: String?
 
     var onOpenSettings: (() -> Void)?
     var onStartRecording: ((_ name: String) -> MeetingSession?)?
@@ -173,8 +187,27 @@ final class MeetingWindowState: ObservableObject {
         formatter.timeStyle = .short
         let name = "Quick Note — \(formatter.string(from: Date()))"
 
+        if UserDefaults.standard.bool(forKey: "skipConsentDialog") {
+            // User opted out of consent dialog
+            guard let session = onStartRecording?(name) else { return }
+            addRecordingTab(session: session)
+        } else {
+            pendingRecordingName = name
+            showConsentDialog = true
+        }
+    }
+
+    func confirmRecording() {
+        showConsentDialog = false
+        guard let name = pendingRecordingName else { return }
+        pendingRecordingName = nil
         guard let session = onStartRecording?(name) else { return }
         addRecordingTab(session: session)
+    }
+
+    func cancelRecording() {
+        showConsentDialog = false
+        pendingRecordingName = nil
     }
 
     func loadHistory() {
@@ -257,6 +290,9 @@ struct MeetingRootView: View {
         }
         .onReceive(Timer.publish(every: 10, on: .main, in: .common).autoconnect()) { _ in
             if state.showSidebar { state.loadHistory() }
+        }
+        .sheet(isPresented: $state.showConsentDialog) {
+            ConsentDialogView(state: state)
         }
     }
 
@@ -866,6 +902,91 @@ struct MeetingSidebarView: View {
     private func openMeetingsFolder() {
         let dir = MeetingTranscriptSettings.effectiveSaveDirectory()
         NSWorkspace.shared.open(dir)
+    }
+}
+
+// MARK: - Consent Dialog
+
+private struct ConsentDialogView: View {
+    @ObservedObject var state: MeetingWindowState
+    @State private var copied = false
+    @AppStorage("skipConsentDialog") private var skipConsent = false
+
+    private static let consentMessage = "I'm using 🌶️ Ghost Pepper, a completely private AI note taker. Nothing leaves my computer and all AI models are done on device."
+
+    var body: some View {
+        VStack(spacing: 20) {
+            // Header
+            Image(systemName: "mic.badge.xmark")
+                .font(.system(size: 36))
+                .foregroundColor(.orange)
+                .padding(.top, 8)
+
+            Text("Let participants know")
+                .font(.title3.bold())
+
+            Text("Before recording, share this with your meeting participants:")
+                .font(.callout)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+
+            // Message to copy
+            VStack(spacing: 8) {
+                Text(Self.consentMessage)
+                    .font(.system(size: 13))
+                    .padding(12)
+                    .frame(maxWidth: .infinity)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .controlBackgroundColor)))
+
+                Button(action: {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(Self.consentMessage, forType: .string)
+                    copied = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) { copied = false }
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                        Text(copied ? "Copied!" : "Copy to clipboard")
+                    }
+                    .font(.caption.weight(.medium))
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(.blue)
+            }
+
+            Divider()
+
+            // Buttons
+            VStack(spacing: 12) {
+                Button(action: { state.confirmRecording() }) {
+                    Text("I've informed participants — Start recording")
+                        .font(.callout.weight(.medium))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.orange))
+                }
+                .buttonStyle(.plain)
+
+                Button(action: { state.cancelRecording() }) {
+                    Text("Cancel")
+                        .font(.callout)
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+
+            // Don't ask again
+            Toggle(isOn: $skipConsent) {
+                Text("Don't ask again (my jurisdiction doesn't require consent)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .toggleStyle(.checkbox)
+            .padding(.bottom, 4)
+        }
+        .padding(24)
+        .frame(width: 400)
     }
 }
 

@@ -62,6 +62,7 @@ class AppState: ObservableObject {
         }
     }
     @AppStorage("cleanupEnabled") var cleanupEnabled: Bool = true
+    @AppStorage("transcriptionLabEnabled") var transcriptionLabEnabled: Bool = false
     @AppStorage("cleanupPrompt") var cleanupPrompt: String = TextCleaner.defaultPrompt
     @AppStorage("speechModel") var speechModel: String = SpeechModelCatalog.defaultModelID
     @AppStorage("preferredLanguage") var preferredLanguage: String = "auto"
@@ -895,8 +896,9 @@ class AppState: ObservableObject {
     }
 
     func startMeetingTranscription(meetingName: String) {
-        guard let session = createMeetingSession(name: meetingName) else { return }
-        meetingTranscriptWindowController.show(session: session)
+        // Show the window and trigger consent dialog — recording starts after consent
+        meetingTranscriptWindowController.show()
+        meetingTranscriptWindowController.requestRecording(name: meetingName)
     }
 
     func showMeetingTranscriptWindow() {
@@ -1091,7 +1093,7 @@ class AppState: ObservableObject {
         speakerFilteringRan: Bool = false,
         diarizationSummary: DiarizationSummary? = nil
     ) async {
-        guard !audioBuffer.isEmpty else {
+        guard transcriptionLabEnabled, !audioBuffer.isEmpty else {
             return
         }
 

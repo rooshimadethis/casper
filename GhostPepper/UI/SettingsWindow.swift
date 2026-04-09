@@ -838,6 +838,17 @@ struct SettingsView: View {
 
     private var transcriptionLabSection: some View {
         VStack(alignment: .leading, spacing: 20) {
+            Toggle(
+                "Save voice-to-text recordings to history",
+                isOn: $appState.transcriptionLabEnabled
+            )
+
+            if !appState.transcriptionLabEnabled {
+                Text("Voice-to-text history is off. Audio from dictation is not saved to disk. Meeting transcripts are saved separately as markdown files.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             if let selectedEntry = transcriptionLabController.selectedEntry {
                 transcriptionLabDetail(for: selectedEntry)
             } else {
