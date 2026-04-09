@@ -39,9 +39,12 @@ final class MeetingDetector {
     /// Window title patterns that suggest a browser-based meeting is active.
     private static let browserMeetingPatterns: [String] = [
         "meet.google.com",
+        "google meet",
+        "meet -",
         "zoom.us/j/",
         "zoom.us/wc/",
         "teams.microsoft.com",
+        "teams.live.com",
         "whereby.com",
     ]
 
@@ -194,9 +197,9 @@ final class MeetingDetector {
             let lowered = title.lowercased()
             for pattern in Self.browserMeetingPatterns {
                 if lowered.contains(pattern) {
-                    if lowered.contains("meet.google.com") { return "Google Meet" }
+                    if lowered.contains("meet.google.com") || lowered.contains("google meet") || lowered.hasPrefix("meet -") { return "Google Meet" }
                     if lowered.contains("zoom.us") { return "Zoom" }
-                    if lowered.contains("teams.microsoft.com") { return "Microsoft Teams" }
+                    if lowered.contains("teams.microsoft.com") || lowered.contains("teams.live.com") { return "Microsoft Teams" }
                     if lowered.contains("whereby.com") { return "Whereby" }
                     return "Video Call"
                 }
