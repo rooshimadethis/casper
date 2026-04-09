@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 struct PepperChatMessage: Identifiable {
@@ -31,6 +32,10 @@ final class PepperChatSession: ObservableObject {
     @Published private(set) var isProcessing = false
     @Published var pendingInput: String = ""
     @Published var pendingScreenContext: String?
+    @Published var capturedCommand: String?
+    @Published var capturedScreenContext: String?
+    @Published var capturedScreenshot: NSImage?
+    @Published var isReviewingContext = false
 
     private let transcriber: SpeechTranscriber
     private let ocrService: FrontmostWindowOCRService
@@ -82,20 +87,23 @@ final class PepperChatSession: ObservableObject {
             transcription = rawTranscription
         }
 
-        // Show transcription in input field briefly, then auto-send
-        pendingInput = transcription
-
+        // Capture screen context + screenshot
         var screenContext: String?
+        var screenshot: NSImage?
         if includeScreenContext {
+            // Capture screenshot first, then OCR
+            if let cgImage = try? await WindowCaptureService().captureFrontmostWindowImage() {
+                screenshot = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width / 2, height: cgImage.height / 2))
+            }
             let ocrResult = await ocrService.captureContext(customWords: [])
             screenContext = ocrResult?.windowContents
-            pendingScreenContext = screenContext
         }
 
-        // Auto-send — clear input immediately
-        pendingInput = ""
-        pendingScreenContext = nil
-        await sendMessage(transcription, screenContext: screenContext)
+        // Pause for context review — user chooses action from the bubble
+        capturedCommand = transcription
+        capturedScreenContext = screenContext
+        capturedScreenshot = screenshot
+        isReviewingContext = true
     }
 
     func sendTypedMessage() async {
@@ -114,12 +122,15 @@ final class PepperChatSession: ObservableObject {
         pendingScreenContext = ocrResult?.windowContents
     }
 
-    private func sendMessage(_ text: String, screenContext: String?) async {
+    func sendMessage(_ text: String, screenContext: String?) async {
         activeProcessingCount += 1
         isProcessing = true
 
         let userMessage = PepperChatMessage(role: .user, text: text, timestamp: Date(), screenContext: screenContext)
         messages.append(userMessage)
+
+        // Build conversation history into prompt
+        let promptWithHistory = buildPromptWithHistory(newMessage: text, screenContext: screenContext)
 
         guard let backend = backendProvider() else {
             let errorMessage = PepperChatMessage(
@@ -138,7 +149,7 @@ final class PepperChatSession: ObservableObject {
         let messageID = assistantMessage.id
 
         do {
-            try await backend.send(prompt: text, screenContext: screenContext) { [weak self] chunk in
+            try await backend.send(prompt: promptWithHistory, screenContext: nil) { [weak self] chunk in
                 guard let self else { return }
                 if let index = self.messages.firstIndex(where: { $0.id == messageID }) {
                     self.messages[index].text += chunk
@@ -158,6 +169,78 @@ final class PepperChatSession: ObservableObject {
 
     func clearHistory() {
         messages.removeAll()
+    }
+
+    /// Clear the conversation thread — next question starts fresh.
+    func clearThread() {
+        messages.removeAll(where: { $0.action == nil }) // keep action messages (meeting prompts)
+        capturedCommand = nil
+        capturedScreenContext = nil
+        capturedScreenshot = nil
+        isReviewingContext = false
+    }
+
+    /// Build a prompt that includes prior conversation as context.
+    private func buildPromptWithHistory(newMessage: String, screenContext: String?) -> String {
+        var parts: [String] = []
+
+        // Prior conversation
+        let priorMessages = messages.dropLast(1) // exclude the just-added user message
+            .filter { $0.action == nil } // exclude action messages
+        if !priorMessages.isEmpty {
+            var history: [String] = []
+            for msg in priorMessages {
+                let role = msg.role == .user ? "You" : "Zo"
+                if !msg.text.isEmpty {
+                    history.append("**\(role):** \(msg.text)")
+                }
+            }
+            if !history.isEmpty {
+                parts.append("Previous conversation:\n\(history.joined(separator: "\n\n"))")
+            }
+        }
+
+        // Screen context
+        if let context = screenContext, !context.isEmpty {
+            parts.append("[Screen context from frontmost window]\n\(context)")
+        }
+
+        // New question
+        parts.append(newMessage)
+
+        return parts.joined(separator: "\n\n")
+    }
+
+    /// Export the current thread as a markdown string for saving as a note.
+    func exportThreadAsMarkdown() -> String? {
+        let threadMessages = messages.filter { $0.action == nil && !$0.text.isEmpty }
+        guard !threadMessages.isEmpty else { return nil }
+
+        let firstCommand = threadMessages.first?.text ?? "Zo Chat"
+        let title = String(firstCommand.prefix(50))
+
+        var lines: [String] = []
+        lines.append("# Zo Chat — \(title)")
+        lines.append("")
+
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        if let firstDate = threadMessages.first?.timestamp {
+            lines.append("**Date:** \(formatter.string(from: firstDate))")
+            lines.append("")
+        }
+
+        lines.append("## Thread")
+        lines.append("")
+
+        for msg in threadMessages {
+            let role = msg.role == .user ? "You" : "Zo"
+            lines.append("**\(role):** \(msg.text)")
+            lines.append("")
+        }
+
+        return lines.joined(separator: "\n")
     }
 
     /// Mark an action message as responded (hides the buttons).

@@ -35,6 +35,7 @@
 		361E7532F651C1BF7F0D0724 /* TextCleaner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37863EC2F34067ED0C5B2B6F /* TextCleaner.swift */; };
 		36715F4371E0C7AA79F4504D /* CleanupModelProbeCLI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FCF12D0FBB05F424AAB2E68 /* CleanupModelProbeCLI.swift */; };
 		38C7C0D8BB32CF7023CDE37B /* sprite_frame_2@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 029E36727193D8502C69FB38 /* sprite_frame_2@2x.png */; };
+		38CDCD968C2E4EBA2F8C59A5 /* ContextBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95281DF90A125CA223FCEE7A /* ContextBubbleView.swift */; };
 		3972174DE774A173431A5EA7 /* TextCleanupManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCE81899A3B0F5CB9777BD6A /* TextCleanupManager.swift */; };
 		3989B83A45309986C17953D8 /* LocalLLMCleanupBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23B813180F29336A298BE44E /* LocalLLMCleanupBackend.swift */; };
 		3B8354B1BAACB0F28DF98815 /* ZoBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FEC2E37841B0CF1F320F326 /* ZoBackend.swift */; };
@@ -229,6 +230,7 @@
 		948064EDD38AFB0872A99BD6 /* CleanupPromptBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupPromptBuilder.swift; sourceTree = "<group>"; };
 		94DD151A4D6F1474F4F138FD /* GhostPepper.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = GhostPepper.entitlements; sourceTree = "<group>"; };
 		94E9AADC67C525B0A9E382AB /* RecordingOCRPrefetch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingOCRPrefetch.swift; sourceTree = "<group>"; };
+		95281DF90A125CA223FCEE7A /* ContextBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextBubbleView.swift; sourceTree = "<group>"; };
 		960D35875D60655B17574DF8 /* AudioRecorderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorderTests.swift; sourceTree = "<group>"; };
 		97408213D206AAF1B1C29FFC /* PepperChatBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PepperChatBackend.swift; sourceTree = "<group>"; };
 		9A3540C6212101C885EA22CD /* RecordingOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingOverlay.swift; sourceTree = "<group>"; };
@@ -443,6 +445,7 @@
 		50C964CA46111D1FD8AFE84B /* UI */ = {
 			isa = PBXGroup;
 			children = (
+				95281DF90A125CA223FCEE7A /* ContextBubbleView.swift */,
 				2715D9117D8664700616D95A /* DebugLogWindow.swift */,
 				E1E1B6653DAE6ED42FE9910B /* MeetingTranscriptWindow.swift */,
 				AACCB8CD3CFA3BA1C91B5B87 /* MenuBarView.swift */,
@@ -752,6 +755,7 @@
 				1AB34878C4E7E375F34A1339 /* CleanupModelProbeRunner.swift in Sources */,
 				1D533340C55B7F67AE1B4E94 /* CleanupPromptBuilder.swift in Sources */,
 				17AF31EA19761CA8B7DF5F9A /* CleanupSettings.swift in Sources */,
+				38CDCD968C2E4EBA2F8C59A5 /* ContextBubbleView.swift in Sources */,
 				2BEB4B4A879A749C8B92BE44 /* CorrectionStore.swift in Sources */,
 				75509873255097FF99B8071F /* DebugLogStore.swift in Sources */,
 				8990B2F77435E351A458EDD9 /* DebugLogWindow.swift in Sources */,

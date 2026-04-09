@@ -361,6 +361,15 @@ class AppState: ObservableObject {
             }
         }
 
+        // Wire up "save as note" to open in meetings view
+        pepperChatWindowController.onOpenInMeetings = { [weak self] url in
+            self?.meetingTranscriptWindowController.show()
+            // Small delay to let window appear, then open the file
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                self?.meetingTranscriptWindowController.windowState?.openFile(url)
+            }
+        }
+
         // Wire up "no sound" overlay to open settings
         overlay.onNoSoundSettingsTapped = { [weak self] in
             self?.showSettings()
@@ -832,11 +841,17 @@ class AppState: ObservableObject {
 
     func beginPepperChatRecording() {
         guard !pepperChatApiKey.isEmpty else { return }
+        // Clear previous state so new recording takes over
+        pepperChatSession.isReviewingContext = false
+        pepperChatSession.capturedCommand = nil
+        pepperChatSession.capturedScreenContext = nil
+        pepperChatSession.capturedScreenshot = nil
         let recorder = AudioRecorder()
         recorder.prewarm()
         try? recorder.startRecording()
         pepperChatRecorder = recorder
         pepperChatSession.isRecording = true
+        soundEffects.playStart()
         pepperChatWindowController.show(session: pepperChatSession)
         debugLogStore.record(category: .hotkey, message: "Pepper Chat recording started.")
     }
@@ -845,6 +860,7 @@ class AppState: ObservableObject {
         guard let recorder = pepperChatRecorder else { return }
         pepperChatSession.isRecording = false
         pepperChatRecorder = nil
+        soundEffects.playStop()
         debugLogStore.record(category: .hotkey, message: "Pepper Chat recording stopped.")
 
         Task {

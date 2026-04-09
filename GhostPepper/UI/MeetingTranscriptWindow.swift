@@ -12,7 +12,7 @@ final class MeetingTranscriptWindowController: NSObject, NSWindowDelegate {
     var onStopRecording: ((MeetingSession) -> Void)?
     var onGenerateSummary: ((MeetingTranscript) -> Void)?
 
-    private var windowState: MeetingWindowState?
+    private(set) var windowState: MeetingWindowState?
 
     func show(session: MeetingSession? = nil) {
         if let window = window {

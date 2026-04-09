@@ -9,6 +9,7 @@ private final class PepperChatPanel: NSPanel {
 final class PepperChatWindowController: NSObject, NSWindowDelegate {
     private var window: NSPanel?
     private var isMinimized = false
+    var onOpenInMeetings: ((URL) -> Void)?
 
     func show(session: PepperChatSession) {
         if let window {
@@ -21,7 +22,22 @@ final class PepperChatWindowController: NSObject, NSWindowDelegate {
         }
 
         let onMinimize: () -> Void = { [weak self] in self?.minimize() }
-        let rootView = PepperChatWindowView(session: session, onMinimize: onMinimize)
+        let rootView = ContextBubbleView(
+            session: session,
+            onMinimize: onMinimize,
+            onSendToZo: { prompt, screenContext in
+                Task {
+                    await session.sendMessage(prompt, screenContext: screenContext)
+                }
+            },
+            onCopyBundle: { bundle in
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(bundle, forType: .string)
+            },
+            onOpenInMeetings: { [weak self] url in
+                self?.onOpenInMeetings?(url)
+            }
+        )
         let window = PepperChatPanel(
             contentRect: NSRect(x: 0, y: 0, width: 380, height: 560),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -41,8 +57,8 @@ final class PepperChatWindowController: NSObject, NSWindowDelegate {
 
         if let screen = NSScreen.main {
             let screenFrame = screen.visibleFrame
-            let x = screenFrame.maxX - 400
-            let y = screenFrame.minY + 20
+            let x = screenFrame.midX - window.frame.width / 2
+            let y = screenFrame.midY - window.frame.height / 2 + 50 // slightly above center
             window.setFrameOrigin(NSPoint(x: x, y: y))
         }
 
