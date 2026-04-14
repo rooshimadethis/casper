@@ -8,7 +8,7 @@ import SwiftUI
 final class MeetingTranscriptWindowController: NSObject, NSWindowDelegate {
     private var window: NSWindow?
     var onOpenSettings: (() -> Void)?
-    var onStartRecording: ((_ name: String) -> MeetingSession?)?
+    var onStartRecording: ((_ name: String, _ detectedMeeting: DetectedMeeting?) -> MeetingSession?)?
     var onStopRecording: ((MeetingSession) -> Void)?
     var onGenerateSummary: ((MeetingTranscript) -> Void)?
 
@@ -74,17 +74,19 @@ final class MeetingTranscriptWindowController: NSObject, NSWindowDelegate {
     }
 
     /// Request a recording — shows consent dialog first (or starts immediately if user opted out).
-    func requestRecording(name: String, skipConsent: Bool = false, sourceURL: String? = nil) {
+    func requestRecording(name: String, skipConsent: Bool = false, sourceURL: String? = nil, detectedMeeting: DetectedMeeting? = nil) {
         guard let state = windowState else { return }
         state.pendingSourceURL = sourceURL
+        state.pendingDetectedMeeting = detectedMeeting
         if skipConsent || UserDefaults.standard.bool(forKey: "skipConsentDialog") {
-            guard let session = state.onStartRecording?(name) else { return }
+            guard let session = state.onStartRecording?(name, detectedMeeting) else { return }
             state.addRecordingTab(session: session)
             // Add URL to notes if provided
             if let url = sourceURL {
                 session.transcript.notes = "Source: \(url)\n\n"
             }
             state.pendingSourceURL = nil
+            state.pendingDetectedMeeting = nil
         } else {
             state.pendingRecordingName = name
             state.showConsentDialog = true
@@ -142,9 +144,10 @@ final class MeetingWindowState: ObservableObject {
     @Published var showConsentDialog = false
     var pendingRecordingName: String?
     var pendingSourceURL: String?
+    var pendingDetectedMeeting: DetectedMeeting?
 
     var onOpenSettings: (() -> Void)?
-    var onStartRecording: ((_ name: String) -> MeetingSession?)?
+    var onStartRecording: ((_ name: String, _ detectedMeeting: DetectedMeeting?) -> MeetingSession?)?
     var onStopRecording: ((MeetingSession) -> Void)?
     var onGenerateSummary: ((MeetingTranscript) -> Void)?
 
@@ -197,7 +200,7 @@ final class MeetingWindowState: ObservableObject {
         let name = "Quick Note — \(formatter.string(from: Date()))"
 
         if UserDefaults.standard.bool(forKey: "skipConsentDialog") {
-            guard let session = onStartRecording?(name) else { return }
+            guard let session = onStartRecording?(name, nil) else { return }
             addRecordingTab(session: session)
         } else {
             pendingRecordingName = name
@@ -209,9 +212,11 @@ final class MeetingWindowState: ObservableObject {
         showConsentDialog = false
         guard let name = pendingRecordingName else { return }
         let url = pendingSourceURL
+        let detectedMeeting = pendingDetectedMeeting
         pendingRecordingName = nil
         pendingSourceURL = nil
-        guard let session = onStartRecording?(name) else { return }
+        pendingDetectedMeeting = nil
+        guard let session = onStartRecording?(name, detectedMeeting) else { return }
         if let url = url {
             session.transcript.notes = "Source: \(url)\n\n"
         }
@@ -222,6 +227,7 @@ final class MeetingWindowState: ObservableObject {
         showConsentDialog = false
         pendingRecordingName = nil
         pendingSourceURL = nil
+        pendingDetectedMeeting = nil
     }
 
     func loadHistory() {
