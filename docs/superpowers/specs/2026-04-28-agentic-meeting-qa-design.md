@@ -35,6 +35,9 @@ These were explicit user decisions in the brainstorming session and the source h
 6. **Folder root = existing meetings save dir.** Reuse `MeetingTranscriptSettings.effectiveSaveDirectory()` as the agent's archive root. No separate Q&A-folder config.
 7. **Iteration cap = 15.** Enough headroom for multi-hop questions; small enough to bound cost and runaway loops.
 8. **Tool execution UX = collapsed status line + expandable trace.** One status line above the answer ("Reading 2025-01-29/dana-matt.md..."), with a disclosure triangle for the full event log.
+9. **Two file formats coexist in the archive.** Verified by inspection (2026-04-28): of 776 .md files, 711 are Granola-imported with YAML frontmatter and 65 are native Ghost Pepper notes (no frontmatter, just H1 + `**Date:**` + `## Notes`). The system prompt must describe both or the agent will misread the 8% of files in the second format.
+10. **Per-tool timeout = 30s.** Hard cap on each tool execution. If a `Process` (grep) or file read hangs, terminate, return `is_error` to the model, let it retry or give up.
+11. **`grep` invocation safety.** Always via `Process()` with `arguments: [...]` — never via `bash -c` or string interpolation. The pattern is one argv element. No injection surface.
 
 ## Architecture
 
@@ -112,6 +115,7 @@ These were explicit user decisions in the brainstorming session and the source h
 | `AppState.swift` | Drop the keyword-scoring loop. Wire `MeetingQAAgent` instantiation: build the agent with the configured provider + meetings folder root, expose a single `func askMeetingQA(_ question: String) -> AsyncThrowingStream<QAEvent>`. |
 | `MeetingTranscriptWindow.swift` | Rewrite `askAcrossMeetings()` — no more file scoring or context cramming. Just call `appState.askMeetingQA(question)` and render events. Add the status-line + expandable-trace UI. Replace `qaSourceFile` with `qaTranscript: QATranscript`. |
 | `SettingsWindow.swift` | Replace "Backend: Local / Claude API" picker with "Provider: Anthropic" (single option for now — the dropdown is the seam for future providers). Keep the Claude model picker (Opus / Sonnet / Haiku) and the API key field. Remove the local-Q&A model row. |
+| `GhostPepper.xcodeproj/project.pbxproj` | Register the new Swift files (`LLMProvider.swift`, `AnthropicProvider.swift`, `MeetingQAAgent.swift`, `MeetingQATools.swift`, `PathSandbox.swift`, `QAEvent.swift`, `QATranscript.swift`, `MeetingQASystemPrompt.swift`). Remove `ClaudeAPIClient.swift`. Rename `QABackendKind.swift` → `LLMProviderKind.swift`. Xcode projects don't auto-discover Swift files — this is required for the build to see the new code. |
 
 ### Deleted files
 
@@ -152,7 +156,9 @@ Three tools, all read-only, all path-sandboxed to the archive root.
 }
 ```
 
-**Implementation:** shells out to `/usr/bin/grep -rn` (BSD grep, ships with macOS — no ripgrep dependency). Flags: `-r` (recursive), `-n` (line numbers), `-i` (case-insensitive when set), `--include='*.md'`, `--exclude-dir=.git`. Output piped through `head -n max_results`.
+**Implementation:** shells out via `Process()` with arguments-only (never via shell — the pattern is passed as a single argv element, eliminating command-injection risk). Default binary: `/usr/bin/grep` (BSD grep, ships with macOS — no required ripgrep dependency). If `/opt/homebrew/bin/rg` or `/usr/local/bin/rg` exists, prefer it (faster on large archives, same `-n` line-number flag). Flags: `-r` (recursive), `-n` (line numbers), `-i` (case-insensitive when set), `--include='*.md'`, `--exclude-dir=.git`. Output limited to `max_results` lines via in-process counting (not `head`, since the binary differs).
+
+**Per-tool timeout:** 30 seconds. If the `Process` doesn't finish within 30s, terminate it and return `tool_result` with `is_error: true` and message `"grep timed out after 30s. Narrow the path or pattern and retry."` This guards against hung subprocesses on pathological inputs.
 
 **Output format:** each match on one line as `relative/path.md:LINE:matched text` (path made relative to archive root before returning). At end, append a meta line: either `"(Returned N of N matches.)"` or `"(Returned N matches; max_results was M and was hit. Increase max_results or narrow scope to see more.)"`.
 
@@ -179,6 +185,8 @@ Three tools, all read-only, all path-sandboxed to the archive root.
 ```
 
 **Implementation:** read the file, slice `[offset-1 ..< offset-1+limit]`, prefix each line with `"\(lineNumber)\t"`. The default of 200 lines is conservative; the model can request up to 1000 in one call when it knows it needs the whole file.
+
+**Per-tool timeout:** 30 seconds. File I/O on local disk is essentially instant for these sizes, but the timeout guards against pathological cases (e.g., a path that resolves to a FIFO).
 
 **Output format:**
 ```
@@ -222,6 +230,8 @@ README.md
 
 **No truncation needed in practice** — even with 5 years of daily meetings, a directory listing is ≤ ~2000 short lines and well under a context-budget concern. If the implementation later finds a pathological case (e.g., a directory with 100k entries), revisit then.
 
+**Per-tool timeout:** 30 seconds.
+
 ### `PathSandbox`
 
 All three tools route paths through one function:
@@ -260,10 +270,29 @@ questions about their meetings using three tools: grep, read_file, and list_dir.
 
 Root: {ARCHIVE_ROOT}
 
-Files are markdown meeting transcripts. The archive is organized as YYYY-MM-DD/ folders,
-each containing one or more .md files for meetings on that date. Each file has YAML
-frontmatter (title, date, granola_id, attendees, source_type, imported_from) followed
-by a Summary section and a Transcript section. Transcripts are often 4,000+ lines.
+Files are markdown meeting transcripts in YYYY-MM-DD/ folders, with one or more .md
+files per meeting. Two file formats coexist:
+
+1. **Granola-imported** (most files). Starts with YAML frontmatter:
+   ```
+   ---
+   title: "..."
+   date: "2025-01-29T..."
+   granola_id: "..."
+   source_type: meeting
+   imported_from: granola
+   ---
+   ```
+   Followed by an H1 title, then `## Summary` (with `### Subsection` headings),
+   sometimes `## Transcript` with **[HH:MM] Speaker:** lines. Transcripts can be
+   4,000+ lines.
+
+2. **Native Ghost Pepper** (a smaller fraction — quick notes and window snippets).
+   No frontmatter. Starts with an H1 title, then `**Date:**` line, then `## Notes`
+   with free-form content. Generally short.
+
+Both formats are valid. When grep matches a file, check for `---` on line 1 to know
+which format you're dealing with.
 
 # How to answer
 
@@ -364,12 +393,35 @@ struct ProviderUsage {
 
 ### `AnthropicProvider` notes
 
-- Endpoint, headers, and SSE parsing reuse the existing `ClaudeAPIClient.swift` implementation pattern.
-- `tools` is sent as the standard Anthropic `tools` array.
-- The system prompt is sent as a system block with `cache_control: {type: "ephemeral"}`.
-- `tool_use` blocks stream their `input` field as `input_json_delta` events. The provider must accumulate JSON fragments per block and emit a single `ProviderEvent.toolUse` once the block's `content_block_stop` arrives. (This is non-trivial — calls out as an explicit requirement here so the implementation plan tests it.)
+- Endpoint, headers, and HTTP setup reuse the existing `ClaudeAPIClient.swift` patterns (POST `/v1/messages`, `x-api-key` header, `anthropic-version: 2023-06-01`).
+- `tools` is sent as the standard Anthropic `tools` array (each item: `{name, description, input_schema}`).
+- System prompt + tool definitions are sent as a single system block with `cache_control: {type: "ephemeral"}` so the cache hits across iterations of one question and across questions in one session.
 - `tool_result` blocks (in the user-role message after tool execution) are sent as content blocks with `tool_use_id` linking back to the originating `tool_use`. Errors set `is_error: true`.
 - Cost is computed per response and summed across iterations by the agent.
+
+### Streaming SSE protocol — required event handling
+
+Anthropic's Messages API streams `text/event-stream`. The provider must handle this lifecycle (relevant subset):
+
+- **`message_start`** — extract `usage.input_tokens`, `usage.cache_read_input_tokens`, `usage.cache_creation_input_tokens`, `usage.output_tokens`. These are the cumulative counts for this response so far.
+- **`content_block_start`** — note `index` and `content_block.type`. If type is `tool_use`, capture `id` and `name`; start an empty JSON-string buffer keyed by `index`.
+- **`content_block_delta`**:
+  - `type=text_delta` → emit `ProviderEvent.textDelta(delta.text)` immediately.
+  - `type=input_json_delta` → append `delta.partial_json` to the buffer for this block index. Do NOT parse yet — partial JSON is not valid JSON.
+- **`content_block_stop`** — if this block was a `tool_use`, parse the accumulated buffer with `JSONSerialization.jsonObject(with:)` and emit `ProviderEvent.toolUse(id, name, input)`. Discard the buffer for this index.
+- **`message_delta`** — `usage` here updates output tokens and may revise input/cache counts. `delta.stop_reason` is the final stop reason.
+- **`message_stop`** — emit `ProviderEvent.stop(reason, usage)` with the accumulated stop reason and final usage.
+
+**Key correctness requirement:** `tool_use` blocks deliver their `input` field as a stream of `input_json_delta` chunks. Trying to parse each chunk as JSON will fail. Buffer per `content_block.index`, finalize on `content_block_stop`. The implementation plan must include a unit test that simulates a multi-chunk `input_json_delta` stream and verifies the buffer is parsed correctly only at block stop.
+
+### Stop-reason handling in the agent loop
+
+After `provider.complete` ends, the agent inspects the final `stop_reason`:
+
+- `end_turn` → loop exits, agent emits final `.usage` event.
+- `tool_use` → at least one `tool_use` block was streamed; agent executes each tool, builds a new user message with `tool_result` content blocks (one per `tool_use_id`), appends both the assistant message (text + tool_use blocks) and the new user message to the conversation, increments iteration counter, calls `provider.complete` again.
+- `max_tokens` → unexpected for these queries (4096-token cap is generous for one round). Agent emits `.error("Model hit max_tokens before finishing.")` and stops.
+- Other (`stop_sequence`, etc.) → agent emits `.error("Unexpected stop reason: \(raw)")` and stops.
 
 ### Future providers
 
