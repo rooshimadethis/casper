@@ -55,7 +55,6 @@ enum LocalCleanupModelKind: String, CaseIterable, Equatable, Identifiable {
     case qwen35_0_8b_q4_k_m
     case qwen35_2b_q4_k_m
     case qwen35_4b_q4_k_m
-    case qwen3_8b_q4_k_m
 
     var id: String { rawValue }
 
@@ -148,21 +147,10 @@ final class TextCleanupManager: ObservableObject, TextCleaningManaging {
         recommendation: .full
     )
 
-    static let qaModel = CleanupModelDescriptor(
-        kind: .qwen3_8b_q4_k_m,
-        displayName: "Qwen 3 8B Q4_K_M (Q&A)",
-        sizeDescription: "~5.0 GB",
-        fileName: "Qwen3-8B-Q4_K_M.gguf",
-        url: "https://huggingface.co/unsloth/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf",
-        maxTokenCount: 32768,
-        recommendation: nil
-    )
-
     static let cleanupModels = [
         compactModel,
         recommendedFastModel,
         recommendedFullModel,
-        qaModel,
     ]
     static let fastModel = recommendedFastModel
     static let fullModel = recommendedFullModel
