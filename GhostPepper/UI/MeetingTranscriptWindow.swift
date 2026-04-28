@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import SwiftUI
+import os.log
 
 enum MeetingTranscriptWindowPresentation {
     static func windowLevel(
@@ -20,7 +21,7 @@ final class MeetingTranscriptWindowController: NSObject, NSWindowDelegate {
     var onStartRecording: ((_ name: String, _ detectedMeeting: DetectedMeeting?) -> MeetingSession?)?
     var onStopRecording: ((MeetingSession) -> Void)?
     var onGenerateSummary: ((MeetingTranscript) -> Void)?
-    var onAskQuestion: ((_ question: String, _ context: String) async -> String)?
+    var onAskQuestion: ((_ question: String, _ context: String) -> AsyncThrowingStream<QAStreamEvent, Error>)?
     var shouldFloatWhileRecording: () -> Bool = { false }
 
     private(set) var windowState: MeetingWindowState?
@@ -171,18 +172,23 @@ final class OpenMeetingTab: ObservableObject, Identifiable {
 
 // MARK: - Window State
 
+enum MeetingSurface: Equatable {
+    case home
+    case tab(UUID)
+}
+
 @MainActor
 final class MeetingWindowState: ObservableObject {
-    var onAskQuestion: ((_ question: String, _ context: String) async -> String)?
+    var onAskQuestion: ((_ question: String, _ context: String) -> AsyncThrowingStream<QAStreamEvent, Error>)?
     @Published var tabs: [OpenMeetingTab] = []
-    @Published var activeTabID: UUID?
+    @Published var selectedSurface: MeetingSurface = .home
     @Published var showSidebar = true
-    @Published var showNewTabView = false
     @Published var historyGroups: [(date: String, entries: [MeetingHistoryEntry])] = []
     @Published var showConsentDialog = false
     var pendingRecordingName: String?
     var pendingSourceURL: String?
     var pendingDetectedMeeting: DetectedMeeting?
+    var pendingCalendarEvent: CalendarEvent?
     var onRecordingStateChanged: (() -> Void)?
 
     var onOpenSettings: (() -> Void)?
@@ -190,12 +196,26 @@ final class MeetingWindowState: ObservableObject {
     var onStopRecording: ((MeetingSession) -> Void)?
     var onGenerateSummary: ((MeetingTranscript) -> Void)?
 
+    var activeTabID: UUID? {
+        if case let .tab(id) = selectedSurface { return id }
+        return nil
+    }
+
     var activeTab: OpenMeetingTab? {
-        tabs.first { $0.id == activeTabID }
+        guard let id = activeTabID else { return nil }
+        return tabs.first { $0.id == id }
     }
 
     var hasActiveRecording: Bool {
         tabs.contains { $0.isRecording }
+    }
+
+    func selectHome() {
+        selectedSurface = .home
+    }
+
+    func selectTab(_ id: UUID) {
+        selectedSurface = .tab(id)
     }
 
     func addRecordingTab(session: MeetingSession) {
@@ -208,14 +228,14 @@ final class MeetingWindowState: ObservableObject {
             }
         )
         tabs.append(tab)
-        activeTabID = tab.id
+        selectedSurface = .tab(tab.id)
         onRecordingStateChanged?()
     }
 
     func openFile(_ url: URL) {
         // Already open? Switch to it.
         if let existing = tabs.first(where: { $0.fileURL == url }) {
-            activeTabID = existing.id
+            selectedSurface = .tab(existing.id)
             return
         }
 
@@ -224,7 +244,7 @@ final class MeetingWindowState: ObservableObject {
             let transcript = try MeetingMarkdownWriter.parse(from: url)
             let tab = OpenMeetingTab(transcript: transcript, fileURL: url)
             tabs.append(tab)
-            activeTabID = tab.id
+            selectedSurface = .tab(tab.id)
             onRecordingStateChanged?()
         } catch {
             print("MeetingWindowState: failed to load \(url.lastPathComponent): \(error)")
@@ -240,17 +260,28 @@ final class MeetingWindowState: ObservableObject {
         tabs.removeAll { $0.id == tabID }
         onRecordingStateChanged?()
 
-        // Switch to adjacent tab
-        if activeTabID == tabID {
-            activeTabID = tabs.last?.id
+        // If the closed tab was active, fall back to last remaining tab, else Home.
+        if case .tab(let activeID) = selectedSurface, activeID == tabID {
+            if let last = tabs.last {
+                selectedSurface = .tab(last.id)
+            } else {
+                selectedSurface = .home
+            }
         }
     }
 
     func startNewNote() {
-        showNewTabView = false
+        startWithGeneratedName(prefix: "Quick Note")
+    }
+
+    func startAdHocCall() {
+        startWithGeneratedName(prefix: "Ad Hoc Call")
+    }
+
+    private func startWithGeneratedName(prefix: String) {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
-        let name = "Quick Note — \(formatter.string(from: Date()))"
+        let name = "\(prefix) — \(formatter.string(from: Date()))"
 
         if UserDefaults.standard.bool(forKey: "skipConsentDialog") {
             guard let session = onStartRecording?(name, nil) else { return }
@@ -261,19 +292,45 @@ final class MeetingWindowState: ObservableObject {
         }
     }
 
+    func startCalendarMeeting(_ event: CalendarEvent) {
+        if UserDefaults.standard.bool(forKey: "skipConsentDialog") {
+            guard let session = onStartRecording?(event.title, nil) else { return }
+            session.applyCalendarEvent(event)
+            addRecordingTab(session: session)
+            openMeetingLink(for: event)
+        } else {
+            pendingRecordingName = event.title
+            pendingCalendarEvent = event
+            showConsentDialog = true
+        }
+    }
+
+    private func openMeetingLink(for event: CalendarEvent) {
+        guard let link = event.meetLink, let url = URL(string: link) else { return }
+        NSWorkspace.shared.open(url)
+    }
+
     func confirmRecording() {
         showConsentDialog = false
         guard let name = pendingRecordingName else { return }
         let url = pendingSourceURL
         let detectedMeeting = pendingDetectedMeeting
+        let calendarEvent = pendingCalendarEvent
         pendingRecordingName = nil
         pendingSourceURL = nil
         pendingDetectedMeeting = nil
+        pendingCalendarEvent = nil
         guard let session = onStartRecording?(name, detectedMeeting) else { return }
+        if let calendarEvent = calendarEvent {
+            session.applyCalendarEvent(calendarEvent)
+        }
         if let url = url {
             session.transcript.notes = "Source: \(url)\n\n"
         }
         addRecordingTab(session: session)
+        if let calendarEvent = calendarEvent {
+            openMeetingLink(for: calendarEvent)
+        }
     }
 
     func cancelRecording() {
@@ -331,6 +388,7 @@ struct MeetingRootView: View {
     @State private var qaAnswer = ""
     @State private var qaIsLoading = false
     @State private var qaSourceFile: String?
+    @State private var qaUsage: QAUsage?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -366,12 +424,15 @@ struct MeetingRootView: View {
                 fileTabBar
 
                 // Active tab content or new tab view
-                if state.showNewTabView || state.tabs.isEmpty {
+                switch state.selectedSurface {
+                case .home:
                     newTabView
-                } else if let tab = state.activeTab {
-                    MeetingTabContentView(tab: tab, state: state)
-                } else {
-                    newTabView
+                case .tab:
+                    if let tab = state.activeTab {
+                        MeetingTabContentView(tab: tab, state: state)
+                    } else {
+                        newTabView
+                    }
                 }
             }
             .background(Color(nsColor: .textBackgroundColor))
@@ -410,12 +471,18 @@ struct MeetingRootView: View {
                         Text(qaAnswer)
                             .font(.system(size: 13))
                             .textSelection(.enabled)
+                        if let usage = qaUsage {
+                            Text(usageFooterText(usage))
+                                .font(.system(size: 10))
+                                .foregroundStyle(.secondary)
+                                .padding(.top, 2)
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
                 }
-                .frame(maxHeight: 150)
+                .frame(maxHeight: 200)
                 .background(Color(nsColor: .controlBackgroundColor).opacity(0.3))
             }
 
@@ -440,7 +507,7 @@ struct MeetingRootView: View {
                     .buttonStyle(.plain)
                 }
                 if !qaAnswer.isEmpty {
-                    Button(action: { qaAnswer = ""; qaQuestion = ""; qaSourceFile = nil }) {
+                    Button(action: { qaAnswer = ""; qaQuestion = ""; qaSourceFile = nil; qaUsage = nil }) {
                         Image(systemName: "xmark.circle")
                             .font(.system(size: 12))
                             .foregroundColor(.secondary)
@@ -453,18 +520,39 @@ struct MeetingRootView: View {
         }
     }
 
+    private func usageFooterText(_ u: QAUsage) -> String {
+        let nf = NumberFormatter()
+        nf.numberStyle = .decimal
+        let fmtIn = nf.string(from: NSNumber(value: u.inputTokens)) ?? "\(u.inputTokens)"
+        let fmtOut = nf.string(from: NSNumber(value: u.outputTokens)) ?? "\(u.outputTokens)"
+        if u.isLocal {
+            return "\(u.modelDisplayName) · ~\(fmtIn) in / ~\(fmtOut) out · free"
+        }
+        var inputPart = "\(fmtIn) in"
+        if u.cacheReadTokens > 0 {
+            let fmtCache = nf.string(from: NSNumber(value: u.cacheReadTokens)) ?? "\(u.cacheReadTokens)"
+            inputPart += " (\(fmtCache) cached)"
+        }
+        if u.cacheWriteTokens > 0 {
+            let fmtWrite = nf.string(from: NSNumber(value: u.cacheWriteTokens)) ?? "\(u.cacheWriteTokens)"
+            inputPart += " (+\(fmtWrite) cache write)"
+        }
+        let cost = String(format: "$%.4f", u.estimatedCostUSD)
+        return "\(u.modelDisplayName) · \(inputPart) / \(fmtOut) out · ~\(cost)"
+    }
+
     private func askAcrossMeetings() {
         let question = qaQuestion.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !question.isEmpty, !qaIsLoading else { return }
         qaIsLoading = true
+        qaAnswer = ""
+        qaUsage = nil
 
         Task {
-            // Search ALL meeting files for relevant content
             let keywords = question.lowercased()
                 .components(separatedBy: .whitespacesAndNewlines)
-                .filter { $0.count > 2 } // Include shorter words for better matching
+                .filter { $0.count > 2 }
 
-            // Score each meeting file by keyword relevance
             var scored: [(name: String, content: String, score: Int)] = []
 
             for group in state.historyGroups {
@@ -478,7 +566,6 @@ struct MeetingRootView: View {
                 }
             }
 
-            // Sort by relevance (most keyword matches first)
             scored.sort { $0.score > $1.score }
 
             if scored.isEmpty {
@@ -487,8 +574,7 @@ struct MeetingRootView: View {
                 return
             }
 
-            // Build context from top matching meetings — fill up to context budget
-            let maxContext = 30000 // Use more context if 8B model is available
+            let maxContext = 30000
             var context = ""
             var sourceFiles: [String] = []
 
@@ -502,10 +588,28 @@ struct MeetingRootView: View {
 
             qaSourceFile = "Searched: \(sourceFiles.joined(separator: ", "))"
 
-            if let answer = await state.onAskQuestion?(question, context) {
-                qaAnswer = answer.trimmingCharacters(in: .whitespacesAndNewlines)
-            } else {
-                qaAnswer = "Could not answer — download the Qwen 3 8B model in Settings > Models for best Q&A results."
+            guard let stream = state.onAskQuestion?(question, context) else {
+                qaAnswer = "Could not answer — open Settings → Meeting Transcript → Cross-Meeting Q&A to configure."
+                qaIsLoading = false
+                return
+            }
+
+            do {
+                for try await event in stream {
+                    switch event {
+                    case .text(let delta):
+                        qaAnswer += delta
+                    case .usage(let usage):
+                        qaUsage = usage
+                    }
+                }
+                qaAnswer = qaAnswer.trimmingCharacters(in: .whitespacesAndNewlines)
+            } catch {
+                if qaAnswer.isEmpty {
+                    qaAnswer = "Stream error: \(error.localizedDescription)"
+                } else {
+                    qaAnswer += "\n\n[stream interrupted: \(error.localizedDescription)]"
+                }
             }
             qaIsLoading = false
         }
@@ -532,31 +636,49 @@ struct MeetingRootView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 0) {
+                    HomeTabView(isActive: state.selectedSurface == .home) {
+                        state.saveActiveTab()
+                        state.selectHome()
+                    }
+
                     ForEach(state.tabs) { tab in
-                        FileTabView(tab: tab, isActive: state.activeTabID == tab.id && !state.showNewTabView) {
+                        FileTabView(tab: tab, isActive: state.activeTabID == tab.id) {
                             state.saveActiveTab()
-                            state.showNewTabView = false
-                            state.activeTabID = tab.id
+                            state.selectTab(tab.id)
                         } onClose: {
                             state.closeTab(tab.id)
                         }
                     }
 
-                    // "+" tab
-                    Button(action: { state.showNewTabView = true }) {
+                    Menu {
+                        Button {
+                            state.startNewNote()
+                        } label: {
+                            Label("New personal note", systemImage: "note.text")
+                        }
+                        Button {
+                            state.startAdHocCall()
+                        } label: {
+                            Label("New ad hoc meeting", systemImage: "waveform")
+                        }
+                        if GranolaImporter.isCacheAvailable {
+                            Divider()
+                            Button {
+                                showGranolaImport = true
+                            } label: {
+                                Label("Import from Granola…", systemImage: "tray.and.arrow.down")
+                            }
+                        }
+                    } label: {
                         Image(systemName: "plus")
                             .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(state.showNewTabView ? .orange : .secondary)
+                            .foregroundColor(.secondary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 7)
-                            .background(state.showNewTabView ? Color(nsColor: .textBackgroundColor) : Color.clear)
-                            .overlay(alignment: .bottom) {
-                                if state.showNewTabView {
-                                    Rectangle().fill(Color.orange).frame(height: 2)
-                                }
-                            }
                     }
-                    .buttonStyle(.plain)
+                    .menuStyle(.borderlessButton)
+                    .menuIndicator(.hidden)
+                    .fixedSize()
                 }
             }
         }
@@ -571,41 +693,537 @@ struct MeetingRootView: View {
 
     @StateObject private var granolaImporter = GranolaImporter()
     @State private var showGranolaImport = false
+    @State private var todayEvents: [CalendarEvent] = []
+    @State private var todayEventsLoaded = false
+    @State private var todayEventsError: String?
+    @State private var whitelistEmail: String = ""
+    @State private var granolaPendingCount: Int? = nil
 
     private var newTabView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "doc.text")
-                .font(.system(size: 40))
-                .foregroundColor(.secondary.opacity(0.4))
-            Text("Open a meeting from the sidebar or start a new one")
-                .font(.callout)
+        VStack(spacing: 24) {
+            if !GoogleCalendarService.shared.isSignedIn {
+                disconnectedQuickActions
+                    .padding(.top, 40)
+            }
+
+            if GranolaImporter.isCacheAvailable {
+                granolaSyncRow
+                    .padding(.top, GoogleCalendarService.shared.isSignedIn ? 40 : 0)
+            }
+
+            todayCalendarSection
+                .padding(.top, (GoogleCalendarService.shared.isSignedIn && !GranolaImporter.isCacheAvailable) ? 40 : 0)
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .sheet(isPresented: $showGranolaImport, onDismiss: { refreshGranolaPendingCount() }) {
+            GranolaImportView(importer: granolaImporter, state: state)
+        }
+        .task {
+            await loadTodayEvents()
+            refreshGranolaPendingCount()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            Task { await loadTodayEvents() }
+            refreshGranolaPendingCount()
+        }
+    }
+
+    private var granolaSyncRow: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "tray.and.arrow.down")
+                .font(.system(size: 11))
                 .foregroundColor(.secondary)
-
-            HStack(spacing: 12) {
-                Button("New Quick Note") {
-                    state.startNewNote()
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.orange)
-
-                if GranolaImporter.isCacheAvailable {
-                    Button("Import from Granola") {
-                        showGranolaImport = true
+            if let pending = granolaPendingCount, pending > 0 {
+                Button {
+                    showGranolaImport = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Text("Sync \(pending) new from Granola")
+                            .font(.system(size: 12, weight: .medium))
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 10, weight: .semibold))
                     }
-                    .buttonStyle(.bordered)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(Color.orange))
+                    .foregroundColor(.white)
+                }
+                .buttonStyle(.plain)
+            } else if granolaPendingCount == 0 {
+                Text("Granola up to date")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            } else {
+                Text("Checking Granola…")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+        }
+        .frame(maxWidth: 560)
+        .padding(.horizontal, 24)
+    }
+
+    private func refreshGranolaPendingCount() {
+        let dir = MeetingTranscriptSettings.effectiveSaveDirectory()
+        Task.detached(priority: .background) {
+            let count = await GranolaImporter.pendingImportCount(savedTo: dir)
+            await MainActor.run {
+                self.granolaPendingCount = count
+            }
+        }
+    }
+
+    private var disconnectedQuickActions: some View {
+        HStack(spacing: 12) {
+            Button("New Personal Note") {
+                state.startNewNote()
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.orange)
+
+            Button("New Ad Hoc Meeting") {
+                state.startAdHocCall()
+            }
+            .buttonStyle(.bordered)
+        }
+    }
+
+    @ViewBuilder
+    private var todayCalendarSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "calendar")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                Text("Today")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.secondary)
+                    .textCase(.uppercase)
+                Rectangle()
+                    .fill(Color(nsColor: .separatorColor))
+                    .frame(height: 1)
+                if GoogleCalendarService.shared.isSignedIn {
+                    Button {
+                        GoogleCalendarService.shared.invalidateTodayCache()
+                        Task { await loadTodayEvents() }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Refresh calendar")
+                }
+            }
+            .padding(.horizontal, 4)
+
+            if !GoogleCalendarService.shared.isSignedIn {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        Button("Connect to Calendar") {
+                            GoogleCalendarService.shared.signIn()
+                        }
+                        .buttonStyle(.bordered)
+                        Text("BETA")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(Color.orange))
+                        Spacer()
+                    }
+
+                    Divider()
+
+                    Text("Calendar access is invite-only while in beta. Send Matt your email and he'll allow-list you.")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    HStack(spacing: 8) {
+                        TextField("you@example.com", text: $whitelistEmail)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 12))
+                        Button(primaryWhitelistButtonLabel) {
+                            sendWhitelistRequest(via: hasReliableMailClient ? .defaultMail : .gmail)
+                        }
+                        .disabled(!isLikelyEmail(whitelistEmail))
+                    }
+                    HStack(spacing: 4) {
+                        Text(secondaryWhitelistPrompt)
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                        Button(secondaryWhitelistButtonLabel) {
+                            sendWhitelistRequest(via: hasReliableMailClient ? .gmail : .defaultMail)
+                        }
+                        .buttonStyle(.link)
+                        .font(.system(size: 10))
+                        .disabled(!isLikelyEmail(whitelistEmail))
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 12)
+            } else if !todayEventsLoaded {
+                HStack {
+                    ProgressView().scaleEffect(0.6)
+                    Text("Loading today's events…")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 12)
+            } else if todayEvents.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(todayEventsError == nil ? "No events today" : "No events to show")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                    if let err = todayEventsError {
+                        Text(err)
+                            .font(.system(size: 11))
+                            .foregroundColor(.red)
+                            .textSelection(.enabled)
+                    }
+                    HStack(spacing: 8) {
+                        Button("Refresh") {
+                            GoogleCalendarService.shared.invalidateTodayCache()
+                            Task { await loadTodayEvents() }
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        Button("Disconnect") {
+                            GoogleCalendarService.shared.signOut()
+                            todayEventsLoaded = false
+                            todayEvents = []
+                            todayEventsError = nil
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 12)
+            } else {
+                if let err = todayEventsError {
+                    HStack(spacing: 6) {
+                        Image(systemName: "wifi.slash")
+                            .font(.system(size: 10))
+                            .foregroundColor(.orange)
+                        Text(err)
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                }
+                TimelineView(.periodic(from: .now, by: 30)) { context in
+                    eventsList(now: context.date)
                 }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .sheet(isPresented: $showGranolaImport) {
-            GranolaImportView(importer: granolaImporter, state: state)
+        .frame(maxWidth: 560)
+        .padding(.horizontal, 24)
+    }
+
+    @ViewBuilder
+    private func eventsList(now: Date) -> some View {
+        let timed = todayEvents.filter { !$0.isAllDay && $0.startDate != nil }
+        let allDay = todayEvents.filter { $0.isAllDay }
+
+        // Find the "current" event (start ≤ now ≤ end) and the "next-up" event (first future).
+        let current = timed.first { e in
+            guard let s = e.startDate, let end = e.endDate else { return false }
+            return now >= s && now <= end
         }
+        let nextUp = timed.first { ($0.startDate ?? .distantFuture) > now }
+
+        // Decide where to insert the now line. Insert it just before the first event whose
+        // start is >= now; if all events are in the past, append it at the end.
+        let nowLineInsertIndex: Int? = {
+            for (i, e) in timed.enumerated() {
+                if (e.startDate ?? .distantFuture) >= now { return i }
+            }
+            return nil // all in past — append at end
+        }()
+
+        VStack(spacing: 0) {
+            ForEach(allDay) { event in
+                CalendarEventRow(event: event, countdownText: nil) {
+                    state.startCalendarMeeting(event)
+                }
+                Divider()
+            }
+
+            ForEach(Array(timed.enumerated()), id: \.element.id) { idx, event in
+                if nowLineInsertIndex == idx {
+                    NowLineView(time: now)
+                    Divider()
+                }
+                let countdown: String? = {
+                    if event.id == current?.id { return countdownText(prefix: "ends in", until: event.endDate, now: now) }
+                    if event.id == nextUp?.id, current == nil { return countdownText(prefix: "in", until: event.startDate, now: now) }
+                    return nil
+                }()
+                CalendarEventRow(event: event, countdownText: countdown) {
+                    state.startCalendarMeeting(event)
+                }
+                if idx != timed.count - 1 {
+                    Divider()
+                }
+            }
+
+            if nowLineInsertIndex == nil && !timed.isEmpty {
+                Divider()
+                NowLineView(time: now)
+            }
+        }
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.4))
+        .cornerRadius(8)
+    }
+
+    private func countdownText(prefix: String, until date: Date?, now: Date) -> String? {
+        guard let date else { return nil }
+        let seconds = Int(date.timeIntervalSince(now))
+        guard seconds > 0 else { return nil }
+        let formatted: String
+        if seconds < 60 {
+            formatted = "<1m"
+        } else if seconds < 3600 {
+            formatted = "\(seconds / 60)m"
+        } else {
+            let h = seconds / 3600
+            let m = (seconds % 3600) / 60
+            formatted = m == 0 ? "\(h)h" : "\(h)h \(m)m"
+        }
+        return "\(prefix) \(formatted)"
+    }
+
+    private func isLikelyEmail(_ s: String) -> Bool {
+        let trimmed = s.trimmingCharacters(in: .whitespaces)
+        guard let at = trimmed.firstIndex(of: "@") else { return false }
+        let domain = trimmed[trimmed.index(after: at)...]
+        return !domain.isEmpty && domain.contains(".") && trimmed.startIndex < at
+    }
+
+    private enum WhitelistTransport {
+        case defaultMail
+        case gmail
+    }
+
+    /// Bundle IDs we trust to actually handle mailto URLs reliably (i.e. real mail
+    /// clients with configured accounts in the common case). Apple Mail is intentionally
+    /// excluded — it's the system default whether or not the user has ever set up
+    /// an account, and we have no way to detect configuration without Full Disk Access.
+    /// Browsers are also excluded — they often "handle" mailto by falling back to the
+    /// system default mail app, which loops us right back to the Apple Mail problem.
+    private static let knownReliableMailClients: Set<String> = [
+        "com.readdle.smartemail-Mac",  // Spark
+        "it.bloop.airmail",             // Airmail
+        "it.bloop.airmail3",
+        "com.mimestream.Mimestream",
+        "com.microsoft.Outlook",
+        "com.flashlightsoft.flashemail", // Newton
+        "com.freron.MailMate",
+        "com.postbox-inc.postbox",
+        "org.mozilla.thunderbird",
+        "com.canarymail.macos",         // Canary
+        "com.proton.mail",              // Proton Mail desktop
+    ]
+
+    /// True iff the system's default mailto handler is in the allow-list.
+    /// If false, we route to Gmail web compose instead — which always works and
+    /// avoids prompting the user to set up Apple Mail or some browser fallback chain.
+    private var hasReliableMailClient: Bool {
+        guard let url = URL(string: "mailto:test@example.com"),
+              let handler = NSWorkspace.shared.urlForApplication(toOpen: url),
+              let bundleID = Bundle(url: handler)?.bundleIdentifier else {
+            return false
+        }
+        return Self.knownReliableMailClients.contains(bundleID)
+    }
+
+    private var primaryWhitelistButtonLabel: String {
+        hasReliableMailClient ? "Request whitelist" : "Send via Gmail"
+    }
+
+    private var secondaryWhitelistPrompt: String {
+        hasReliableMailClient ? "Prefer Gmail?" : "Want to use your mail app instead?"
+    }
+
+    private var secondaryWhitelistButtonLabel: String {
+        hasReliableMailClient ? "Send via Gmail in browser" : "Try default mail app"
+    }
+
+    private func sendWhitelistRequest(via transport: WhitelistTransport) {
+        let email = whitelistEmail.trimmingCharacters(in: .whitespaces)
+        guard isLikelyEmail(email) else { return }
+        let to = "ghostpepper@factorial.cc"
+        let subject = "Whitelist request for Ghost Pepper"
+        let body = "Hey Matt, can you white list my email address for ghost pepper calendar integration: \(email)"
+        let allowed = CharacterSet.urlQueryAllowed
+        guard let encodedSubject = subject.addingPercentEncoding(withAllowedCharacters: allowed),
+              let encodedBody = body.addingPercentEncoding(withAllowedCharacters: allowed) else {
+            return
+        }
+        let urlString: String
+        switch transport {
+        case .defaultMail:
+            urlString = "mailto:\(to)?subject=\(encodedSubject)&body=\(encodedBody)"
+        case .gmail:
+            urlString = "https://mail.google.com/mail/?view=cm&fs=1&to=\(to)&su=\(encodedSubject)&body=\(encodedBody)"
+        }
+        guard let url = URL(string: urlString) else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    private func loadTodayEvents() async {
+        guard GoogleCalendarService.shared.isSignedIn else {
+            todayEvents = []
+            todayEventsError = nil
+            todayEventsLoaded = false
+            return
+        }
+        let result = await GoogleCalendarService.shared.eventsForToday()
+        todayEvents = result.events
+        todayEventsError = result.errorMessage
+        todayEventsLoaded = true
+    }
+}
+
+private struct NowLineView: View {
+    let time: Date
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(timeLabel)
+                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .foregroundColor(.orange)
+                .frame(width: 70, alignment: .leading)
+            Circle()
+                .fill(Color.orange)
+                .frame(width: 6, height: 6)
+            Rectangle()
+                .fill(Color.orange)
+                .frame(height: 1)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 4)
+    }
+
+    private var timeLabel: String {
+        let f = DateFormatter()
+        f.timeStyle = .short
+        return f.string(from: time)
+    }
+}
+
+private struct CalendarEventRow: View {
+    let event: CalendarEvent
+    let countdownText: String?
+    let onStart: () -> Void
+
+    private var timeText: String {
+        if event.isAllDay { return "All day" }
+        guard let start = event.startDate else { return "" }
+        let f = DateFormatter()
+        f.timeStyle = .short
+        return f.string(from: start)
+    }
+
+    private var attendeeText: String? {
+        guard event.attendeeCount > 0 else { return nil }
+        if event.attendeeCount == 1 { return "1 person" }
+        return "\(event.attendeeCount) people"
+    }
+
+    private var isPast: Bool {
+        guard let end = event.endDate else { return false }
+        return end < Date()
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(timeText)
+                .font(.system(size: 12, design: .monospaced))
+                .foregroundColor(.secondary)
+                .frame(width: 70, alignment: .leading)
+
+            Text(event.title)
+                .font(.system(size: 13))
+                .foregroundColor(isPast ? .secondary : .primary)
+                .lineLimit(1)
+
+            Spacer(minLength: 8)
+
+            if let attendeeText = attendeeText {
+                Text(attendeeText)
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
+
+            if let countdownText {
+                Text(countdownText)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.orange)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .overlay(
+                        Capsule().stroke(Color.orange.opacity(0.4), lineWidth: 1)
+                    )
+            }
+
+            if !event.isAllDay {
+                Button(action: onStart) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 9))
+                        Text(event.meetLink != nil ? "Start & Join" : "Start")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .foregroundColor(.orange)
+                    .overlay(
+                        Capsule().stroke(Color.orange, lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
     }
 }
 
 // MARK: - Content View for a Single Tab
 
 // MARK: - File Tab View (observes individual tab)
+
+private struct HomeTabView: View {
+    let isActive: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            Image(systemName: isActive ? "house.fill" : "house")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(isActive ? .primary : .secondary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(isActive ? Color(nsColor: .textBackgroundColor) : Color.clear)
+                .overlay(alignment: .bottom) {
+                    if isActive {
+                        Rectangle().fill(Color.orange).frame(height: 2)
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+        .help("Home")
+    }
+}
 
 private struct FileTabView: View {
     @ObservedObject var tab: OpenMeetingTab
@@ -746,14 +1364,16 @@ struct MeetingTabContentView: View {
                                 Image(systemName: "person.2")
                                     .font(.system(size: 10))
                                     .foregroundColor(.secondary)
-                                ForEach(tab.transcript.attendees, id: \.self) { name in
-                                    Text(name)
+                                ForEach(tab.transcript.attendees, id: \.self) { attendee in
+                                    Text(attendee.name)
                                         .font(.system(size: 11, weight: .medium))
-                                        .foregroundColor(.primary)
+                                        .foregroundColor(attendee.declined ? .red : .primary)
+                                        .strikethrough(attendee.declined)
                                         .padding(.horizontal, 8)
                                         .padding(.vertical, 3)
                                         .background(Color(nsColor: .controlBackgroundColor))
                                         .cornerRadius(10)
+                                        .help(attendee.declined ? "Declined" : "")
                                 }
                                 Spacer()
                             }

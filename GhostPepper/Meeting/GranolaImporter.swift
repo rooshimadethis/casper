@@ -31,7 +31,7 @@ final class GranolaImporter: ObservableObject {
         didSet { UserDefaults.standard.set(granolaApiKey, forKey: "granolaApiKey") }
     }
 
-    private static let cachePath = NSHomeDirectory() + "/Library/Application Support/Granola/cache-v6.json"
+    nonisolated private static let cachePath = NSHomeDirectory() + "/Library/Application Support/Granola/cache-v6.json"
     private static let debugLogPath = "/tmp/granola_import_debug.log"
 
     private static func debugLog(_ msg: String) {
@@ -52,6 +52,42 @@ final class GranolaImporter: ObservableObject {
     /// Whether the Granola cache file exists on disk.
     static var isCacheAvailable: Bool {
         FileManager.default.fileExists(atPath: cachePath)
+    }
+
+    /// Count of valid Granola documents whose target markdown file does not yet exist
+    /// in the meetings save directory. Mirrors the dedup logic in `importFromLocalCache`
+    /// so the count matches what an actual sync would write. Returns nil if cache is
+    /// missing or unreadable.
+    nonisolated static func pendingImportCount(savedTo directory: URL) -> Int? {
+        guard let data = FileManager.default.contents(atPath: cachePath),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let cache = json["cache"] as? [String: Any],
+              let stateDict = cache["state"] as? [String: Any],
+              let documents = stateDict["documents"] as? [String: [String: Any]] else {
+            return nil
+        }
+
+        var pending = 0
+        for (_, doc) in documents {
+            if doc["deleted_at"] != nil && !(doc["deleted_at"] is NSNull) { continue }
+            if let valid = doc["valid_meeting"] as? Bool, !valid { continue }
+            let notesMd = doc["notes_markdown"] as? String
+            let notesPlain = doc["notes_plain"] as? String
+            let summary = doc["summary"] as? String
+            guard (notesMd?.isEmpty == false) || (notesPlain?.isEmpty == false) || (summary?.isEmpty == false) else { continue }
+
+            let title = (doc["title"] as? String) ?? "Untitled"
+            let createdAt = doc["created_at"] as? String ?? ""
+            let dateFolder = Self.dateFolder(from: createdAt)
+            let slug = Self.slugify(title)
+            let filePath = directory
+                .appendingPathComponent(dateFolder)
+                .appendingPathComponent("\(slug).md")
+            if !FileManager.default.fileExists(atPath: filePath.path) {
+                pending += 1
+            }
+        }
+        return pending
     }
 
     // MARK: - Local Cache Import
@@ -286,14 +322,14 @@ final class GranolaImporter: ObservableObject {
 
     // MARK: - Helpers
 
-    private static func dateFolder(from createdAt: String) -> String {
+    nonisolated private static func dateFolder(from createdAt: String) -> String {
         guard !createdAt.isEmpty else { return "undated" }
         // Parse ISO date: "2026-03-10T14:30:00.000Z"
         let parts = createdAt.prefix(10) // "2026-03-10"
         return parts.count == 10 ? String(parts) : "undated"
     }
 
-    static func slugify(_ title: String?) -> String {
+    nonisolated static func slugify(_ title: String?) -> String {
         guard let title = title, !title.isEmpty else { return "untitled" }
         var slug = title.lowercased()
         slug = slug.replacingOccurrences(of: "[^\\w\\s-]", with: "", options: .regularExpression)
