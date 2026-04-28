@@ -1,5 +1,16 @@
 import Foundation
 
+/// A person attending a meeting (from calendar invite or OCR-detected).
+struct MeetingAttendee: Hashable, Codable {
+    let name: String
+    let declined: Bool
+
+    init(name: String, declined: Bool = false) {
+        self.name = name
+        self.declined = declined
+    }
+}
+
 /// Identifies who is speaking in a transcript segment.
 enum SpeakerLabel: Codable, Equatable {
     case me
@@ -44,7 +55,7 @@ final class MeetingTranscript: ObservableObject {
     @Published var endDate: Date?
     @Published var notes: String
     @Published var segments: [TranscriptSegment]
-    @Published var attendees: [String]
+    @Published var attendees: [MeetingAttendee]
     @Published var summary: String?
     @Published var isGeneratingSummary = false
     var importedFrom: String?

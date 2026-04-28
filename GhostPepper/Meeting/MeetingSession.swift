@@ -234,7 +234,7 @@ final class MeetingSession: ObservableObject {
         // Set attendees from calendar
         if transcript.attendees.isEmpty && !event.attendees.isEmpty {
             transcript.attendees = event.attendees
-            print("MeetingSession: attendees set from calendar: \(event.attendees.joined(separator: ", "))")
+            print("MeetingSession: attendees set from calendar: \(event.attendees.map { $0.name }.joined(separator: ", "))")
         }
 
         autoSave()
@@ -303,12 +303,14 @@ final class MeetingSession: ObservableObject {
         print("MeetingSession: extracted \(names.count) names: \(names)")
         guard !names.isEmpty else { return }
 
-        // Merge with existing attendees (preserving order, no duplicates)
-        let existing = Set(transcript.attendees)
-        let newNames = names.filter { !existing.contains($0) }
-        if !newNames.isEmpty {
-            transcript.attendees.append(contentsOf: newNames)
-            print("MeetingSession: captured attendees: \(transcript.attendees.joined(separator: ", "))")
+        // Merge with existing attendees (preserving order, no duplicates by name).
+        // OCR-detected attendees default to declined=false; if the same name was already
+        // added (declined or not) from calendar, keep the calendar version.
+        let existingNames = Set(transcript.attendees.map { $0.name })
+        let newAttendees = names.filter { !existingNames.contains($0) }.map { MeetingAttendee(name: $0) }
+        if !newAttendees.isEmpty {
+            transcript.attendees.append(contentsOf: newAttendees)
+            print("MeetingSession: captured attendees: \(transcript.attendees.map { $0.name }.joined(separator: ", "))")
             autoSave()
         }
     }

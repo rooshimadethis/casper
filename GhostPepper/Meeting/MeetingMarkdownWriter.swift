@@ -51,7 +51,8 @@ struct MeetingMarkdownWriter {
             lines.append("**Date:** \(startStr) (in progress)")
         }
         if !transcript.attendees.isEmpty {
-            lines.append("**Attendees:** \(transcript.attendees.joined(separator: ", "))")
+            let formatted = transcript.attendees.map { $0.declined ? "\($0.name) (declined)" : $0.name }
+            lines.append("**Attendees:** \(formatted.joined(separator: ", "))")
         }
         lines.append("")
 
