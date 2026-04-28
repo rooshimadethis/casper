@@ -26,6 +26,7 @@ final class MeetingSession: ObservableObject {
     private var meetingEndCheckTimer: Timer?
     private var hasReceivedAudio = false
     private var hasAutoUpdatedTitle = false
+    private var skipCalendarAutoMatch = false
     private let originalName: String
     private let ocrService: FrontmostWindowOCRService
     private var inactiveMeetingPollCount = 0
@@ -216,8 +217,25 @@ final class MeetingSession: ObservableObject {
 
     // MARK: - Calendar integration
 
+    /// Apply a user-chosen calendar event: lock the title and attendees, and skip
+    /// the time-based auto-match so we don't override their explicit choice.
+    func applyCalendarEvent(_ event: CalendarEvent) {
+        skipCalendarAutoMatch = true
+        hasAutoUpdatedTitle = true
+        if !event.attendees.isEmpty {
+            transcript.attendees = event.attendees
+        }
+        autoSave()
+        let declinedCount = event.attendees.filter { $0.declined }.count
+        print("MeetingSession: applied user-chosen calendar event '\(event.title)' (\(event.attendees.count) attendees, \(declinedCount) declined)")
+    }
+
     /// Populate meeting title and attendees from Google Calendar if connected.
     private func populateFromCalendar() async {
+        guard !skipCalendarAutoMatch else {
+            print("MeetingSession: skipping calendar auto-match (user picked event explicitly)")
+            return
+        }
         guard GoogleCalendarService.shared.isSignedIn else { return }
         guard let event = await GoogleCalendarService.shared.currentMeeting() else {
             print("MeetingSession: no current calendar event found")

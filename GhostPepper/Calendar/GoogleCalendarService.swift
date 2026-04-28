@@ -1,6 +1,14 @@
 import Foundation
 import AppKit
 import CommonCrypto
+import os.log
+
+private let calendarLog = Logger(subsystem: "com.github.matthartman.ghostpepper", category: "calendar")
+
+private struct CalendarFetchError: LocalizedError {
+    let message: String
+    var errorDescription: String? { message }
+}
 
 /// Reads Google Calendar events via OAuth 2.0 (PKCE flow for desktop apps).
 /// Token is stored locally in UserDefaults — never sent anywhere except googleapis.com.
@@ -18,7 +26,9 @@ final class GoogleCalendarService: ObservableObject {
     // We bind to 127.0.0.1 only (not accessible from network), use a random port,
     // and shut down immediately after receiving the code.
     private static let loopbackHost = "http://127.0.0.1"
-    private static let scope = "https://www.googleapis.com/auth/calendar.events.readonly"
+    // calendar.readonly lets us list calendars (calendarList) AND read events from each.
+    // Existing connections issued with the old narrow scope will need to disconnect+reconnect.
+    private static let scope = "https://www.googleapis.com/auth/calendar.readonly"
     private static let tokenKey = "googleCalendarAccessToken"
     private static let refreshTokenKey = "googleCalendarRefreshToken"
     private static let tokenExpiryKey = "googleCalendarTokenExpiry"
@@ -103,71 +113,341 @@ final class GoogleCalendarService: ObservableObject {
 
     // MARK: - Calendar API
 
-    /// Fetch the current or upcoming meeting from Google Calendar.
-    /// Returns the event happening now (or starting within the next 5 minutes).
+    /// Fetch the meeting happening right now from Google Calendar.
+    /// Skips all-day, declined, and not-yet-started/already-ended events.
     func currentMeeting() async -> CalendarEvent? {
-        guard let token = await validAccessToken() else { return nil }
-
+        let result = await eventsForToday()
         let now = Date()
-        let soon = now.addingTimeInterval(5 * 60) // 5 minutes from now
-        let earlier = now.addingTimeInterval(-5 * 60) // 5 minutes ago
+        let grace: TimeInterval = 2 * 60
+        let candidates = result.events.filter { event in
+            guard !event.isAllDay,
+                  let s = event.startDate,
+                  let e = event.endDate else { return false }
+            return now >= s.addingTimeInterval(-grace) && now <= e
+        }
+        return candidates.sorted {
+            ($0.startDate ?? .distantPast) > ($1.startDate ?? .distantPast)
+        }.first
+    }
+
+    /// Result of an eventsForToday fetch. Carries an optional error so the UI can surface it.
+    struct TodayResult {
+        let events: [CalendarEvent]
+        let errorMessage: String?
+    }
+
+    /// Fetch all of today's calendar events from every selected calendar on the account.
+    /// Cached for 60 seconds in memory to avoid hammering the API on UI redraws,
+    /// and persisted to disk so we can fall back to it when offline / API fails.
+    func eventsForToday() async -> TodayResult {
+        if let cached = todayCache, Date().timeIntervalSince(cached.fetchedAt) < 60 {
+            return TodayResult(events: cached.events, errorMessage: nil)
+        }
+
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: Date())
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) ?? Date()
+
+        // First, get all the calendar IDs the user has selected. If listing fails (e.g. old
+        // narrow scope), fall back to primary only so something still works.
+        let calendarIDs: [String]
+        let listResult = await fetchCalendarIDs()
+        switch listResult {
+        case .success(let ids) where !ids.isEmpty:
+            calendarIDs = ids
+        case .success:
+            calendarIDs = ["primary"]
+        case .failure(let listErr):
+            calendarLog.error("eventsForToday: calendar list failed: \(listErr.message, privacy: .public)")
+            // Try primary as a fallback.
+            switch await fetchEvents(calendarID: "primary", timeMin: startOfDay, timeMax: endOfDay) {
+            case .success(let events):
+                rememberTodayCache(events)
+                return TodayResult(events: events, errorMessage: "Couldn't list calendars (\(listErr.message)). Showing primary only — try Disconnect & Reconnect.")
+            case .failure(let primaryErr):
+                return fallbackToDiskCache(reason: "Calendar fetch failed: \(primaryErr.message)")
+            }
+        }
+
+        var merged: [CalendarEvent] = []
+        var lastError: String?
+        var hadAnySuccess = false
+        for calendarID in calendarIDs {
+            switch await fetchEvents(calendarID: calendarID, timeMin: startOfDay, timeMax: endOfDay) {
+            case .success(let events):
+                hadAnySuccess = true
+                merged.append(contentsOf: events)
+            case .failure(let err):
+                lastError = err.message
+                calendarLog.error("eventsForToday: calendar \(calendarID, privacy: .public) failed: \(err.message, privacy: .public)")
+            }
+        }
+
+        // If every calendar fetch failed, try the disk cache before giving up.
+        if !hadAnySuccess {
+            return fallbackToDiskCache(reason: "Calendar fetch failed: \(lastError ?? "unknown error")")
+        }
+
+        merged.sort { ($0.startDate ?? .distantPast) < ($1.startDate ?? .distantPast) }
+        var seen = Set<String>()
+        let deduped = merged.filter { seen.insert($0.id).inserted }
+
+        rememberTodayCache(deduped)
+        return TodayResult(events: deduped, errorMessage: deduped.isEmpty ? lastError : nil)
+    }
+
+    func invalidateTodayCache() {
+        todayCache = nil
+    }
+
+    private var todayCache: (events: [CalendarEvent], fetchedAt: Date)?
+
+    // MARK: Disk-backed cache (offline fallback)
+
+    private static let diskCacheKey = "calendarEventsTodayCache"
+
+    private struct DiskCachePayload: Codable {
+        let dateKey: String
+        let fetchedAt: Date
+        let events: [CalendarEvent]
+    }
+
+    private static let dateKeyFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.timeZone = TimeZone.current
+        return f
+    }()
+
+    private func rememberTodayCache(_ events: [CalendarEvent]) {
+        let now = Date()
+        todayCache = (events: events, fetchedAt: now)
+        let payload = DiskCachePayload(
+            dateKey: Self.dateKeyFormatter.string(from: now),
+            fetchedAt: now,
+            events: events
+        )
+        if let data = try? JSONEncoder().encode(payload) {
+            UserDefaults.standard.set(data, forKey: Self.diskCacheKey)
+        }
+    }
+
+    private func fallbackToDiskCache(reason: String) -> TodayResult {
+        guard let data = UserDefaults.standard.data(forKey: Self.diskCacheKey),
+              let payload = try? JSONDecoder().decode(DiskCachePayload.self, from: data) else {
+            return TodayResult(events: [], errorMessage: reason)
+        }
+        let todayKey = Self.dateKeyFormatter.string(from: Date())
+        guard payload.dateKey == todayKey else {
+            return TodayResult(events: [], errorMessage: reason)
+        }
+        let timeFmt = DateFormatter()
+        timeFmt.timeStyle = .short
+        let stamp = timeFmt.string(from: payload.fetchedAt)
+        return TodayResult(
+            events: payload.events,
+            errorMessage: "Offline — showing cached events from \(stamp)."
+        )
+    }
+
+    private func fetchCalendarIDs() async -> Result<[String], CalendarFetchError> {
+        guard let token = await validAccessToken() else {
+            return .failure(CalendarFetchError(message: "no access token"))
+        }
+        let url = URL(string: "https://www.googleapis.com/calendar/v3/users/me/calendarList")!
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                return .failure(CalendarFetchError(message: "non-HTTP response"))
+            }
+            if http.statusCode != 200 {
+                let body = String(data: data, encoding: .utf8) ?? ""
+                return .failure(CalendarFetchError(message: "HTTP \(http.statusCode): \(body.prefix(200))"))
+            }
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let items = json["items"] as? [[String: Any]] else {
+                return .failure(CalendarFetchError(message: "malformed JSON"))
+            }
+            // Use only calendars currently selected in the user's UI (i.e. visible).
+            let ids = items.compactMap { item -> String? in
+                let id = item["id"] as? String
+                let selected = (item["selected"] as? Bool) ?? false
+                let primary = (item["primary"] as? Bool) ?? false
+                return (selected || primary) ? id : nil
+            }
+            return .success(ids)
+        } catch {
+            return .failure(CalendarFetchError(message: "\(error)"))
+        }
+    }
+
+    private func fetchEvents(calendarID: String, timeMin: Date, timeMax: Date) async -> Result<[CalendarEvent], CalendarFetchError> {
+        guard let token = await validAccessToken() else {
+            return .failure(CalendarFetchError(message: "no access token"))
+        }
 
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
 
-        var components = URLComponents(string: "https://www.googleapis.com/calendar/v3/calendars/primary/events")!
+        let escapedID = calendarID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? calendarID
+        var components = URLComponents(string: "https://www.googleapis.com/calendar/v3/calendars/\(escapedID)/events")!
         components.queryItems = [
-            URLQueryItem(name: "timeMin", value: formatter.string(from: earlier)),
-            URLQueryItem(name: "timeMax", value: formatter.string(from: soon)),
+            URLQueryItem(name: "timeMin", value: formatter.string(from: timeMin)),
+            URLQueryItem(name: "timeMax", value: formatter.string(from: timeMax)),
             URLQueryItem(name: "singleEvents", value: "true"),
             URLQueryItem(name: "orderBy", value: "startTime"),
-            URLQueryItem(name: "maxResults", value: "5"),
+            URLQueryItem(name: "maxResults", value: "50"),
         ]
 
-        guard let url = components.url else { return nil }
+        guard let url = components.url else { return .failure(CalendarFetchError(message: "bad URL")) }
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        guard let (data, response) = try? await URLSession.shared.data(for: request),
-              let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200,
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let items = json["items"] as? [[String: Any]] else {
-            return nil
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                return .failure(CalendarFetchError(message: "non-HTTP response"))
+            }
+            if httpResponse.statusCode != 200 {
+                let body = String(data: data, encoding: .utf8) ?? ""
+                return .failure(CalendarFetchError(message: "HTTP \(httpResponse.statusCode): \(body.prefix(200))"))
+            }
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let items = json["items"] as? [[String: Any]] else {
+                return .failure(CalendarFetchError(message: "malformed JSON"))
+            }
+            calendarLog.info("fetchEvents[\(calendarID, privacy: .public)]: \(items.count) raw, \(items.compactMap { Self.parseEventItem($0) }.count) parsed")
+            return .success(items.compactMap { Self.parseEventItem($0) })
+        } catch {
+            return .failure(CalendarFetchError(message: "\(error)"))
+        }
+    }
+
+    private static func parseEventItem(_ item: [String: Any]) -> CalendarEvent? {
+        guard let summary = item["summary"] as? String else { return nil }
+        let id = (item["id"] as? String) ?? UUID().uuidString
+
+        let startBlock = item["start"] as? [String: Any]
+        let endBlock = item["end"] as? [String: Any]
+
+        let startDateTime = startBlock?["dateTime"] as? String
+        let startDateOnly = startBlock?["date"] as? String
+        let endDateTime = endBlock?["dateTime"] as? String
+        let endDateOnly = endBlock?["date"] as? String
+
+        let isAllDay = startDateTime == nil && startDateOnly != nil
+        let startStr = startDateTime ?? startDateOnly ?? ""
+
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let isoFormatterNoFrac = ISO8601DateFormatter()
+        isoFormatterNoFrac.formatOptions = [.withInternetDateTime]
+
+        func parseDateTime(_ s: String?) -> Date? {
+            guard let s, !s.isEmpty else { return nil }
+            return isoFormatter.date(from: s) ?? isoFormatterNoFrac.date(from: s)
+        }
+        func parseDateOnly(_ s: String?) -> Date? {
+            guard let s, !s.isEmpty else { return nil }
+            let f = DateFormatter()
+            f.dateFormat = "yyyy-MM-dd"
+            f.timeZone = TimeZone.current
+            return f.date(from: s)
         }
 
-        // Find the event that's happening now or about to start
-        for item in items {
-            guard let summary = item["summary"] as? String else { continue }
+        let startDate = parseDateTime(startDateTime) ?? parseDateOnly(startDateOnly)
+        let endDate = parseDateTime(endDateTime) ?? parseDateOnly(endDateOnly)
 
-            // Parse start time
-            let start = item["start"] as? [String: Any]
-            let startStr = (start?["dateTime"] as? String) ?? (start?["date"] as? String) ?? ""
-
-            // Parse attendees
-            var attendees: [String] = []
-            if let attendeeList = item["attendees"] as? [[String: Any]] {
-                for attendee in attendeeList {
-                    if let name = attendee["displayName"] as? String {
-                        attendees.append(name)
-                    } else if let email = attendee["email"] as? String {
-                        // Use email prefix as fallback name
-                        attendees.append(email.components(separatedBy: "@").first ?? email)
-                    }
+        var attendees: [MeetingAttendee] = []
+        var attendeeCount = 0
+        var selfDeclined = false
+        if let attendeeList = item["attendees"] as? [[String: Any]] {
+            attendeeCount = attendeeList.count
+            for attendee in attendeeList {
+                let isSelf = (attendee["self"] as? Bool) ?? false
+                let responseStatus = attendee["responseStatus"] as? String
+                let declined = (responseStatus == "declined")
+                if isSelf && declined {
+                    selfDeclined = true
+                }
+                let name: String?
+                if let displayName = attendee["displayName"] as? String {
+                    name = displayName
+                } else if let email = attendee["email"] as? String {
+                    name = email.components(separatedBy: "@").first ?? email
+                } else {
+                    name = nil
+                }
+                if let name {
+                    attendees.append(MeetingAttendee(name: name, declined: declined))
                 }
             }
-
-            // Parse organizer
-            let organizer = (item["organizer"] as? [String: Any])?["displayName"] as? String
-
-            return CalendarEvent(
-                title: summary,
-                startTime: startStr,
-                attendees: attendees,
-                organizer: organizer,
-                meetLink: (item["hangoutLink"] as? String) ?? (item["htmlLink"] as? String)
-            )
         }
 
+        if selfDeclined { return nil }
+
+        let organizer = (item["organizer"] as? [String: Any])?["displayName"] as? String
+        let meetLink = Self.extractMeetingLink(from: item)
+
+        return CalendarEvent(
+            id: id,
+            title: summary,
+            startTime: startStr,
+            startDate: startDate,
+            endDate: endDate,
+            isAllDay: isAllDay,
+            attendees: attendees,
+            attendeeCount: attendeeCount,
+            organizer: organizer,
+            meetLink: meetLink
+        )
+    }
+
+    /// Extract a join URL from a Google Calendar event JSON, in priority order:
+    /// 1. hangoutLink (Google Meet)
+    /// 2. conferenceData.entryPoints[] first entry where entryPointType == "video"
+    /// 3. URL in `location` matching a known conferencing host
+    /// 4. URL in `description` matching a known conferencing host
+    /// htmlLink is intentionally NOT used — it's the calendar event page, not a join URL.
+    private static func extractMeetingLink(from item: [String: Any]) -> String? {
+        if let link = item["hangoutLink"] as? String, !link.isEmpty {
+            return link
+        }
+        if let conf = item["conferenceData"] as? [String: Any],
+           let entryPoints = conf["entryPoints"] as? [[String: Any]] {
+            for entry in entryPoints {
+                if (entry["entryPointType"] as? String) == "video",
+                   let uri = entry["uri"] as? String, !uri.isEmpty {
+                    return uri
+                }
+            }
+        }
+        if let location = item["location"] as? String,
+           let url = firstConferencingURL(in: location) {
+            return url
+        }
+        if let description = item["description"] as? String,
+           let url = firstConferencingURL(in: description) {
+            return url
+        }
+        return nil
+    }
+
+    /// Find the first URL in a string whose host matches a known conferencing provider.
+    private static func firstConferencingURL(in text: String) -> String? {
+        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else {
+            return nil
+        }
+        let range = NSRange(text.startIndex..., in: text)
+        let knownHosts = ["zoom.us", "meet.google.com", "teams.microsoft.com", "teams.live.com", "webex.com", "whereby.com"]
+        for match in detector.matches(in: text, range: range) {
+            guard let url = match.url, let host = url.host?.lowercased() else { continue }
+            if knownHosts.contains(where: { host == $0 || host.hasSuffix("." + $0) }) {
+                return url.absoluteString
+            }
+        }
         return nil
     }
 
@@ -368,10 +648,15 @@ private class LoopbackOAuthServer {
 }
 
 /// A calendar event with meeting metadata.
-struct CalendarEvent {
+struct CalendarEvent: Identifiable, Codable {
+    let id: String
     let title: String
     let startTime: String
-    let attendees: [String]
+    let startDate: Date?
+    let endDate: Date?
+    let isAllDay: Bool
+    let attendees: [MeetingAttendee]
+    let attendeeCount: Int
     let organizer: String?
     let meetLink: String?
 }
