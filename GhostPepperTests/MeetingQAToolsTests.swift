@@ -118,4 +118,48 @@ final class MeetingQAToolsTests: XCTestCase {
             XCTFail("Unexpected error: \(error)")
         }
     }
+
+    // MARK: - list_dir
+
+    func testListDirReturnsSortedEntriesWithDirSuffix() async throws {
+        let tools = MeetingQATools(root: rootDir)
+        let result = try await tools.listDir(path: "")
+        let lines = result.split(separator: "\n").map(String.init)
+        XCTAssertTrue(lines.contains("2025-01-29/"), "Expected dir entry: \(lines)")
+        XCTAssertTrue(lines.contains("2026-01-07/"), "Expected dir entry: \(lines)")
+        let i25 = lines.firstIndex(of: "2025-01-29/")!
+        let i26 = lines.firstIndex(of: "2026-01-07/")!
+        XCTAssertLessThan(i25, i26)
+    }
+
+    func testListDirInsideDateFolder() async throws {
+        let tools = MeetingQATools(root: rootDir)
+        let result = try await tools.listDir(path: "2025-01-29")
+        XCTAssertTrue(result.contains("dana-matt.md"))
+        XCTAssertFalse(result.contains("dana-matt.md/"), "File should not have / suffix: \(result)")
+    }
+
+    func testListDirRejectsPathOutsideRoot() async {
+        let tools = MeetingQATools(root: rootDir)
+        do {
+            _ = try await tools.listDir(path: "../outside")
+            XCTFail("Expected pathOutsideRoot error")
+        } catch is PathSandboxError {
+            // expected
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testListDirOnMissingDirThrows() async {
+        let tools = MeetingQATools(root: rootDir)
+        do {
+            _ = try await tools.listDir(path: "nope")
+            XCTFail("Expected notADirectory error")
+        } catch let error as MeetingQAToolError {
+            guard case .notADirectory = error else { XCTFail("Wrong error: \(error)"); return }
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
 }

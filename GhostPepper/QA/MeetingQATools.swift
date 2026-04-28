@@ -111,6 +111,23 @@ struct MeetingQATools {
         return numbered + footer
     }
 
+    // MARK: - list_dir
+
+    func listDir(path: String) async throws -> String {
+        let resolved = try PathSandbox.resolveSafe(path, root: root)
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: resolved.path, isDirectory: &isDir), isDir.boolValue else {
+            throw MeetingQAToolError.notADirectory(path.isEmpty ? "." : path)
+        }
+        let entries = try FileManager.default.contentsOfDirectory(at: resolved, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles])
+        let formatted: [String] = try entries.map { url in
+            let values = try url.resourceValues(forKeys: [.isDirectoryKey])
+            let name = url.lastPathComponent
+            return (values.isDirectory ?? false) ? "\(name)/" : name
+        }
+        return formatted.sorted().joined(separator: "\n")
+    }
+
     // MARK: - Process plumbing
 
     private struct ProcessResult {
