@@ -182,19 +182,52 @@ enum MeetingSurface: Equatable {
     case indexTab(UUID)
 }
 
-/// One open dossier shown as a tab in the file tab bar.
+/// What's currently displayed in a navigable tab. The same tab can hold
+/// either a dossier or a meeting and flip between them via in-app links.
+enum NavTabContent {
+    case indexEntry(kind: IndexKind, slug: String, entry: IndexEntry)
+    case meeting(OpenMeetingTab)
+
+    @MainActor
+    var title: String {
+        switch self {
+        case .indexEntry(_, _, let entry): return entry.canonicalName
+        case .meeting(let tab): return tab.transcript.meetingName
+        }
+    }
+
+    var iconSystemName: String {
+        switch self {
+        case .indexEntry(let kind, _, _): return kind.iconSystemName
+        case .meeting: return "doc.text"
+        }
+    }
+}
+
+/// One open document shown as a tab in the file tab bar. Holds a nav stack
+/// so links inside the document navigate-in-place; right-click "Open in
+/// new tab" creates a sibling instead.
 @MainActor
 final class OpenIndexTab: ObservableObject, Identifiable {
     let id = UUID()
-    let kind: IndexKind
-    let slug: String
-    @Published var entry: IndexEntry
+    @Published var content: NavTabContent
+    @Published var history: [NavTabContent] = []
 
-    init(kind: IndexKind, slug: String, entry: IndexEntry) {
-        self.kind = kind
-        self.slug = slug
-        self.entry = entry
+    init(content: NavTabContent) {
+        self.content = content
     }
+
+    func navigate(to newContent: NavTabContent) {
+        history.append(content)
+        content = newContent
+    }
+
+    func goBack() {
+        guard let prev = history.popLast() else { return }
+        content = prev
+    }
+
+    var canGoBack: Bool { !history.isEmpty }
 }
 
 /// One entry shown in the sidebar's Indexes section.
@@ -290,19 +323,54 @@ final class MeetingWindowState: ObservableObject {
     }
 
     func openIndexEntry(kind: IndexKind, slug: String) {
-        if let existing = indexTabs.first(where: { $0.kind == kind && $0.slug == slug }) {
+        // Already open as the *current* content of some tab? Switch to it.
+        if let existing = indexTabs.first(where: { tab in
+            if case let .indexEntry(k, s, _) = tab.content { return k == kind && s == slug }
+            return false
+        }) {
             selectedSurface = .indexTab(existing.id)
             return
         }
+        guard let content = loadIndexEntryContent(kind: kind, slug: slug) else { return }
+        let tab = OpenIndexTab(content: content)
+        indexTabs.append(tab)
+        selectedSurface = .indexTab(tab.id)
+    }
+
+    /// Loads an index-entry payload from disk, returning nil if the file is
+    /// missing or malformed.
+    func loadIndexEntryContent(kind: IndexKind, slug: String) -> NavTabContent? {
         let url = MarkdownArchivePaths.entryURL(in: saveDirectory, kind: kind, slug: slug)
         do {
             let entry = try IndexEntryFile.read(from: url)
-            let tab = OpenIndexTab(kind: kind, slug: slug, entry: entry)
-            indexTabs.append(tab)
-            selectedSurface = .indexTab(tab.id)
+            return .indexEntry(kind: kind, slug: slug, entry: entry)
         } catch {
             print("MeetingWindowState: failed to load index entry \(slug): \(error)")
+            return nil
         }
+    }
+
+    /// Loads a meeting payload (read-only) from disk, returning nil if missing.
+    func loadMeetingContent(relativePath: String) -> NavTabContent? {
+        let url = saveDirectory.appendingPathComponent(relativePath)
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        do {
+            let transcript = try MeetingMarkdownWriter.parse(from: url)
+            let synth = OpenMeetingTab(transcript: transcript, fileURL: url)
+            return .meeting(synth)
+        } catch {
+            print("MeetingWindowState: failed to load meeting \(relativePath): \(error)")
+            return nil
+        }
+    }
+
+    /// Opens a meeting (by relative archive path) inside a new browsable tab.
+    /// Used by right-click "Open in new tab" on a source-meeting link.
+    func openMeetingInNewIndexTab(relativePath: String) {
+        guard let content = loadMeetingContent(relativePath: relativePath) else { return }
+        let tab = OpenIndexTab(content: content)
+        indexTabs.append(tab)
+        selectedSurface = .indexTab(tab.id)
     }
 
     func closeIndexTab(_ tabID: UUID) {
@@ -537,13 +605,7 @@ struct MeetingRootView: View {
                     }
                 case .indexTab(let id):
                     if let tab = state.indexTabs.first(where: { $0.id == id }) {
-                        IndexEntryView(
-                            entry: tab.entry,
-                            saveDir: state.saveDirectory,
-                            onOpenEntry: { kind, slug in state.openIndexEntry(kind: kind, slug: slug) },
-                            onOpenMeeting: { path in state.openMeetingByRelativePath(path) },
-                            onRefresh: { /* TODO: per-entry refresh in v2 */ }
-                        )
+                        NavTabContentView(tab: tab, state: state)
                     } else {
                         Text("Tab not found")
                     }
@@ -1515,10 +1577,10 @@ private struct IndexTabView: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: tab.kind.iconSystemName)
+            Image(systemName: tab.content.iconSystemName)
                 .font(.system(size: 10))
                 .foregroundColor(isActive ? .orange : .secondary)
-            Text(tab.entry.canonicalName)
+            Text(tab.content.title)
                 .font(.system(size: 12))
                 .foregroundColor(isActive ? .primary : .secondary)
                 .lineLimit(1)
@@ -1541,6 +1603,64 @@ private struct IndexTabView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture { onSelect() }
+    }
+}
+
+/// Wraps a navigable tab. Renders the back button (when there's history) and
+/// dispatches to either IndexEntryView or MeetingTabContentView depending on
+/// what the tab currently holds. Cmd+[ goes back.
+struct NavTabContentView: View {
+    @ObservedObject var tab: OpenIndexTab
+    @ObservedObject var state: MeetingWindowState
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 6) {
+                Button(action: { tab.goBack() }) {
+                    Label("Back", systemImage: "chevron.left")
+                        .font(.system(size: 11))
+                        .labelStyle(.iconOnly)
+                }
+                .buttonStyle(.borderless)
+                .keyboardShortcut("[", modifiers: .command)
+                .disabled(!tab.canGoBack)
+                .opacity(tab.canGoBack ? 1 : 0.3)
+                .help("Back" + (tab.canGoBack ? "" : " (no history)"))
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 4)
+            .background(Color(nsColor: .controlBackgroundColor).opacity(0.4))
+
+            Divider()
+
+            switch tab.content {
+            case .indexEntry(_, _, let entry):
+                IndexEntryView(
+                    entry: entry,
+                    saveDir: state.saveDirectory,
+                    onOpenEntry: { kind, slug in
+                        if let content = state.loadIndexEntryContent(kind: kind, slug: slug) {
+                            tab.navigate(to: content)
+                        }
+                    },
+                    onOpenMeeting: { path in
+                        if let content = state.loadMeetingContent(relativePath: path) {
+                            tab.navigate(to: content)
+                        }
+                    },
+                    onOpenEntryInNewTab: { kind, slug in
+                        state.openIndexEntry(kind: kind, slug: slug)
+                    },
+                    onOpenMeetingInNewTab: { path in
+                        state.openMeetingInNewIndexTab(relativePath: path)
+                    },
+                    onRefresh: { /* TODO: per-entry refresh */ }
+                )
+            case .meeting(let meetingTab):
+                MeetingTabContentView(tab: meetingTab, state: state)
+            }
+        }
     }
 }
 
@@ -2242,7 +2362,12 @@ struct MeetingSidebarView: View {
     }
 
     private func indexEntryRow(item: IndexHistoryItem) -> some View {
-        let isOpen: Bool = state.indexTabs.contains { $0.kind == item.kind && $0.slug == item.slug }
+        let isOpen: Bool = state.indexTabs.contains { tab in
+            if case let .indexEntry(k, s, _) = tab.content {
+                return k == item.kind && s == item.slug
+            }
+            return false
+        }
         return Button(action: { state.openIndexEntry(kind: item.kind, slug: item.slug) }) {
             HStack(spacing: 6) {
                 Image(systemName: "person.crop.circle")

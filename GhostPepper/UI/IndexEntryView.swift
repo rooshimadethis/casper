@@ -1,14 +1,17 @@
 import SwiftUI
 import AppKit
 
-/// Renders a single dossier entry in a tab. v1 displays the dossier body as
-/// Swift-rendered markdown; `[[wikilink]]` cross-references are detected and
-/// surfaced as tappable links that open the linked entry.
+/// Renders a single dossier entry. `[[wikilink]]` cross-references and
+/// source-meeting links are rendered as tappable buttons. Default click
+/// navigates the *current tab* to the link target (browser-style); right-click
+/// surfaces "Open in new tab".
 struct IndexEntryView: View {
     let entry: IndexEntry
     let saveDir: URL
     var onOpenEntry: (_ kind: IndexKind, _ slug: String) -> Void = { _, _ in }
     var onOpenMeeting: (_ relativePath: String) -> Void = { _ in }
+    var onOpenEntryInNewTab: (_ kind: IndexKind, _ slug: String) -> Void = { _, _ in }
+    var onOpenMeetingInNewTab: (_ relativePath: String) -> Void = { _ in }
     var onRefresh: () -> Void = {}
 
     var body: some View {
@@ -91,16 +94,19 @@ struct IndexEntryView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 case .wikilink(let name):
-                    Button(action: {
-                        let slug = MarkdownArchivePaths.slugForIndexEntry(name)
-                        onOpenEntry(entry.kind, slug)
-                    }) {
+                    let slug = MarkdownArchivePaths.slugForIndexEntry(name)
+                    Button(action: { onOpenEntry(entry.kind, slug) }) {
                         Text(name)
                             .font(.system(size: 14, weight: .medium))
                             .foregroundColor(.orange)
                             .underline()
                     }
                     .buttonStyle(.plain)
+                    .contextMenu {
+                        Button("Open in new tab") {
+                            onOpenEntryInNewTab(entry.kind, slug)
+                        }
+                    }
                 }
             }
         }
@@ -123,6 +129,11 @@ struct IndexEntryView: View {
                     .foregroundColor(.orange)
                 }
                 .buttonStyle(.plain)
+                .contextMenu {
+                    Button("Open in new tab") {
+                        onOpenMeetingInNewTab(path)
+                    }
+                }
             }
         }
     }
