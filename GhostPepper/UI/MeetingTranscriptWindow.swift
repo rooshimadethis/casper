@@ -615,6 +615,7 @@ struct MeetingRootView: View {
     @State private var currentQATask: Task<Void, Never>? = nil
     @State private var isApplyingDossier: Bool = false
     @AppStorage("claudeAPIModel") private var qaModelStorage: String = ClaudeAPIModel.sonnet.rawValue
+    @State private var showCommandKSearch: Bool = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -668,6 +669,15 @@ struct MeetingRootView: View {
                 }
             }
             .background(Color(nsColor: .textBackgroundColor))
+
+            if state.showModelsSidebar {
+                Rectangle()
+                    .fill(Color(nsColor: .separatorColor))
+                    .frame(width: 1)
+                ModelsSidebarView()
+                    .frame(width: 240)
+                    .transition(.move(edge: .trailing))
+            }
         }
 
         // App-level Q&A bar
@@ -690,6 +700,15 @@ struct MeetingRootView: View {
         }
         .sheet(isPresented: $state.showConsentDialog) {
             ConsentDialogView(state: state)
+        }
+        .background(
+            Button(action: { showCommandKSearch = true }) { EmptyView() }
+                .keyboardShortcut("k", modifiers: .command)
+                .opacity(0)
+                .allowsHitTesting(false)
+        )
+        .sheet(isPresented: $showCommandKSearch) {
+            CommandKSearchSheet(state: state, isPresented: $showCommandKSearch)
         }
         .sheet(isPresented: $state.showBuildIndexSheet) {
             // Check at sheet-present time that an API key exists; the actual
@@ -1243,6 +1262,18 @@ struct MeetingRootView: View {
                     .fixedSize()
                 }
             }
+
+            Spacer(minLength: 0)
+
+            Button(action: { state.showModelsSidebar.toggle() }) {
+                Image(systemName: "sidebar.right")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(state.showModelsSidebar ? .orange : .secondary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+            }
+            .buttonStyle(.plain)
+            .help(state.showModelsSidebar ? "Hide models" : "Show models")
         }
         .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
         .frame(maxWidth: .infinity, alignment: .leading)
