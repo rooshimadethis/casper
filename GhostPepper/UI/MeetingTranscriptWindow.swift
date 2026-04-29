@@ -1972,6 +1972,7 @@ enum MeetingContentTab: String, CaseIterable {
 struct MeetingSidebarView: View {
     @ObservedObject var state: MeetingWindowState
     @State private var searchText = ""
+    @State private var expandedIndexKinds: Set<IndexKind> = []
 
     private var filteredGroups: [(date: String, entries: [MeetingHistoryEntry])] {
         guard !searchText.isEmpty else { return state.historyGroups }
@@ -2111,42 +2112,75 @@ struct MeetingSidebarView: View {
                     $0.canonicalName.lowercased().contains(searchText.lowercased())
                 }
                 if !filtered.isEmpty {
-                    HStack(spacing: 4) {
-                        Image(systemName: kind.iconSystemName)
-                            .font(.system(size: 9))
-                        Text(kind.displayName)
-                            .font(.system(size: 10, weight: .semibold))
-                            .textCase(.uppercase)
-                    }
-                    .foregroundStyle(.tertiary)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 10).padding(.bottom, 2)
+                    indexFolderHeader(kind: kind, count: filtered.count, autoExpanded: !searchText.isEmpty)
 
-                    ForEach(filtered) { item in
-                        let isOpen: Bool = {
-                            if case let .indexEntry(k, slug) = state.selectedSurface { return k == item.kind && slug == item.slug }
-                            return false
-                        }()
-                        Button(action: { state.openIndexEntry(kind: item.kind, slug: item.slug) }) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "person.crop.circle")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(isOpen ? .orange : .secondary)
-                                Text(item.canonicalName)
-                                    .font(.system(size: 12))
-                                    .foregroundColor(isOpen ? .orange : .primary)
-                                    .lineLimit(1)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 5)
-                            .contentShape(Rectangle())
+                    if expandedIndexKinds.contains(kind) || !searchText.isEmpty {
+                        ForEach(filtered) { item in
+                            indexEntryRow(item: item)
                         }
-                        .buttonStyle(.plain)
                     }
                 }
             }
         }
+    }
+
+    private func indexFolderHeader(kind: IndexKind, count: Int, autoExpanded: Bool) -> some View {
+        let isExpanded = autoExpanded || expandedIndexKinds.contains(kind)
+        return Button(action: {
+            // Don't allow collapse while a search is active — that would hide matches.
+            guard !autoExpanded else { return }
+            if expandedIndexKinds.contains(kind) {
+                expandedIndexKinds.remove(kind)
+            } else {
+                expandedIndexKinds.insert(kind)
+            }
+        }) {
+            HStack(spacing: 4) {
+                Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                    .font(.system(size: 9, weight: .semibold))
+                    .frame(width: 10)
+                Image(systemName: kind.iconSystemName)
+                    .font(.system(size: 10))
+                Text(kind.displayName)
+                    .font(.system(size: 12, weight: .medium))
+                Text("(\(count))")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 5)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 4)
+    }
+
+    private func indexEntryRow(item: IndexHistoryItem) -> some View {
+        let isOpen: Bool = {
+            if case let .indexEntry(k, slug) = state.selectedSurface {
+                return k == item.kind && slug == item.slug
+            }
+            return false
+        }()
+        return Button(action: { state.openIndexEntry(kind: item.kind, slug: item.slug) }) {
+            HStack(spacing: 6) {
+                Image(systemName: "person.crop.circle")
+                    .font(.system(size: 10))
+                    .foregroundColor(isOpen ? .orange : .secondary)
+                Text(item.canonicalName)
+                    .font(.system(size: 12))
+                    .foregroundColor(isOpen ? .orange : .primary)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.leading, 32)
+            .padding(.trailing, 16)
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 
