@@ -1029,7 +1029,7 @@ class AppState: ObservableObject {
         controller.onGenerateSummary = { [weak self] transcript in
             Task { await self?.generateMeetingSummary(for: transcript) }
         }
-        controller.onAskQuestion = { [weak self] question in
+        controller.onAskQuestion = { [weak self] question, history in
             AsyncThrowingStream { continuation in
                 guard let self else {
                     continuation.finish()
@@ -1045,9 +1045,17 @@ class AppState: ObservableObject {
                 let provider = AnthropicProvider(model: model, apiKey: key)
                 let archiveRoot = MeetingTranscriptSettings.effectiveSaveDirectory()
                 let agent = MeetingQAAgent(provider: provider, model: model, archiveRoot: archiveRoot, maxIterations: 15)
+                // Build the conversation: every prior (Q, A) becomes alternating
+                // user/assistant messages, then the new question is appended.
+                var messages: [LLMMessage] = []
+                for turn in history {
+                    messages.append(LLMMessage(role: .user, content: [.text(turn.question)]))
+                    messages.append(LLMMessage(role: .assistant, content: [.text(turn.answer)]))
+                }
+                messages.append(LLMMessage(role: .user, content: [.text(question)]))
                 let task = Task {
                     do {
-                        for try await event in agent.ask(question) {
+                        for try await event in agent.ask(messages: messages) {
                             continuation.yield(event)
                         }
                         continuation.finish()

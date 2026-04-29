@@ -77,17 +77,24 @@ final class MeetingQAAgent {
     }
 
     func ask(_ question: String) -> AsyncThrowingStream<QAEvent, Error> {
+        ask(messages: [LLMMessage(role: .user, content: [.text(question)])])
+    }
+
+    /// Multi-turn entry point. Pass an alternating user/assistant message
+    /// list ending with the new user question; the agent runs its tool-use
+    /// loop on top of that history.
+    func ask(messages initialMessages: [LLMMessage]) -> AsyncThrowingStream<QAEvent, Error> {
         AsyncThrowingStream { continuation in
             let task = Task { [weak self] in
                 guard let self else { continuation.finish(); return }
-                await self.runLoop(question: question, continuation: continuation)
+                await self.runLoop(initialMessages: initialMessages, continuation: continuation)
             }
             continuation.onTermination = { _ in task.cancel() }
         }
     }
 
-    private func runLoop(question: String, continuation: AsyncThrowingStream<QAEvent, Error>.Continuation) async {
-        var messages: [LLMMessage] = [LLMMessage(role: .user, content: [.text(question)])]
+    private func runLoop(initialMessages: [LLMMessage], continuation: AsyncThrowingStream<QAEvent, Error>.Continuation) async {
+        var messages: [LLMMessage] = initialMessages
         var cumulativeUsage = ProviderUsage.zero
 
         for _ in 0..<maxIterations {

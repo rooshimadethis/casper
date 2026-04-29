@@ -3,6 +3,24 @@ import Combine
 import SwiftUI
 import os.log
 
+/// A single turn in the bottom-bar Q&A thread. Created when the user hits
+/// send; the answer streams in over the lifetime of the agent run.
+struct QATurn: Identifiable, Equatable {
+    let id = UUID()
+    let question: String
+    var answer: String = ""
+    var usage: QAUsage? = nil
+    var isStreaming: Bool = true
+}
+
+/// What we hand back to AppState's onAskQuestion so the agent can use it as
+/// conversation history. Kept UI-friendly (plain strings) — the backend
+/// converts to LLMMessage.
+struct QAHistoryTurn: Equatable {
+    let question: String
+    let answer: String
+}
+
 enum MeetingTranscriptWindowPresentation {
     static func windowLevel(
         shouldFloatWhileRecording: Bool,
@@ -21,7 +39,7 @@ final class MeetingTranscriptWindowController: NSObject, NSWindowDelegate {
     var onStartRecording: ((_ name: String, _ detectedMeeting: DetectedMeeting?) -> MeetingSession?)?
     var onStopRecording: ((MeetingSession) -> Void)?
     var onGenerateSummary: ((MeetingTranscript) -> Void)?
-    var onAskQuestion: ((_ question: String) -> AsyncThrowingStream<QAEvent, Error>)?
+    var onAskQuestion: ((_ question: String, _ history: [QAHistoryTurn]) -> AsyncThrowingStream<QAEvent, Error>)?
     var onMakeIndexBuilder: ((IndexKind) -> IndexBuilder?)?
     var shouldFloatWhileRecording: () -> Bool = { false }
     var pushToTalkDisplayProvider: () -> String = { "" }
@@ -244,7 +262,7 @@ struct IndexHistoryItem: Identifiable, Hashable {
 
 @MainActor
 final class MeetingWindowState: ObservableObject {
-    var onAskQuestion: ((_ question: String) -> AsyncThrowingStream<QAEvent, Error>)?
+    var onAskQuestion: ((_ question: String, _ history: [QAHistoryTurn]) -> AsyncThrowingStream<QAEvent, Error>)?
     @Published var pushToTalkDisplay: String = ""
     @Published var tabs: [OpenMeetingTab] = []
     @Published var selectedSurface: MeetingSurface = .home
@@ -267,6 +285,9 @@ final class MeetingWindowState: ObservableObject {
     @Published var indexTabs: [OpenIndexTab] = []
     @Published var showBuildIndexSheet: Bool = false
     @Published var pendingBuildIndexKind: IndexKind = .people
+
+    /// Right-side Models panel toggle.
+    @Published var showModelsSidebar: Bool = false
 
     /// Set by deep views (e.g. per-entry "↻" button) to ask MeetingRootView
     /// to drop a prompt into the bottom Q&A bar and fire it. The root view
@@ -586,14 +607,14 @@ struct MeetingRootView: View {
     @ObservedObject var state: MeetingWindowState
     @State private var sidebarWidth: CGFloat = 220
     @State private var qaQuestion = ""
-    @State private var qaAnswer = ""
+    @State private var qaThread: [QATurn] = []
     @State private var qaIsLoading = false
-    @State private var qaUsage: QAUsage?
     @State private var qaStatusLine: String = ""
     @State private var qaTraceExpanded: Bool = false
     @StateObject private var qaTranscript: QATranscript = QATranscript()
     @State private var currentQATask: Task<Void, Never>? = nil
     @State private var isApplyingDossier: Bool = false
+    @AppStorage("claudeAPIModel") private var qaModelStorage: String = ClaudeAPIModel.sonnet.rawValue
 
     var body: some View {
         VStack(spacing: 0) {
@@ -718,7 +739,7 @@ struct MeetingRootView: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer()
-                    if let usage = qaUsage {
+                    if let usage = qaThread.last?.usage {
                         Text(runningCostText(usage))
                             .font(.system(size: 11, design: .monospaced))
                             .foregroundStyle(.secondary)
@@ -764,31 +785,34 @@ struct MeetingRootView: View {
                 .padding(.bottom, 6)
             }
 
-            // Streaming answer
-            if !qaAnswer.isEmpty {
+            // Conversation thread
+            if !qaThread.isEmpty {
                 Divider()
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(qaAnswer)
-                            .font(.system(size: 13))
-                            .textSelection(.enabled)
-                        if let usage = qaUsage {
-                            Text(usageFooterText(usage))
-                                .font(.system(size: 10))
-                                .foregroundStyle(.secondary)
-                                .padding(.top, 2)
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 14) {
+                            ForEach(qaThread) { turn in
+                                qaTurnView(turn)
+                                    .id(turn.id)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                    }
+                    .frame(maxHeight: 320)
+                    .background(Color(nsColor: .controlBackgroundColor).opacity(0.3))
+                    .onChange(of: qaThread.last?.answer) { _, _ in
+                        if let last = qaThread.last {
+                            proxy.scrollTo(last.id, anchor: .bottom)
                         }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
                 }
-                .frame(maxHeight: 240)
-                .background(Color(nsColor: .controlBackgroundColor).opacity(0.3))
             }
 
             // Apply-to-dossier action when the run came from a per-entry refresh.
-            if let pending = state.pendingDossierApply, !qaAnswer.isEmpty, !qaIsLoading {
+            let latestAnswer = qaThread.last?.answer ?? ""
+            if let pending = state.pendingDossierApply, !latestAnswer.isEmpty, !qaIsLoading {
                 Divider()
                 HStack(spacing: 10) {
                     Button(action: { applyDossier(pending: pending) }) {
@@ -824,52 +848,91 @@ struct MeetingRootView: View {
                 .background(Color.orange.opacity(0.08))
             }
 
-            // Input row (mostly unchanged)
+            // Input row
             Divider()
             HStack(spacing: 8) {
                 Image(systemName: "cpu")
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
+                Picker("", selection: $qaModelStorage) {
+                    ForEach(ClaudeAPIModel.allCases) { model in
+                        Text(model.shortDisplayName).tag(model.rawValue)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(maxWidth: 130)
+                .help("Model used for this conversation")
+
                 TextField(qaPlaceholder, text: $qaQuestion)
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
-                    .onSubmit {
-                        state.pendingDossierApply = nil
-                        askAcrossMeetings()
-                    }
+                    .onSubmit { askAcrossMeetings() }
                     .disabled(qaIsLoading)
+
                 if qaIsLoading {
                     ProgressView().scaleEffect(0.6)
                 } else if !qaQuestion.isEmpty {
-                    Button(action: {
-                        state.pendingDossierApply = nil
-                        askAcrossMeetings()
-                    }) {
+                    Button(action: { askAcrossMeetings() }) {
                         Image(systemName: "arrow.up.circle.fill")
                             .font(.system(size: 16))
                             .foregroundColor(.orange)
                     }
                     .buttonStyle(.plain)
                 }
-                if !qaAnswer.isEmpty || !qaTranscript.events.isEmpty {
-                    Button(action: {
-                        qaAnswer = ""
-                        qaQuestion = ""
-                        qaUsage = nil
-                        qaStatusLine = ""
-                        qaTranscript.clear()
-                        qaTraceExpanded = false
-                        state.pendingDossierApply = nil
-                    }) {
-                        Image(systemName: "xmark.circle")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
+
+                if !qaThread.isEmpty {
+                    Button(action: { startNewQAConversation() }) {
+                        HStack(spacing: 3) {
+                            Image(systemName: "plus.message")
+                                .font(.system(size: 11))
+                            Text("New")
+                                .font(.system(size: 11, weight: .medium))
+                        }
+                        .foregroundColor(.secondary)
                     }
                     .buttonStyle(.plain)
+                    .help("Start a new conversation (clears the thread)")
                 }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
+        }
+    }
+
+    /// Renders one Q→A pair in the thread. The question is a short prompt-
+    /// looking line; the answer renders below at full text size with the
+    /// usage footer.
+    @ViewBuilder
+    private func qaTurnView(_ turn: QATurn) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: 6) {
+                Text("›")
+                    .font(.system(.callout, design: .monospaced))
+                    .foregroundStyle(.tertiary)
+                Text(turn.question)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
+            if turn.isStreaming && turn.answer.isEmpty {
+                HStack(spacing: 6) {
+                    ProgressView().scaleEffect(0.5)
+                    Text(qaStatusLine.isEmpty ? "Thinking…" : qaStatusLine)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+            } else if !turn.answer.isEmpty {
+                Text(turn.answer)
+                    .font(.system(size: 13))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if let usage = turn.usage {
+                    Text(usageFooterText(usage))
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
     }
 
@@ -948,10 +1011,12 @@ struct MeetingRootView: View {
     private func applyDossier(pending: MeetingWindowState.PendingDossierApply) {
         let saveDir = state.saveDirectory
         let url = MarkdownArchivePaths.entryURL(in: saveDir, kind: pending.kind, slug: pending.slug)
-        let summary = qaAnswer.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Apply uses the latest answer in the thread — typically the most
+        // recent follow-up, which the user just decided was good enough.
+        let summary = (qaThread.last?.answer ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !summary.isEmpty, !isApplyingDossier else { return }
         guard let builder = state.onMakeIndexBuilder?(pending.kind) else {
-            qaAnswer += "\n\n[apply failed: Claude API key not configured]"
+            appendErrorToActiveTurn("apply failed: Claude API key not configured")
             return
         }
 
@@ -966,7 +1031,7 @@ struct MeetingRootView: View {
                     newContent: summary
                 )
                 guard !result.body.isEmpty else {
-                    qaAnswer += "\n\n[apply failed: merge produced empty body]"
+                    appendErrorToActiveTurn("apply failed: merge produced empty body")
                     return
                 }
                 var entry = try IndexEntryFile.read(from: url)
@@ -995,8 +1060,17 @@ struct MeetingRootView: View {
                 state.pendingDossierApply = nil
                 NotificationCenter.default.post(name: .indexUpdated, object: pending.kind)
             } catch {
-                qaAnswer += "\n\n[apply failed: \(error.localizedDescription)]"
+                appendErrorToActiveTurn("apply failed: \(error.localizedDescription)")
             }
+        }
+    }
+
+    /// Append a `[bracketed error]` line to the latest turn's answer so it
+    /// shows inline rather than dropping silently.
+    private func appendErrorToActiveTurn(_ message: String) {
+        guard let lastID = qaThread.last?.id else { return }
+        mutateActiveTurn(id: lastID) { turn in
+            turn.answer = turn.answer.isEmpty ? "[\(message)]" : turn.answer + "\n\n[\(message)]"
         }
     }
 
@@ -1004,14 +1078,25 @@ struct MeetingRootView: View {
         let question = qaQuestion.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !question.isEmpty, !qaIsLoading else { return }
         qaIsLoading = true
-        qaAnswer = ""
-        qaUsage = nil
         qaStatusLine = ""
         qaTranscript.clear()
         qaTraceExpanded = false
 
-        guard let stream = state.onAskQuestion?(question) else {
-            qaAnswer = "Could not answer — open Settings → Meeting Transcript → Cross-Meeting Q&A to configure."
+        // Conversation history = every prior completed turn in this thread.
+        let history: [QAHistoryTurn] = qaThread.compactMap { turn in
+            turn.isStreaming ? nil : QAHistoryTurn(question: turn.question, answer: turn.answer)
+        }
+
+        // Append a new turn that the stream will fill into.
+        qaThread.append(QATurn(question: question))
+        qaQuestion = ""
+        let activeTurnID = qaThread.last!.id
+
+        guard let stream = state.onAskQuestion?(question, history) else {
+            mutateActiveTurn(id: activeTurnID) {
+                $0.answer = "Could not answer — open Settings → Meeting Transcript → Cross-Meeting Q&A to configure."
+                $0.isStreaming = false
+            }
             qaIsLoading = false
             return
         }
@@ -1031,27 +1116,53 @@ struct MeetingRootView: View {
                         qaTranscript.append(event)
                     case .text(let delta):
                         qaStatusLine = "Thinking..."
-                        qaAnswer += delta
+                        mutateActiveTurn(id: activeTurnID) { $0.answer += delta }
                         qaTranscript.append(event)
                     case .usage(let u):
-                        qaUsage = u
+                        mutateActiveTurn(id: activeTurnID) { $0.usage = u }
                         qaTranscript.append(event)
                     case .error(let msg):
-                        qaAnswer = qaAnswer.isEmpty ? "Error: \(msg)" : qaAnswer + "\n\n[error: \(msg)]"
+                        mutateActiveTurn(id: activeTurnID) { turn in
+                            turn.answer = turn.answer.isEmpty ? "Error: \(msg)" : turn.answer + "\n\n[error: \(msg)]"
+                        }
                         qaTranscript.append(event)
                     }
                 }
-                qaAnswer = qaAnswer.trimmingCharacters(in: .whitespacesAndNewlines)
-                if qaAnswer.isEmpty && qaTranscript.events.isEmpty == false {
-                    qaAnswer = "No answer returned. Check the trace for what was searched."
+                mutateActiveTurn(id: activeTurnID) { turn in
+                    turn.answer = turn.answer.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if turn.answer.isEmpty && qaTranscript.events.isEmpty == false {
+                        turn.answer = "No answer returned. Check the trace for what was searched."
+                    }
+                    turn.isStreaming = false
                 }
             } catch {
-                qaAnswer = qaAnswer.isEmpty ? "Stream error: \(error.localizedDescription)" : qaAnswer + "\n\n[stream interrupted: \(error.localizedDescription)]"
+                mutateActiveTurn(id: activeTurnID) { turn in
+                    let msg = error.localizedDescription
+                    turn.answer = turn.answer.isEmpty ? "Stream error: \(msg)" : turn.answer + "\n\n[stream interrupted: \(msg)]"
+                    turn.isStreaming = false
+                }
             }
             qaStatusLine = ""
             qaIsLoading = false
             currentQATask = nil
         }
+    }
+
+    /// Mutate the matching turn in qaThread without losing identity tracking.
+    private func mutateActiveTurn(id: UUID, _ mutate: (inout QATurn) -> Void) {
+        guard let idx = qaThread.firstIndex(where: { $0.id == id }) else { return }
+        mutate(&qaThread[idx])
+    }
+
+    private func startNewQAConversation() {
+        currentQATask?.cancel()
+        qaThread.removeAll()
+        qaQuestion = ""
+        qaIsLoading = false
+        qaStatusLine = ""
+        qaTranscript.clear()
+        qaTraceExpanded = false
+        state.pendingDossierApply = nil
     }
 
     // MARK: - File Tab Bar
