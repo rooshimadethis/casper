@@ -273,6 +273,18 @@ final class MeetingWindowState: ObservableObject {
     /// consumes this on `.onChange` and clears it back to nil.
     @Published var pendingQAPrompt: String? = nil
 
+    /// When the Q&A run was triggered by a per-entry refresh, this holds the
+    /// dossier we should offer to write the answer back into. Cleared when
+    /// the user manually submits a different question or hits the Apply
+    /// button.
+    @Published var pendingDossierApply: PendingDossierApply? = nil
+
+    struct PendingDossierApply: Equatable {
+        let kind: IndexKind
+        let slug: String
+        let canonicalName: String
+    }
+
     var activeTabID: UUID? {
         if case let .tab(id) = selectedSurface { return id }
         return nil
@@ -771,6 +783,35 @@ struct MeetingRootView: View {
                 .background(Color(nsColor: .controlBackgroundColor).opacity(0.3))
             }
 
+            // Apply-to-dossier action when the run came from a per-entry refresh.
+            if let pending = state.pendingDossierApply, !qaAnswer.isEmpty, !qaIsLoading {
+                Divider()
+                HStack(spacing: 10) {
+                    Button(action: { applyDossier(pending: pending) }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "square.and.arrow.down")
+                                .font(.system(size: 11))
+                            Text("Apply to \(pending.canonicalName)'s dossier")
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.orange)
+
+                    Button("Discard") { state.pendingDossierApply = nil }
+                        .font(.system(size: 12))
+
+                    Spacer()
+
+                    Text("Replaces the body. Aliases & sources stay.")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(Color.orange.opacity(0.08))
+            }
+
             // Input row (mostly unchanged)
             Divider()
             HStack(spacing: 8) {
@@ -780,12 +821,18 @@ struct MeetingRootView: View {
                 TextField(qaPlaceholder, text: $qaQuestion)
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
-                    .onSubmit { askAcrossMeetings() }
+                    .onSubmit {
+                        state.pendingDossierApply = nil
+                        askAcrossMeetings()
+                    }
                     .disabled(qaIsLoading)
                 if qaIsLoading {
                     ProgressView().scaleEffect(0.6)
                 } else if !qaQuestion.isEmpty {
-                    Button(action: { askAcrossMeetings() }) {
+                    Button(action: {
+                        state.pendingDossierApply = nil
+                        askAcrossMeetings()
+                    }) {
                         Image(systemName: "arrow.up.circle.fill")
                             .font(.system(size: 16))
                             .foregroundColor(.orange)
@@ -800,6 +847,7 @@ struct MeetingRootView: View {
                         qaStatusLine = ""
                         qaTranscript.clear()
                         qaTraceExpanded = false
+                        state.pendingDossierApply = nil
                     }) {
                         Image(systemName: "xmark.circle")
                             .font(.system(size: 12))
@@ -867,6 +915,30 @@ struct MeetingRootView: View {
         case "read_file": return "Reading \(summary)"
         case "list_dir": return "Listing \(summary)"
         default: return "\(name): \(summary)"
+        }
+    }
+
+    private func applyDossier(pending: MeetingWindowState.PendingDossierApply) {
+        let saveDir = state.saveDirectory
+        let url = MarkdownArchivePaths.entryURL(in: saveDir, kind: pending.kind, slug: pending.slug)
+        let body = qaAnswer.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !body.isEmpty else { return }
+        do {
+            var entry = try IndexEntryFile.read(from: url)
+            entry.body = body
+            entry.lastUpdated = Date()
+            try IndexEntryFile.write(entry, to: url)
+            // Refresh any open tab that's showing this entry so the user
+            // sees the new body without needing to reopen.
+            for tab in state.indexTabs {
+                if case let .indexEntry(k, s, _) = tab.content, k == pending.kind, s == pending.slug {
+                    tab.content = .indexEntry(kind: k, slug: s, entry: entry)
+                }
+            }
+            state.pendingDossierApply = nil
+            NotificationCenter.default.post(name: .indexUpdated, object: pending.kind)
+        } catch {
+            qaAnswer = qaAnswer + "\n\n[apply failed: \(error.localizedDescription)]"
         }
     }
 
@@ -1794,13 +1866,9 @@ struct NavTabContentView: View {
                         state.openMeetingInNewIndexTab(relativePath: path)
                     },
                     onRefresh: {
-                        let canonical: String
-                        if case let .indexEntry(_, _, e) = tab.content {
-                            canonical = e.canonicalName
-                        } else {
-                            return
-                        }
-                        state.pendingQAPrompt = "Look up what we know about \(canonical) and augment their People page."
+                        guard case let .indexEntry(kind, slug, e) = tab.content else { return }
+                        state.pendingDossierApply = .init(kind: kind, slug: slug, canonicalName: e.canonicalName)
+                        state.pendingQAPrompt = "Look up what we know about \(e.canonicalName) across the meeting archive and write a thorough markdown dossier — sections for who they are, key discussions, and mentions (with meeting paths). Use [[Name]] wikilinks for other people."
                     }
                 )
             case .meeting(let meetingTab):
