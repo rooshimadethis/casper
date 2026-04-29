@@ -21,6 +21,61 @@ final class IndexBuilder {
         self.saveDir = saveDir
     }
 
+    // MARK: - Apply: merge new content into an existing dossier body
+
+    /// Single-shot LLM merge. Reads the existing dossier body from disk,
+    /// hands it plus the freshly-generated `newContent` to the model with a
+    /// merge instruction, and returns the merged body text. No tools used —
+    /// pure generation, fast and cheap. Caller is responsible for writing
+    /// the result back to disk.
+    func mergeDossierBody(
+        kind: IndexKind,
+        slug: String,
+        canonicalName: String,
+        newContent: String
+    ) async throws -> String {
+        let url = MarkdownArchivePaths.entryURL(in: saveDir, kind: kind, slug: slug)
+        let existingBody = (try? IndexEntryFile.read(from: url).body) ?? ""
+
+        let system = """
+        You merge new findings into an existing dossier body. Output ONLY the
+        merged markdown body — no YAML frontmatter, no leading or trailing
+        `---` separators. Preserve content from the existing body that's still
+        accurate, fold in genuinely new information, and remove redundancy.
+
+        Use sections like `## About`, `## Relationships`, `## Key discussions`,
+        and `## Mentions` (with meeting paths) when the content supports them.
+        Use `[[Person Name]]` wikilinks when referring to other people who may
+        have their own dossier.
+        """
+
+        let userText = """
+        Subject: \(canonicalName)
+
+        ## Existing dossier body
+
+        \(existingBody.isEmpty ? "(empty — this is the first substantive write)" : existingBody)
+
+        ## New findings to merge in
+
+        \(newContent)
+
+        Now produce the merged body.
+        """
+
+        let messages = [LLMMessage(role: .user, content: [.text(userText)])]
+        var merged = ""
+        for try await event in provider.complete(system: system, messages: messages, tools: []) {
+            switch event {
+            case .textDelta(let delta):
+                merged += delta
+            case .toolUse, .stop:
+                break
+            }
+        }
+        return merged.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     // MARK: - Cost estimation
 
     /// Pre-flight estimate. Returns a per-model cost range based on the

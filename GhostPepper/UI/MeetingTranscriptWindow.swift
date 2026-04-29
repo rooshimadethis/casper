@@ -593,6 +593,7 @@ struct MeetingRootView: View {
     @State private var qaTraceExpanded: Bool = false
     @StateObject private var qaTranscript: QATranscript = QATranscript()
     @State private var currentQATask: Task<Void, Never>? = nil
+    @State private var isApplyingDossier: Bool = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -789,21 +790,29 @@ struct MeetingRootView: View {
                 HStack(spacing: 10) {
                     Button(action: { applyDossier(pending: pending) }) {
                         HStack(spacing: 4) {
-                            Image(systemName: "square.and.arrow.down")
-                                .font(.system(size: 11))
-                            Text("Apply to \(pending.canonicalName)'s dossier")
-                                .font(.system(size: 12, weight: .medium))
+                            if isApplyingDossier {
+                                ProgressView().scaleEffect(0.5)
+                                Text("Merging into \(pending.slug).md…")
+                                    .font(.system(size: 12, weight: .medium))
+                            } else {
+                                Image(systemName: "square.and.arrow.down")
+                                    .font(.system(size: 11))
+                                Text("Apply to \(pending.slug).md")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
                         }
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(.orange)
+                    .disabled(isApplyingDossier)
 
                     Button("Discard") { state.pendingDossierApply = nil }
                         .font(.system(size: 12))
+                        .disabled(isApplyingDossier)
 
                     Spacer()
 
-                    Text("Replaces the body. Aliases & sources stay.")
+                    Text("Merges with existing dossier (LLM call). Aliases & sources stay.")
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
                 }
@@ -921,24 +930,41 @@ struct MeetingRootView: View {
     private func applyDossier(pending: MeetingWindowState.PendingDossierApply) {
         let saveDir = state.saveDirectory
         let url = MarkdownArchivePaths.entryURL(in: saveDir, kind: pending.kind, slug: pending.slug)
-        let body = qaAnswer.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !body.isEmpty else { return }
-        do {
-            var entry = try IndexEntryFile.read(from: url)
-            entry.body = body
-            entry.lastUpdated = Date()
-            try IndexEntryFile.write(entry, to: url)
-            // Refresh any open tab that's showing this entry so the user
-            // sees the new body without needing to reopen.
-            for tab in state.indexTabs {
-                if case let .indexEntry(k, s, _) = tab.content, k == pending.kind, s == pending.slug {
-                    tab.content = .indexEntry(kind: k, slug: s, entry: entry)
+        let summary = qaAnswer.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !summary.isEmpty, !isApplyingDossier else { return }
+        guard let builder = state.onMakeIndexBuilder?(pending.kind) else {
+            qaAnswer += "\n\n[apply failed: Claude API key not configured]"
+            return
+        }
+
+        isApplyingDossier = true
+        Task { @MainActor in
+            defer { isApplyingDossier = false }
+            do {
+                let mergedBody = try await builder.mergeDossierBody(
+                    kind: pending.kind,
+                    slug: pending.slug,
+                    canonicalName: pending.canonicalName,
+                    newContent: summary
+                )
+                guard !mergedBody.isEmpty else {
+                    qaAnswer += "\n\n[apply failed: merge produced empty body]"
+                    return
                 }
+                var entry = try IndexEntryFile.read(from: url)
+                entry.body = mergedBody
+                entry.lastUpdated = Date()
+                try IndexEntryFile.write(entry, to: url)
+                for tab in state.indexTabs {
+                    if case let .indexEntry(k, s, _) = tab.content, k == pending.kind, s == pending.slug {
+                        tab.content = .indexEntry(kind: k, slug: s, entry: entry)
+                    }
+                }
+                state.pendingDossierApply = nil
+                NotificationCenter.default.post(name: .indexUpdated, object: pending.kind)
+            } catch {
+                qaAnswer += "\n\n[apply failed: \(error.localizedDescription)]"
             }
-            state.pendingDossierApply = nil
-            NotificationCenter.default.post(name: .indexUpdated, object: pending.kind)
-        } catch {
-            qaAnswer = qaAnswer + "\n\n[apply failed: \(error.localizedDescription)]"
         }
     }
 
@@ -1868,7 +1894,7 @@ struct NavTabContentView: View {
                     onRefresh: {
                         guard case let .indexEntry(kind, slug, e) = tab.content else { return }
                         state.pendingDossierApply = .init(kind: kind, slug: slug, canonicalName: e.canonicalName)
-                        state.pendingQAPrompt = "Look up what we know about \(e.canonicalName) across the meeting archive and write a thorough markdown dossier — sections for who they are, key discussions, and mentions (with meeting paths). Use [[Name]] wikilinks for other people."
+                        state.pendingQAPrompt = "Tell me about \(e.canonicalName)"
                     }
                 )
             case .meeting(let meetingTab):
