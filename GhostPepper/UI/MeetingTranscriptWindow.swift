@@ -475,6 +475,12 @@ struct MeetingRootView: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer()
+                    if let usage = qaUsage {
+                        Text(runningCostText(usage))
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .help("\(usage.inputTokens) in / \(usage.outputTokens) out · \(usage.cacheReadTokens) cache read / \(usage.cacheWriteTokens) cache write")
+                    }
                     if !qaTranscript.events.isEmpty {
                         Button(action: { qaTraceExpanded.toggle() }) {
                             Label(qaTraceExpanded ? "Hide trace" : "Show trace", systemImage: qaTraceExpanded ? "chevron.down" : "chevron.right")
@@ -541,10 +547,10 @@ struct MeetingRootView: View {
             // Input row (mostly unchanged)
             Divider()
             HStack(spacing: 8) {
-                Image(systemName: "sparkle.magnifyingglass")
+                Image(systemName: "wand.and.stars")
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
-                TextField("Ask across all meetings...", text: $qaQuestion)
+                TextField("Run agent across meeting data...", text: $qaQuestion)
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
                     .onSubmit { askAcrossMeetings() }
@@ -599,6 +605,11 @@ struct MeetingRootView: View {
         }
         let cost = String(format: "$%.4f", u.estimatedCostUSD)
         return "\(u.modelDisplayName) · \(inputPart) / \(fmtOut) out · ~\(cost)"
+    }
+
+    private func runningCostText(_ u: QAUsage) -> String {
+        if u.isLocal { return "free" }
+        return String(format: "~$%.4f", u.estimatedCostUSD)
     }
 
     private func formatTraceLine(_ event: QAEvent) -> String {
@@ -829,12 +840,12 @@ struct MeetingRootView: View {
                 Button {
                     showGranolaImport = true
                 } label: {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 10, weight: .medium))
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 12))
                         .foregroundColor(.secondary)
                 }
                 .buttonStyle(.plain)
-                .help("Sync now")
+                .help("Sync with Granola")
             } else {
                 Text("Checking Granola…")
                     .font(.system(size: 11))
@@ -1853,13 +1864,7 @@ enum MeetingContentTab: String, CaseIterable {
 
 struct MeetingSidebarView: View {
     @ObservedObject var state: MeetingWindowState
-    @StateObject private var granolaImporter = GranolaImporter()
-    @State private var showGranolaSync = false
     @State private var searchText = ""
-
-    private var showGranolaSyncButton: Bool {
-        GranolaImporter.isCacheAvailable || UserDefaults.standard.string(forKey: "granolaApiKey") != nil
-    }
 
     private var filteredGroups: [(date: String, entries: [MeetingHistoryEntry])] {
         guard !searchText.isEmpty else { return state.historyGroups }
@@ -1877,24 +1882,6 @@ struct MeetingSidebarView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.secondary)
                 Spacer()
-
-                if showGranolaSyncButton {
-                    Button(action: { showGranolaSync = true }) {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.system(size: 12))
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.borderless)
-                    .help("Sync with Granola")
-                }
-
-                Button(action: { state.startNewNote() }) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.borderless)
-                .help("New quick note")
 
                 Button(action: { openMeetingsFolder() }) {
                     Image(systemName: "folder")
@@ -1986,9 +1973,6 @@ struct MeetingSidebarView: View {
             .frame(maxHeight: .infinity)
         }
         .background(Color(nsColor: .controlBackgroundColor))
-        .sheet(isPresented: $showGranolaSync) {
-            GranolaImportView(importer: granolaImporter, state: state)
-        }
     }
 
     private func deleteEntry(_ entry: MeetingHistoryEntry) {
