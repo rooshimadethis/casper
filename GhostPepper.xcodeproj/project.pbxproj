@@ -177,11 +177,13 @@
 		1DDE0E0002000000000000F5 /* IndexBuildEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DDE0E0001000000000000F5 /* IndexBuildEvent.swift */; };
 		1DDE0E0002000000000000F6 /* IndexManifest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DDE0E0001000000000000F6 /* IndexManifest.swift */; };
 		1DDE0E0002000000000000F7 /* IndexSystemPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DDE0E0001000000000000F7 /* IndexSystemPrompt.swift */; };
+		1DDE0E0002000000000000F8 /* IndexBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DDE0E0001000000000000F8 /* IndexBuilder.swift */; };
 		1DDE0E0002000000000000A1 /* MarkdownArchivePathsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DDE0E0001000000000000A1 /* MarkdownArchivePathsTests.swift */; };
 		1DDE0E0002000000000000A2 /* IndexEntryFileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DDE0E0001000000000000A2 /* IndexEntryFileTests.swift */; };
 		1DDE0E0002000000000000A3 /* IndexManifestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DDE0E0001000000000000A3 /* IndexManifestTests.swift */; };
 		1DDE0E0002000000000000A4 /* MeetingQAToolsWriteFileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DDE0E0001000000000000A4 /* MeetingQAToolsWriteFileTests.swift */; };
 		1DDE0E0002000000000000A5 /* IndexSystemPromptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DDE0E0001000000000000A5 /* IndexSystemPromptTests.swift */; };
+		1DDE0E0002000000000000A6 /* IndexBuilderHelpersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DDE0E0001000000000000A6 /* IndexBuilderHelpersTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -366,11 +368,13 @@
 		1DDE0E0001000000000000F5 /* IndexBuildEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndexBuildEvent.swift; sourceTree = "<group>"; };
 		1DDE0E0001000000000000F6 /* IndexManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndexManifest.swift; sourceTree = "<group>"; };
 		1DDE0E0001000000000000F7 /* IndexSystemPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndexSystemPrompt.swift; sourceTree = "<group>"; };
+		1DDE0E0001000000000000F8 /* IndexBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndexBuilder.swift; sourceTree = "<group>"; };
 		1DDE0E0001000000000000A1 /* MarkdownArchivePathsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownArchivePathsTests.swift; sourceTree = "<group>"; };
 		1DDE0E0001000000000000A2 /* IndexEntryFileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndexEntryFileTests.swift; sourceTree = "<group>"; };
 		1DDE0E0001000000000000A3 /* IndexManifestTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndexManifestTests.swift; sourceTree = "<group>"; };
 		1DDE0E0001000000000000A4 /* MeetingQAToolsWriteFileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingQAToolsWriteFileTests.swift; sourceTree = "<group>"; };
 		1DDE0E0001000000000000A5 /* IndexSystemPromptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndexSystemPromptTests.swift; sourceTree = "<group>"; };
+		1DDE0E0001000000000000A6 /* IndexBuilderHelpersTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndexBuilderHelpersTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -481,6 +485,7 @@
 				1DDE0E0001000000000000F5 /* IndexBuildEvent.swift */,
 				1DDE0E0001000000000000F6 /* IndexManifest.swift */,
 				1DDE0E0001000000000000F7 /* IndexSystemPrompt.swift */,
+				1DDE0E0001000000000000F8 /* IndexBuilder.swift */,
 			);
 			path = Indexing;
 			sourceTree = "<group>";
@@ -774,6 +779,7 @@
 				1DDE0E0001000000000000A3 /* IndexManifestTests.swift */,
 				1DDE0E0001000000000000A4 /* MeetingQAToolsWriteFileTests.swift */,
 				1DDE0E0001000000000000A5 /* IndexSystemPromptTests.swift */,
+				1DDE0E0001000000000000A6 /* IndexBuilderHelpersTests.swift */,
 			);
 			path = GhostPepperTests;
 			sourceTree = "<group>";
@@ -1010,6 +1016,7 @@
 				1DDE0E0002000000000000F5 /* IndexBuildEvent.swift in Sources */,
 				1DDE0E0002000000000000F6 /* IndexManifest.swift in Sources */,
 				1DDE0E0002000000000000F7 /* IndexSystemPrompt.swift in Sources */,
+				1DDE0E0002000000000000F8 /* IndexBuilder.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1081,6 +1088,7 @@
 				1DDE0E0002000000000000A3 /* IndexManifestTests.swift in Sources */,
 				1DDE0E0002000000000000A4 /* MeetingQAToolsWriteFileTests.swift in Sources */,
 				1DDE0E0002000000000000A5 /* IndexSystemPromptTests.swift in Sources */,
+				1DDE0E0002000000000000A6 /* IndexBuilderHelpersTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

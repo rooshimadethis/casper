@@ -208,7 +208,7 @@ final class MeetingQAAgent {
 
     // MARK: - Q&A defaults
 
-    private static func summarizeQAInput(name: String, input: [String: Any]) -> String {
+    static func summarizeQAInput(name: String, input: [String: Any]) -> String {
         switch name {
         case "grep":
             let pattern = (input["pattern"] as? String) ?? ""
@@ -227,7 +227,7 @@ final class MeetingQAAgent {
         }
     }
 
-    private static func summarizeQAOutput(name: String, output: String, isError: Bool) -> String {
+    static func summarizeQAOutput(name: String, output: String, isError: Bool) -> String {
         if isError {
             return "ERROR: \(output.prefix(120))"
         }
