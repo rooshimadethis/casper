@@ -213,6 +213,44 @@ struct AnthropicProvider: LLMProvider {
         return body
     }
 
+    /// Calls Anthropic's `count_tokens` endpoint to estimate input tokens for a
+    /// given prompt + messages + tools, without actually running a completion.
+    /// Used for pre-flight cost estimates on index builds.
+    func countInputTokens(system: String, messages: [LLMMessage], tools: [LLMTool]) async throws -> Int {
+        let url = URL(string: "https://api.anthropic.com/v1/messages/count_tokens")!
+        var body: [String: Any] = [
+            "model": model.rawValue,
+            "system": [["type": "text", "text": system]],
+            "messages": messages.map(Self.encodeMessage(_:)),
+        ]
+        if !tools.isEmpty {
+            body["tools"] = tools.map { tool -> [String: Any] in
+                ["name": tool.name, "description": tool.description, "input_schema": tool.inputSchema]
+            }
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        request.timeoutInterval = 60
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw AnthropicProviderError.invalidResponse
+        }
+        if http.statusCode != 200 {
+            let detail = String(data: data, encoding: .utf8) ?? "<no body>"
+            throw AnthropicProviderError.httpError(status: http.statusCode, message: detail)
+        }
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let inputTokens = json["input_tokens"] as? Int else {
+            throw AnthropicProviderError.invalidResponse
+        }
+        return inputTokens
+    }
+
     private static func encodeMessage(_ message: LLMMessage) -> [String: Any] {
         let role: String = (message.role == .user) ? "user" : "assistant"
         let blocks: [[String: Any]] = message.content.map { block in

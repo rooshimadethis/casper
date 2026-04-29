@@ -1,20 +1,79 @@
 import Foundation
 
+typealias AgentToolHandler = ([String: Any]) async throws -> String
+
 final class MeetingQAAgent {
     private let provider: LLMProvider
     private let model: ClaudeAPIModel
-    private let archiveRoot: URL
-    private let maxIterations: Int
-    private let tools: MeetingQATools
+    private let systemPrompt: String
+    private let toolHandlers: [String: AgentToolHandler]
     private let toolDefinitions: [LLMTool]
+    private let summarizeInput: (String, [String: Any]) -> String
+    private let summarizeOutput: (String, String, Bool) -> String
+    private let maxIterations: Int
 
-    init(provider: LLMProvider, model: ClaudeAPIModel, archiveRoot: URL, maxIterations: Int = 15) {
+    /// Backward-compatible Q&A initializer. Wires up the standard
+    /// MeetingQASystemPrompt and the read-only grep / read_file / list_dir tools
+    /// scoped to the meeting archive.
+    convenience init(
+        provider: LLMProvider,
+        model: ClaudeAPIModel,
+        archiveRoot: URL,
+        maxIterations: Int = 15
+    ) {
+        let tools = MeetingQATools(root: archiveRoot)
+        let handlers: [String: AgentToolHandler] = [
+            "grep": { input in
+                let pattern = (input["pattern"] as? String) ?? ""
+                let path = input["path"] as? String
+                let caseInsensitive = (input["case_insensitive"] as? Bool) ?? true
+                let maxResults = (input["max_results"] as? Int) ?? 50
+                return try await tools.grep(pattern: pattern, path: path, caseInsensitive: caseInsensitive, maxResults: maxResults)
+            },
+            "read_file": { input in
+                let path = (input["path"] as? String) ?? ""
+                let offset = (input["offset"] as? Int) ?? 1
+                let limit = (input["limit"] as? Int) ?? 200
+                return try await tools.readFile(path: path, offset: offset, limit: limit)
+            },
+            "list_dir": { input in
+                let path = (input["path"] as? String) ?? ""
+                return try await tools.listDir(path: path)
+            },
+        ]
+        self.init(
+            provider: provider,
+            model: model,
+            systemPrompt: MeetingQASystemPrompt.build(archiveRootPath: archiveRoot.path),
+            toolHandlers: handlers,
+            toolDefinitions: Self.qaToolDefinitions(),
+            summarizeInput: Self.summarizeQAInput,
+            summarizeOutput: Self.summarizeQAOutput,
+            maxIterations: maxIterations
+        )
+    }
+
+    /// Generic initializer. Used for Q&A (via the convenience init above) and
+    /// for the indexing flow, which passes its own prompt + tools (incl.
+    /// write_file) so the same loop drives a different task.
+    init(
+        provider: LLMProvider,
+        model: ClaudeAPIModel,
+        systemPrompt: String,
+        toolHandlers: [String: AgentToolHandler],
+        toolDefinitions: [LLMTool],
+        summarizeInput: @escaping (String, [String: Any]) -> String,
+        summarizeOutput: @escaping (String, String, Bool) -> String,
+        maxIterations: Int = 15
+    ) {
         self.provider = provider
         self.model = model
-        self.archiveRoot = archiveRoot
+        self.systemPrompt = systemPrompt
+        self.toolHandlers = toolHandlers
+        self.toolDefinitions = toolDefinitions
+        self.summarizeInput = summarizeInput
+        self.summarizeOutput = summarizeOutput
         self.maxIterations = maxIterations
-        self.tools = MeetingQATools(root: archiveRoot)
-        self.toolDefinitions = Self.buildToolDefinitions()
     }
 
     func ask(_ question: String) -> AsyncThrowingStream<QAEvent, Error> {
@@ -28,7 +87,6 @@ final class MeetingQAAgent {
     }
 
     private func runLoop(question: String, continuation: AsyncThrowingStream<QAEvent, Error>.Continuation) async {
-        let systemPrompt = MeetingQASystemPrompt.build(archiveRootPath: archiveRoot.path)
         var messages: [LLMMessage] = [LLMMessage(role: .user, content: [.text(question)])]
         var cumulativeUsage = ProviderUsage.zero
 
@@ -79,15 +137,16 @@ final class MeetingQAAgent {
                 cacheReadTokens: cumulativeUsage.cacheReadTokens + iterationUsage.cacheReadTokens,
                 cacheWriteTokens: cumulativeUsage.cacheWriteTokens + iterationUsage.cacheWriteTokens
             )
+            emitUsage(cumulativeUsage, continuation: continuation)
 
             if !pendingToolCalls.isEmpty {
                 messages.append(LLMMessage(role: .assistant, content: assistantBlocks))
 
                 var toolResultBlocks: [LLMContentBlock] = []
                 for call in pendingToolCalls {
-                    continuation.yield(.toolCall(id: call.id, name: call.name, inputSummary: Self.summarizeInput(name: call.name, input: call.input), fullInput: call.input))
+                    continuation.yield(.toolCall(id: call.id, name: call.name, inputSummary: summarizeInput(call.name, call.input), fullInput: call.input))
                     let (output, isError) = await runTool(name: call.name, input: call.input)
-                    continuation.yield(.toolResult(id: call.id, summary: Self.summarizeOutput(name: call.name, output: output, isError: isError), fullOutput: output, isError: isError))
+                    continuation.yield(.toolResult(id: call.id, summary: summarizeOutput(call.name, output, isError), fullOutput: output, isError: isError))
                     toolResultBlocks.append(.toolResult(toolUseId: call.id, content: output, isError: isError))
                 }
                 messages.append(LLMMessage(role: .user, content: toolResultBlocks))
@@ -96,60 +155,39 @@ final class MeetingQAAgent {
 
             switch stopReason {
             case .endTurn:
-                emitFinalUsage(cumulativeUsage, continuation: continuation)
                 continuation.finish()
                 return
             case .maxTokens:
                 continuation.yield(.error("Model hit max_tokens before finishing."))
-                emitFinalUsage(cumulativeUsage, continuation: continuation)
                 continuation.finish()
                 return
             case .toolUse:
-                emitFinalUsage(cumulativeUsage, continuation: continuation)
                 continuation.finish()
                 return
             case .other(let raw):
                 continuation.yield(.error("Unexpected stop reason: \(raw)"))
-                emitFinalUsage(cumulativeUsage, continuation: continuation)
                 continuation.finish()
                 return
             }
         }
 
         continuation.yield(.status("Hit iteration cap of \(maxIterations)"))
-        emitFinalUsage(cumulativeUsage, continuation: continuation)
         continuation.finish()
     }
 
     private func runTool(name: String, input: [String: Any]) async -> (output: String, isError: Bool) {
+        guard let handler = toolHandlers[name] else {
+            return ("Unknown tool: \(name)", true)
+        }
         do {
-            switch name {
-            case "grep":
-                let pattern = (input["pattern"] as? String) ?? ""
-                let path = input["path"] as? String
-                let caseInsensitive = (input["case_insensitive"] as? Bool) ?? true
-                let maxResults = (input["max_results"] as? Int) ?? 50
-                let out = try await tools.grep(pattern: pattern, path: path, caseInsensitive: caseInsensitive, maxResults: maxResults)
-                return (out, false)
-            case "read_file":
-                let path = (input["path"] as? String) ?? ""
-                let offset = (input["offset"] as? Int) ?? 1
-                let limit = (input["limit"] as? Int) ?? 200
-                let out = try await tools.readFile(path: path, offset: offset, limit: limit)
-                return (out, false)
-            case "list_dir":
-                let path = (input["path"] as? String) ?? ""
-                let out = try await tools.listDir(path: path)
-                return (out, false)
-            default:
-                return ("Unknown tool: \(name)", true)
-            }
+            let out = try await handler(input)
+            return (out, false)
         } catch {
             return (error.localizedDescription, true)
         }
     }
 
-    private func emitFinalUsage(_ usage: ProviderUsage, continuation: AsyncThrowingStream<QAEvent, Error>.Continuation) {
+    private func emitUsage(_ usage: ProviderUsage, continuation: AsyncThrowingStream<QAEvent, Error>.Continuation) {
         let cost = ClaudePricing.estimateCostUSD(
             model: model,
             inputTokens: usage.inputTokens,
@@ -168,7 +206,9 @@ final class MeetingQAAgent {
         )))
     }
 
-    private static func summarizeInput(name: String, input: [String: Any]) -> String {
+    // MARK: - Q&A defaults
+
+    private static func summarizeQAInput(name: String, input: [String: Any]) -> String {
         switch name {
         case "grep":
             let pattern = (input["pattern"] as? String) ?? ""
@@ -187,7 +227,7 @@ final class MeetingQAAgent {
         }
     }
 
-    private static func summarizeOutput(name: String, output: String, isError: Bool) -> String {
+    private static func summarizeQAOutput(name: String, output: String, isError: Bool) -> String {
         if isError {
             return "ERROR: \(output.prefix(120))"
         }
@@ -195,7 +235,7 @@ final class MeetingQAAgent {
         return "\(lineCount) lines"
     }
 
-    private static func buildToolDefinitions() -> [LLMTool] {
+    static func qaToolDefinitions() -> [LLMTool] {
         let grep = LLMTool(
             name: "grep",
             description: "Search the meeting archive for a regex pattern. Returns matching lines with file paths and line numbers. Prefer this over read_file when looking for names, dates, or specific phrases — it's much cheaper than reading whole files.",

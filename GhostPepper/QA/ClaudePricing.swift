@@ -37,4 +37,16 @@ enum ClaudePricing {
         let outputCost = Double(outputTokens) * r.outputPerMTok / 1_000_000.0
         return inputCost + cacheReadCost + cacheWriteCost + outputCost
     }
+
+    /// Pre-flight cost estimate for an index build. Assumes output ≈ 30% of
+    /// input (typical for dossier generation) and a single iteration's worth
+    /// of context. The agent loop grows context across iterations, so callers
+    /// should label this as a lower bound.
+    static func estimateBuildCostUSD(model: ClaudeAPIModel, inputTokens: Int) -> Double {
+        let r = rates(for: model)
+        let inputCost = Double(inputTokens) * r.inputPerMTok / 1_000_000.0
+        let outputTokens = Int(Double(inputTokens) * 0.3)
+        let outputCost = Double(outputTokens) * r.outputPerMTok / 1_000_000.0
+        return inputCost + outputCost
+    }
 }

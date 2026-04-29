@@ -3,6 +3,7 @@ import Foundation
 enum MeetingQAToolError: LocalizedError {
     case grepFailed(String)
     case readFailed(String)
+    case writeFailed(String)
     case timedOut(String)
     case notADirectory(String)
     case fileNotFound(String)
@@ -12,6 +13,7 @@ enum MeetingQAToolError: LocalizedError {
         switch self {
         case .grepFailed(let m): return "grep failed: \(m)"
         case .readFailed(let m): return "read failed: \(m)"
+        case .writeFailed(let m): return "write failed: \(m)"
         case .timedOut(let what): return "\(what) timed out after 30s. Narrow scope and retry."
         case .notADirectory(let p): return "Not a directory: \(p)"
         case .fileNotFound(let p): return "File not found: \(p)"
@@ -109,6 +111,37 @@ struct MeetingQATools {
             footer = "\n\n(Returned lines \(safeOffset)-\(endExclusive) of \(totalLines). Use offset=\(endExclusive + 1) to continue.)"
         }
         return numbered + footer
+    }
+
+    // MARK: - write_file
+
+    /// Writes (or overwrites) a `.md` file inside the sandbox root. Paths must be
+    /// flat filenames (no subdirectories) ending in `.md` and must not start with
+    /// `.` or `_` — this prevents the agent from clobbering `_manifest.json` or
+    /// hidden bookkeeping files.
+    func writeFile(path: String, content: String) async throws -> String {
+        guard !path.isEmpty else {
+            throw MeetingQAToolError.invalidArguments("write_file requires a non-empty path")
+        }
+        guard !path.contains("/") else {
+            throw MeetingQAToolError.invalidArguments("write_file path must be a flat filename (no '/')")
+        }
+        guard path.hasSuffix(".md") else {
+            throw MeetingQAToolError.invalidArguments("write_file only writes .md files; got: \(path)")
+        }
+        guard !path.hasPrefix(".") && !path.hasPrefix("_") else {
+            throw MeetingQAToolError.invalidArguments("write_file rejects paths starting with '.' or '_'")
+        }
+
+        let resolved = try PathSandbox.resolveSafe(path, root: root)
+        do {
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            try content.write(to: resolved, atomically: true, encoding: .utf8)
+        } catch {
+            throw MeetingQAToolError.writeFailed("\(path): \(error.localizedDescription)")
+        }
+        let bytes = content.utf8.count
+        return "Wrote \(bytes) bytes to \(path)"
     }
 
     // MARK: - list_dir
