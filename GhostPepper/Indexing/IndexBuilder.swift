@@ -23,17 +23,19 @@ final class IndexBuilder {
 
     // MARK: - Cost estimation
 
-    /// Pre-flight estimate. Returns a per-model cost range based on meeting
-    /// count and a heuristic calibrated against observed runs. Also reports
-    /// whether the build will be a fresh build or a resume (existing entries
-    /// detected on disk → agent will read+append rather than recreate).
-    /// Synchronous-fast: no API call needed.
+    /// Pre-flight estimate. Returns a per-model cost range based on the
+    /// number of *unprocessed* meetings (i.e. meetings not yet cited in any
+    /// existing entry's source_meetings). On a resume, this estimate scales
+    /// down because covered work is skipped.
     func estimateBuildCost(kind: IndexKind) async throws -> IndexBuildEstimate {
-        let meetings = Self.allMeetingPaths(in: saveDir)
+        let allMeetings = Self.allMeetingPaths(in: saveDir)
+        let covered = Self.coveredMeetings(in: saveDir, kind: kind)
+        let unprocessedCount = allMeetings.filter { !covered.contains($0) }.count
         let existingEntries = Self.countExistingEntries(in: saveDir, kind: kind)
-        let range = ClaudePricing.estimateBuildCostRange(model: model, meetingCount: meetings.count)
+        let range = ClaudePricing.estimateBuildCostRange(model: model, meetingCount: unprocessedCount)
         return IndexBuildEstimate(
-            meetingCount: meetings.count,
+            totalMeetingCount: allMeetings.count,
+            alreadyProcessedCount: allMeetings.count - unprocessedCount,
             existingEntryCount: existingEntries,
             likelyLowUSD: range.low,
             likelyHighUSD: range.high,
@@ -41,8 +43,25 @@ final class IndexBuilder {
         )
     }
 
-    /// Count the dossier .md files under the given index kind's directory.
-    /// Used to detect a resume scenario in the build sheet.
+    /// The set of meeting paths that already appear in some existing entry's
+    /// source_meetings list — these have effectively been processed and can
+    /// be skipped on resume. Cheap disk read of every entry's frontmatter.
+    nonisolated static func coveredMeetings(in saveDir: URL, kind: IndexKind) -> Set<String> {
+        let root = MarkdownArchivePaths.indexRoot(in: saveDir, kind: kind)
+        guard let files = try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) else {
+            return []
+        }
+        var covered: Set<String> = []
+        for url in files where url.pathExtension == "md" && !url.lastPathComponent.hasPrefix("_") {
+            if let entry = try? IndexEntryFile.read(from: url) {
+                for meeting in entry.sourceMeetings {
+                    covered.insert(meeting)
+                }
+            }
+        }
+        return covered
+    }
+
     nonisolated static func countExistingEntries(in saveDir: URL, kind: IndexKind) -> Int {
         let root = MarkdownArchivePaths.indexRoot(in: saveDir, kind: kind)
         guard let files = try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) else {
@@ -74,13 +93,26 @@ final class IndexBuilder {
             return
         }
 
-        let meetings = Self.allMeetingPaths(in: saveDir)
+        let allMeetings = Self.allMeetingPaths(in: saveDir)
+        var coveredMeetings = Self.coveredMeetings(in: saveDir, kind: kind)
+        let unprocessedMeetings = allMeetings.filter { !coveredMeetings.contains($0) }
+        let totalCount = allMeetings.count
+
+        if unprocessedMeetings.isEmpty {
+            continuation.yield(.status("Index is up to date — nothing to process."))
+            continuation.yield(.completed)
+            continuation.finish()
+            return
+        }
+
+        continuation.yield(.meetingsProcessed(processed: coveredMeetings.count, total: totalCount))
+
         let prompt = IndexSystemPrompt.buildPeopleIndexFullBuild(
             archiveRootPath: saveDir.path,
             indexRootPath: indexRoot.path
         )
         let agent = makeAgent(systemPrompt: prompt, indexRoot: indexRoot)
-        let initialMessage = Self.fullBuildInitialMessage(meetings: meetings)
+        let initialMessage = Self.fullBuildInitialMessage(meetings: unprocessedMeetings)
 
         let manifestURL = MarkdownArchivePaths.manifestURL(in: saveDir, kind: kind)
         var entriesTouched: Set<String> = []
@@ -100,9 +132,16 @@ final class IndexBuilder {
                         if let slug = Self.extractWrittenSlug(from: summary) {
                             entriesTouched.insert(slug)
                             continuation.yield(.entryWritten(slug: slug, canonicalName: ""))
-                            // Persist a partial manifest after each entry write so
-                            // hitting Stop preserves progress. Only fully completed
-                            // builds mark all meetings as processed.
+                            // Re-read the just-written entry to pick up any new
+                            // source_meetings, so the progress count advances
+                            // and a future Stop+Resume knows what's covered.
+                            let entryURL = MarkdownArchivePaths.entryURL(in: saveDir, kind: kind, slug: slug)
+                            if let entry = try? IndexEntryFile.read(from: entryURL) {
+                                for meeting in entry.sourceMeetings {
+                                    coveredMeetings.insert(meeting)
+                                }
+                                continuation.yield(.meetingsProcessed(processed: coveredMeetings.count, total: totalCount))
+                            }
                             persistPartialManifest(
                                 manifestURL: manifestURL,
                                 kind: kind,
@@ -130,7 +169,7 @@ final class IndexBuilder {
         var manifest = IndexManifest.loadOrEmpty(at: manifestURL, kind: kind)
         let now = Date()
         manifest.builtAt = now
-        for meeting in meetings {
+        for meeting in allMeetings {
             manifest.markProcessed(
                 meetingPath: meeting,
                 entriesTouched: Array(entriesTouched).sorted(),

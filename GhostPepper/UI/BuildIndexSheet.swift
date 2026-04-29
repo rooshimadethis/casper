@@ -11,6 +11,8 @@ struct BuildIndexSheet: View {
     @State private var estimate: IndexBuildEstimate?
     @State private var statusLine: String = ""
     @State private var entriesWritten: Int = 0
+    @State private var meetingsProcessed: Int = 0
+    @State private var totalMeetings: Int = 0
     @State private var runningCost: Double = 0
     @State private var errorMessage: String?
     @State private var buildTask: Task<Void, Never>?
@@ -73,8 +75,15 @@ struct BuildIndexSheet: View {
     private var readyView: some View {
         if let estimate {
             VStack(alignment: .leading, spacing: 12) {
-                if estimate.isResume {
-                    Text("**Existing index detected** (\(estimate.existingEntryCount) entries). The agent will read each existing dossier before writing, so this run **appends and updates** rather than starting over.")
+                if estimate.nothingToDo {
+                    Text("**Index is up to date** — every meeting is already covered by an existing entry. Nothing to do.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .padding(8)
+                        .background(Color.green.opacity(0.1))
+                        .cornerRadius(6)
+                } else if estimate.isResume {
+                    Text("**Resuming existing index**: \(estimate.existingEntryCount) entries on disk, \(estimate.alreadyProcessedCount) of \(estimate.totalMeetingCount) meetings already covered. This run will only process the remaining \(estimate.unprocessedCount).")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                         .padding(8)
@@ -82,26 +91,30 @@ struct BuildIndexSheet: View {
                         .cornerRadius(6)
                 }
 
-                Text("This will scan **\(estimate.meetingCount)** meetings using **\(estimate.modelDisplayName)**.")
-                    .font(.system(size: 13))
+                if !estimate.nothingToDo {
+                    Text("**\(estimate.unprocessedCount)** meetings to process using **\(estimate.modelDisplayName)**.")
+                        .font(.system(size: 13))
 
-                Text("Likely cost: \(formatCost(estimate.likelyLowUSD)) – \(formatCost(estimate.likelyHighUSD))")
-                    .font(.system(size: 13, weight: .medium))
+                    Text("Likely cost: \(formatCost(estimate.likelyLowUSD)) – \(formatCost(estimate.likelyHighUSD))")
+                        .font(.system(size: 13, weight: .medium))
 
-                Text("Estimate is order-of-magnitude; running cost is shown during the build, and you can hit Stop at any time. Switch to Haiku in Settings → Cross-Meeting Q&A → Model for ~3× cheaper.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
+                    Text("Estimate is order-of-magnitude; running cost is shown during the build, and you can hit Stop at any time. Switch to Haiku in Settings → Cross-Meeting Q&A → Model for ~3× cheaper.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
 
                 HStack {
                     Spacer()
-                    Button("Cancel", action: onClose)
+                    Button(estimate.nothingToDo ? "Done" : "Cancel", action: onClose)
                         .keyboardShortcut(.cancelAction)
-                    Button(estimate.isResume ? "Resume" : "Build") {
-                        runBuild()
+                    if !estimate.nothingToDo {
+                        Button(estimate.isResume ? "Resume" : "Build") {
+                            runBuild()
+                        }
+                        .keyboardShortcut(.defaultAction)
+                        .buttonStyle(.borderedProminent)
+                        .tint(.orange)
                     }
-                    .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent)
-                    .tint(.orange)
                 }
             }
         }
@@ -117,12 +130,31 @@ struct BuildIndexSheet: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
+
+            if totalMeetings > 0 {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("\(meetingsProcessed) of \(totalMeetings) meetings")
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text("\(Int(progressFraction * 100))%")
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
+                    ProgressView(value: progressFraction)
+                        .progressViewStyle(.linear)
+                        .tint(.orange)
+                }
+            }
+
             HStack(spacing: 16) {
-                Label("\(entriesWritten) entries", systemImage: "doc.text")
+                Label("\(entriesWritten) entries written", systemImage: "doc.text")
                 Label(formatCost(runningCost), systemImage: "dollarsign.circle")
             }
             .font(.system(size: 11, design: .monospaced))
             .foregroundStyle(.secondary)
+
             HStack {
                 Spacer()
                 Button("Stop") {
@@ -132,6 +164,11 @@ struct BuildIndexSheet: View {
         }
     }
 
+    private var progressFraction: Double {
+        guard totalMeetings > 0 else { return 0 }
+        return min(1, Double(meetingsProcessed) / Double(totalMeetings))
+    }
+
     private var completedView: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
@@ -139,6 +176,11 @@ struct BuildIndexSheet: View {
                     .foregroundColor(.green)
                 Text("Built \(entriesWritten) entries")
                     .font(.system(size: 13, weight: .medium))
+            }
+            if totalMeetings > 0 {
+                Text("\(meetingsProcessed) of \(totalMeetings) meetings covered")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
             }
             Text("Total cost: \(formatCost(runningCost))")
                 .font(.system(size: 11))
@@ -181,6 +223,8 @@ struct BuildIndexSheet: View {
         do {
             let est = try await builder.estimateBuildCost(kind: kind)
             self.estimate = est
+            self.totalMeetings = est.totalMeetingCount
+            self.meetingsProcessed = est.alreadyProcessedCount
             self.phase = .readyToBuild
         } catch {
             self.errorMessage = "Couldn't estimate cost: \(error.localizedDescription)"
@@ -204,6 +248,9 @@ struct BuildIndexSheet: View {
                         statusLine = s
                     case .entryWritten:
                         entriesWritten += 1
+                    case .meetingsProcessed(let processed, let total):
+                        meetingsProcessed = processed
+                        totalMeetings = total
                     case .usage(let u):
                         runningCost = u.estimatedCostUSD
                     case .completed:
