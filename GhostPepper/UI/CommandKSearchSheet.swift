@@ -9,17 +9,13 @@ struct CommandKSearchSheet: View {
 
     @State private var query: String = ""
     @State private var selectedIndex: Int = 0
+    @State private var results: CommandKResults = CommandKResults(people: [], meetings: [], notes: [])
+    @State private var flatItems: [CommandKItem] = []
+    /// Pre-flattened, pre-lowercased haystack snapshotted when the sheet
+    /// opens — keeps each keystroke O(N) on raw strings instead of
+    /// re-walking dictionaries and re-lowercasing every iteration.
+    @State private var haystack: [CommandKHaystackEntry] = []
     @FocusState private var fieldFocused: Bool
-
-    private var results: CommandKResults {
-        CommandKResults.compute(state: state, query: query)
-    }
-
-    /// Flat list across all three sections in the order they're rendered, so
-    /// arrow-key navigation lines up with what the user sees.
-    private var flatItems: [CommandKItem] {
-        results.people + results.meetings + results.notes
-    }
 
     private var clampedIndex: Int {
         guard !flatItems.isEmpty else { return 0 }
@@ -33,8 +29,15 @@ struct CommandKSearchSheet: View {
             resultsBody
         }
         .frame(width: 620)
-        .onAppear { fieldFocused = true }
-        .onChange(of: query) { _, _ in selectedIndex = 0 }
+        .onAppear {
+            fieldFocused = true
+            haystack = CommandKHaystackEntry.snapshot(from: state)
+            recomputeResults()
+        }
+        .onChange(of: query) { _, _ in
+            selectedIndex = 0
+            recomputeResults()
+        }
         .onKeyPress(.upArrow) {
             guard !flatItems.isEmpty else { return .ignored }
             selectedIndex = max(0, clampedIndex - 1)
@@ -194,6 +197,68 @@ struct CommandKSearchSheet: View {
         guard flatItems.indices.contains(idx) else { return }
         activate(flatItems[idx])
     }
+
+    private func recomputeResults() {
+        let r = CommandKResults.compute(haystack: haystack, query: query)
+        results = r
+        flatItems = r.people + r.meetings + r.notes
+    }
+}
+
+// MARK: - Pre-flattened search index
+
+/// Snapshot of one indexable item with its lowercased haystack precomputed
+/// once at sheet-open time. Per-keystroke filtering is then a tight loop of
+/// `String.contains` against pre-lowercased fields, with no closure allocation
+/// or dictionary traversal until we materialize the (small) result set.
+struct CommandKHaystackEntry {
+    enum Kind {
+        case person(IndexKind, IndexHistoryItem)
+        case meeting(MeetingHistoryEntry, dateFolder: String)
+        case note(MeetingHistoryEntry, dateFolder: String)
+    }
+    let title: String
+    let titleLower: String
+    let subtitle: String?
+    let dateFolderLower: String
+    let id: String
+    let kind: Kind
+
+    @MainActor
+    static func snapshot(from state: MeetingWindowState) -> [CommandKHaystackEntry] {
+        var out: [CommandKHaystackEntry] = []
+        out.reserveCapacity(256)
+
+        for (kind, items) in state.indexItems {
+            for item in items {
+                out.append(CommandKHaystackEntry(
+                    title: item.canonicalName,
+                    titleLower: item.canonicalName.lowercased(),
+                    subtitle: kind.displayName,
+                    dateFolderLower: "",
+                    id: "person-\(kind.rawValue)-\(item.slug)",
+                    kind: .person(kind, item)
+                ))
+            }
+        }
+
+        for group in state.historyGroups {
+            let dateLower = group.date.lowercased()
+            for entry in group.entries {
+                let isNote = entry.fileURL.lastPathComponent.hasPrefix("quick-note")
+                out.append(CommandKHaystackEntry(
+                    title: entry.name,
+                    titleLower: entry.name.lowercased(),
+                    subtitle: group.date,
+                    dateFolderLower: dateLower,
+                    id: "file-\(entry.fileURL.path)",
+                    kind: isNote ? .note(entry, dateFolder: group.date) : .meeting(entry, dateFolder: group.date)
+                ))
+            }
+        }
+
+        return out
+    }
 }
 
 // MARK: - Result types
@@ -214,57 +279,54 @@ struct CommandKResults {
 
     private static let perSectionLimit = 12
 
+    /// Filters the pre-built haystack on a fresh query. Only allocates
+    /// CommandKItem closures for items that pass the filter, so the per-
+    /// keystroke cost is dominated by string contains, not closure setup.
     @MainActor
-    static func compute(state: MeetingWindowState, query: String) -> CommandKResults {
+    static func compute(haystack: [CommandKHaystackEntry], query: String) -> CommandKResults {
         let needle = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !needle.isEmpty else {
             return .init(people: [], meetings: [], notes: [])
         }
 
-        // People
         var people: [CommandKItem] = []
-        for (kind, items) in state.indexItems {
-            for item in items where matches(item.canonicalName, needle: needle) {
-                let captured = item
+        var meetings: [CommandKItem] = []
+        var notes: [CommandKItem] = []
+
+        for entry in haystack {
+            let titleHit = entry.titleLower.contains(needle)
+            let dateHit = !entry.dateFolderLower.isEmpty && entry.dateFolderLower.contains(needle)
+            guard titleHit || dateHit else { continue }
+
+            switch entry.kind {
+            case .person(let kind, let item):
+                if people.count >= perSectionLimit { continue }
                 people.append(CommandKItem(
-                    id: "person-\(kind.rawValue)-\(captured.slug)",
-                    title: captured.canonicalName,
-                    subtitle: kind.displayName,
-                    activate: { st in st.openIndexEntry(kind: captured.kind, slug: captured.slug) }
+                    id: entry.id,
+                    title: entry.title,
+                    subtitle: entry.subtitle,
+                    activate: { st in st.openIndexEntry(kind: kind, slug: item.slug) }
+                ))
+            case .meeting(let history, _):
+                if meetings.count >= perSectionLimit { continue }
+                meetings.append(CommandKItem(
+                    id: entry.id,
+                    title: entry.title,
+                    subtitle: entry.subtitle,
+                    activate: { st in st.openFile(history.fileURL) }
+                ))
+            case .note(let history, _):
+                if notes.count >= perSectionLimit { continue }
+                notes.append(CommandKItem(
+                    id: entry.id,
+                    title: entry.title,
+                    subtitle: entry.subtitle,
+                    activate: { st in st.openFile(history.fileURL) }
                 ))
             }
         }
+
         people.sort { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
-
-        // Meetings + notes — split by filename prefix.
-        var meetings: [CommandKItem] = []
-        var notes: [CommandKItem] = []
-        for group in state.historyGroups {
-            for entry in group.entries where matches(entry.name, needle: needle) || group.date.lowercased().contains(needle) {
-                let isNote = entry.fileURL.lastPathComponent.hasPrefix("quick-note")
-                let captured = entry
-                let item = CommandKItem(
-                    id: "file-\(captured.fileURL.path)",
-                    title: captured.name,
-                    subtitle: group.date,
-                    activate: { st in st.openFile(captured.fileURL) }
-                )
-                if isNote {
-                    notes.append(item)
-                } else {
-                    meetings.append(item)
-                }
-            }
-        }
-
-        return .init(
-            people: Array(people.prefix(perSectionLimit)),
-            meetings: Array(meetings.prefix(perSectionLimit)),
-            notes: Array(notes.prefix(perSectionLimit))
-        )
-    }
-
-    private static func matches(_ haystack: String, needle: String) -> Bool {
-        haystack.lowercased().contains(needle)
+        return .init(people: people, meetings: meetings, notes: notes)
     }
 }
