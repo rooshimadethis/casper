@@ -79,7 +79,8 @@ final class MeetingTranscriptWindowController: NSObject, NSWindowDelegate {
 
         let screenFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 720, height: 900)
         let windowHeight = screenFrame.height
-        let windowWidth: CGFloat = 720
+        // Default fits left sidebar (~220) + home content (~500) + right Models panel (~240) + dividers.
+        let windowWidth: CGFloat = 960
 
         let window = NSWindow(
             contentRect: NSRect(x: screenFrame.midX - windowWidth / 2, y: screenFrame.minY, width: windowWidth, height: windowHeight),
@@ -606,6 +607,7 @@ final class MeetingWindowState: ObservableObject {
 struct MeetingRootView: View {
     @ObservedObject var state: MeetingWindowState
     @State private var sidebarWidth: CGFloat = 220
+    @State private var modelsSidebarWidth: CGFloat = 260
     @State private var qaQuestion = ""
     @State private var qaThread: [QATurn] = []
     @State private var qaIsLoading = false
@@ -616,6 +618,8 @@ struct MeetingRootView: View {
     @State private var isApplyingDossier: Bool = false
     @AppStorage("claudeAPIModel") private var qaModelStorage: String = ClaudeAPIModel.sonnet.rawValue
     @State private var showCommandKSearch: Bool = false
+    @State private var showQAMentionSheet: Bool = false
+    @State private var qaAttachments: [QAAttachment] = []
 
     var body: some View {
         VStack(spacing: 0) {
@@ -671,11 +675,28 @@ struct MeetingRootView: View {
             .background(Color(nsColor: .textBackgroundColor))
 
             if state.showModelsSidebar {
+                // Draggable divider on the panel's leading edge.
                 Rectangle()
                     .fill(Color(nsColor: .separatorColor))
-                    .frame(width: 1)
+                    .frame(width: 3)
+                    .contentShape(Rectangle())
+                    .onHover { hovering in
+                        if hovering {
+                            NSCursor.resizeLeftRight.push()
+                        } else {
+                            NSCursor.pop()
+                        }
+                    }
+                    .gesture(
+                        DragGesture(minimumDistance: 1)
+                            .onChanged { value in
+                                let newWidth = modelsSidebarWidth - value.translation.width
+                                modelsSidebarWidth = max(200, min(420, newWidth))
+                            }
+                    )
+
                 ModelsSidebarView()
-                    .frame(width: 240)
+                    .frame(width: modelsSidebarWidth)
                     .transition(.move(edge: .trailing))
             }
         }
@@ -685,6 +706,7 @@ struct MeetingRootView: View {
         }
         .frame(minWidth: 500, minHeight: 400)
         .animation(.easeInOut(duration: 0.2), value: state.showSidebar)
+        .animation(.easeInOut(duration: 0.2), value: state.showModelsSidebar)
         .onAppear { state.loadHistory() }
         .onChange(of: state.showSidebar) { _, visible in
             if visible { state.loadHistory() }
@@ -707,8 +729,26 @@ struct MeetingRootView: View {
                 .opacity(0)
                 .allowsHitTesting(false)
         )
+        .background(
+            Button(action: { state.startNewNote() }) { EmptyView() }
+                .keyboardShortcut("n", modifiers: .command)
+                .opacity(0)
+                .allowsHitTesting(false)
+        )
         .sheet(isPresented: $showCommandKSearch) {
             CommandKSearchSheet(state: state, isPresented: $showCommandKSearch)
+        }
+        .sheet(isPresented: $showQAMentionSheet) {
+            CommandKSearchSheet(
+                state: state,
+                isPresented: $showQAMentionSheet,
+                onAttach: { entry in
+                    if let attachment = QAAttachment.from(entry: entry, archiveRoot: state.saveDirectory),
+                       !qaAttachments.contains(where: { $0.id == attachment.id }) {
+                        qaAttachments.append(attachment)
+                    }
+                }
+            )
         }
         .sheet(isPresented: $state.showBuildIndexSheet) {
             // Check at sheet-present time that an API key exists; the actual
@@ -867,6 +907,22 @@ struct MeetingRootView: View {
                 .background(Color.orange.opacity(0.08))
             }
 
+            // Attachment chips (above input row)
+            if !qaAttachments.isEmpty {
+                Divider()
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(qaAttachments) { att in
+                            AttachmentChip(attachment: att) {
+                                qaAttachments.removeAll { $0.id == att.id }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 6)
+                }
+            }
+
             // Input row
             Divider()
             HStack(spacing: 8) {
@@ -888,6 +944,13 @@ struct MeetingRootView: View {
                     .font(.system(size: 13))
                     .onSubmit { askAcrossMeetings() }
                     .disabled(qaIsLoading)
+                    .onChange(of: qaQuestion) { _, newValue in
+                        // Trigger the @-mention picker when the field ends with "@".
+                        if newValue.hasSuffix("@"), !showQAMentionSheet {
+                            qaQuestion = String(newValue.dropLast())
+                            showQAMentionSheet = true
+                        }
+                    }
 
                 if qaIsLoading {
                     ProgressView().scaleEffect(0.6)
@@ -1094,21 +1157,38 @@ struct MeetingRootView: View {
     }
 
     private func askAcrossMeetings() {
-        let question = qaQuestion.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !question.isEmpty, !qaIsLoading else { return }
+        let userQuestion = qaQuestion.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !userQuestion.isEmpty, !qaIsLoading else { return }
         qaIsLoading = true
         qaStatusLine = ""
         qaTranscript.clear()
         qaTraceExpanded = false
+
+        // If the user attached context refs via @-mention, prefix them so the
+        // agent reads those files first.
+        let question: String
+        if !qaAttachments.isEmpty {
+            let pathList = qaAttachments.map { "- \($0.relativePath)" }.joined(separator: "\n")
+            question = """
+            Context references — please read these as primary sources for the question:
+            \(pathList)
+
+            \(userQuestion)
+            """
+        } else {
+            question = userQuestion
+        }
 
         // Conversation history = every prior completed turn in this thread.
         let history: [QAHistoryTurn] = qaThread.compactMap { turn in
             turn.isStreaming ? nil : QAHistoryTurn(question: turn.question, answer: turn.answer)
         }
 
-        // Append a new turn that the stream will fill into.
-        qaThread.append(QATurn(question: question))
+        // Append a new turn that the stream will fill into. The displayed
+        // question stays clean — the context-refs prefix only goes to the agent.
+        qaThread.append(QATurn(question: userQuestion))
         qaQuestion = ""
+        qaAttachments = []
         let activeTurnID = qaThread.last!.id
 
         guard let stream = state.onAskQuestion?(question, history) else {
