@@ -59,7 +59,8 @@ final class TelemetryAgentTests: XCTestCase {
         let summarizer = TelemetrySummarizer(
             storage: storage,
             powerMonitor: mockPowerMonitor,
-            cleanupManager: mockLLM
+            cleanupManager: mockLLM,
+            targetModels: [.fast]
         )
         
         let baseTime = Date(timeIntervalSince1970: 1_719_225_600)
@@ -98,7 +99,9 @@ final class TelemetryAgentTests: XCTestCase {
         
         XCTAssertTrue(hasRawFile(tempDirectory))
         
-        let sessionsDir = tempDirectory.appendingPathComponent("sessions", isDirectory: true)
+        let sessionsDir = tempDirectory
+            .appendingPathComponent("sessions", isDirectory: true)
+            .appendingPathComponent(LocalCleanupModelKind.fast.rawValue, isDirectory: true)
         XCTAssertTrue(FileManager.default.fileExists(atPath: sessionsDir.path))
         
         let sessionFiles = try FileManager.default.contentsOfDirectory(at: sessionsDir, includingPropertiesForKeys: nil)
@@ -107,7 +110,11 @@ final class TelemetryAgentTests: XCTestCase {
         XCTAssertEqual(mockLLM.callCount, 2)
 
         let contents = try textSummaries.map { try String(contentsOf: $0, encoding: .utf8) }
-        XCTAssertEqual(Set(contents), Set(["Session one summary", "Session two summary"]))
+        
+        // Match metrics-appended content
+        XCTAssertTrue(contents.contains { $0.contains("Session one summary") })
+        XCTAssertTrue(contents.contains { $0.contains("Session two summary") })
+        XCTAssertTrue(contents.contains { $0.contains("=== METRICS ===") })
 
         summarizer.triggerProcessing()
         try await Task.sleep(nanoseconds: 200_000_000)
@@ -122,7 +129,8 @@ final class TelemetryAgentTests: XCTestCase {
         let summarizer = TelemetrySummarizer(
             storage: storage,
             powerMonitor: mockPowerMonitor,
-            cleanupManager: mockLLM
+            cleanupManager: mockLLM,
+            targetModels: [.fast]
         )
 
         mockPowerMonitor.mockIsIdle = false
@@ -135,7 +143,9 @@ final class TelemetryAgentTests: XCTestCase {
         summarizer.triggerProcessing(force: true)
         try await Task.sleep(nanoseconds: 200_000_000)
 
-        let sessionsDir = tempDirectory.appendingPathComponent("sessions", isDirectory: true)
+        let sessionsDir = tempDirectory
+            .appendingPathComponent("sessions", isDirectory: true)
+            .appendingPathComponent(LocalCleanupModelKind.fast.rawValue, isDirectory: true)
         let sessionFiles = try FileManager.default.contentsOfDirectory(at: sessionsDir, includingPropertiesForKeys: nil)
         XCTAssertEqual(sessionFiles.filter { $0.pathExtension == "txt" }.count, 1)
         XCTAssertEqual(mockLLM.callCount, 1)
@@ -146,7 +156,8 @@ final class TelemetryAgentTests: XCTestCase {
             storage: storage,
             powerMonitor: mockPowerMonitor,
             cleanupManager: mockLLM,
-            reportsDirectory: tempDirectory
+            reportsDirectory: tempDirectory,
+            targetModels: [.fast]
         )
         
         // 1. Create a dummy session summary dated yesterday
@@ -158,7 +169,9 @@ final class TelemetryAgentTests: XCTestCase {
         formatter.timeZone = TimeZone.current
         let yesterdayStr = formatter.string(from: yesterday)
         
-        let sessionsDir = tempDirectory.appendingPathComponent("sessions", isDirectory: true)
+        let sessionsDir = tempDirectory
+            .appendingPathComponent("sessions", isDirectory: true)
+            .appendingPathComponent(LocalCleanupModelKind.fast.rawValue, isDirectory: true)
         try FileManager.default.createDirectory(at: sessionsDir, withIntermediateDirectories: true)
         let sessionURL = sessionsDir.appendingPathComponent("session_\(yesterdayStr)_12345.txt")
         try "User opened terminal and ran test commands.".write(to: sessionURL, atomically: true, encoding: .utf8)
@@ -172,12 +185,15 @@ final class TelemetryAgentTests: XCTestCase {
         try await Task.sleep(nanoseconds: 200_000_000)
         
         // 3. Verify daily report is written
-        let reportURL = tempDirectory.appendingPathComponent("daily_report_\(yesterdayStr).md")
+        let reportURL = tempDirectory
+            .appendingPathComponent(LocalCleanupModelKind.fast.rawValue, isDirectory: true)
+            .appendingPathComponent("daily_report_\(yesterdayStr).md")
         XCTAssertTrue(FileManager.default.fileExists(atPath: reportURL.path))
         
         let reportContent = try String(contentsOf: reportURL, encoding: .utf8)
         XCTAssertTrue(reportContent.contains("Daily Telemetry Report"))
         XCTAssertTrue(reportContent.contains("user focused on terminal."))
+        XCTAssertTrue(reportContent.contains("=== METRICS ==="))
     }
 
     func testTelemetryReportWriterManualTriggerBypassesACRequirementForSpecifiedDate() async throws {
@@ -185,7 +201,8 @@ final class TelemetryAgentTests: XCTestCase {
             storage: storage,
             powerMonitor: mockPowerMonitor,
             cleanupManager: mockLLM,
-            reportsDirectory: tempDirectory
+            reportsDirectory: tempDirectory,
+            targetModels: [.fast]
         )
 
         mockPowerMonitor.mockIsConnectedToAC = false
@@ -196,7 +213,9 @@ final class TelemetryAgentTests: XCTestCase {
         formatter.timeZone = TimeZone.current
         let todayStr = formatter.string(from: Date())
 
-        let sessionsDir = tempDirectory.appendingPathComponent("sessions", isDirectory: true)
+        let sessionsDir = tempDirectory
+            .appendingPathComponent("sessions", isDirectory: true)
+            .appendingPathComponent(LocalCleanupModelKind.fast.rawValue, isDirectory: true)
         try FileManager.default.createDirectory(at: sessionsDir, withIntermediateDirectories: true)
         let sessionURL = sessionsDir.appendingPathComponent("session_\(todayStr)_1-2.txt")
         try "User validated a new feature and hit one onboarding edge case.".write(to: sessionURL, atomically: true, encoding: .utf8)
@@ -206,10 +225,13 @@ final class TelemetryAgentTests: XCTestCase {
         writer.triggerDailyReportGeneration(force: true, dateString: todayStr)
         try await Task.sleep(nanoseconds: 200_000_000)
 
-        let reportURL = tempDirectory.appendingPathComponent("daily_report_\(todayStr).md")
+        let reportURL = tempDirectory
+            .appendingPathComponent(LocalCleanupModelKind.fast.rawValue, isDirectory: true)
+            .appendingPathComponent("daily_report_\(todayStr).md")
         XCTAssertTrue(FileManager.default.fileExists(atPath: reportURL.path))
 
         let reportContent = try String(contentsOf: reportURL, encoding: .utf8)
         XCTAssertTrue(reportContent.contains("manual dogfood pass completed."))
+        XCTAssertTrue(reportContent.contains("=== METRICS ==="))
     }
 }

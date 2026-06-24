@@ -321,6 +321,42 @@ final class FocusedElementLocator {
         return focusedElement(for: application.processIdentifier).flatMap(text(for:))
     }
 
+    func focusedElementDescription() -> String? {
+        guard PermissionChecker.checkAccessibility(),
+              let application = NSWorkspace.shared.frontmostApplication else {
+            return nil
+        }
+        guard let element = focusedElement(for: application.processIdentifier) else {
+            return nil
+        }
+        
+        var roleValue: CFTypeRef?
+        var titleValue: CFTypeRef?
+        var descValue: CFTypeRef?
+        var placeholderValue: CFTypeRef?
+        
+        AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleValue)
+        AXUIElementCopyAttributeValue(element, kAXTitleAttribute as CFString, &titleValue)
+        AXUIElementCopyAttributeValue(element, kAXDescriptionAttribute as CFString, &descValue)
+        AXUIElementCopyAttributeValue(element, "AXPlaceholderValue" as CFString, &placeholderValue)
+        
+        let role = (roleValue as? String) ?? "UnknownRole"
+        let title = (titleValue as? String) ?? ""
+        let desc = (descValue as? String) ?? ""
+        let placeholder = (placeholderValue as? String) ?? ""
+        
+        var components: [String] = []
+        if !title.isEmpty { components.append("Title: \(title)") }
+        if !desc.isEmpty { components.append("Description: \(desc)") }
+        if !placeholder.isEmpty { components.append("Placeholder: \(placeholder)") }
+        
+        if components.isEmpty {
+            return role
+        } else {
+            return "\(role) (\(components.joined(separator: ", ")))"
+        }
+    }
+
     private func focusedElement(for processID: pid_t) -> AXUIElement? {
         let applicationElement = AXUIElementCreateApplication(processID)
         var focusedElementValue: CFTypeRef?

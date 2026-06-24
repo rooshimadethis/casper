@@ -7,6 +7,7 @@ final class TelemetryReportWriter: @unchecked Sendable {
     private let powerMonitor: any TelemetryPowerMonitoring
     private let cleanupManager: any LocalLLMStreaming
     private let reportsDirectory: URL
+    private let targetModels: [LocalCleanupModelKind]
     
     private var processTask: Task<Void, Never>?
     private var timer: Timer?
@@ -15,28 +16,21 @@ final class TelemetryReportWriter: @unchecked Sendable {
         storage: TelemetryStorage,
         powerMonitor: any TelemetryPowerMonitoring,
         cleanupManager: any LocalLLMStreaming,
-        reportsDirectory: URL? = nil
+        reportsDirectory: URL? = nil,
+        targetModels: [LocalCleanupModelKind] = LocalCleanupModelKind.allCases
     ) {
         self.storage = storage
         self.powerMonitor = powerMonitor
         self.cleanupManager = cleanupManager
+        self.targetModels = targetModels
         
         if let customDir = reportsDirectory {
             self.reportsDirectory = customDir
         } else {
-            // Check if workspace repository exists locally at rooshi's document path
-            let workspaceDocsURL = URL(fileURLWithPath: NSHomeDirectory())
-                .appendingPathComponent("Documents/programming/mac/casper/docs/telemetry")
-            
-            if FileManager.default.fileExists(atPath: workspaceDocsURL.deletingLastPathComponent().path) {
-                self.reportsDirectory = workspaceDocsURL
-            } else {
-                let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-                self.reportsDirectory = appSupport
-                    .appendingPathComponent("Casper", isDirectory: true)
-                    .appendingPathComponent("telemetry", isDirectory: true)
-                    .appendingPathComponent("reports", isDirectory: true)
-            }
+            let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            self.reportsDirectory = appSupport
+                .appendingPathComponent("Casper", isDirectory: true)
+                .appendingPathComponent("telemetry", isDirectory: true)
         }
     }
 
@@ -76,30 +70,36 @@ final class TelemetryReportWriter: @unchecked Sendable {
             }
             
             let dateStr = dateString ?? Self.yesterdayDateString()
-            let reportURL = self.reportsDirectory.appendingPathComponent("daily_report_\(dateStr).md")
             
-            // Check if report was already written
-            guard !FileManager.default.fileExists(atPath: reportURL.path) else {
-                return
+            for modelKind in targetModels {
+                let modelDir = self.reportsDirectory.appendingPathComponent(modelKind.rawValue, isDirectory: true)
+                let reportURL = modelDir.appendingPathComponent("daily_report_\(dateStr).md")
+                
+                // Check if report was already written
+                guard !FileManager.default.fileExists(atPath: reportURL.path) else {
+                    continue
+                }
+                
+                await self.generateReport(forDateString: dateStr, modelKind: modelKind, outputURL: reportURL)
             }
-            
-            await self.generateReport(forDateString: dateStr, outputURL: reportURL)
         }
     }
 
     // MARK: - Core Report Generation
 
-    private func generateReport(forDateString dateStr: String, outputURL: URL) async {
+    private func generateReport(forDateString dateStr: String, modelKind: LocalCleanupModelKind, outputURL: URL) async {
         let fileManager = FileManager.default
-        let sessionsDir = storage.storageDirectory.appendingPathComponent("sessions", isDirectory: true)
+        let modelSessionsDir = storage.storageDirectory
+            .appendingPathComponent("sessions", isDirectory: true)
+            .appendingPathComponent(modelKind.rawValue, isDirectory: true)
         
-        guard fileManager.fileExists(atPath: sessionsDir.path) else {
+        guard fileManager.fileExists(atPath: modelSessionsDir.path) else {
             writeEmptyReport(forDateString: dateStr, outputURL: outputURL)
             return
         }
         
         do {
-            let files = try fileManager.contentsOfDirectory(at: sessionsDir, includingPropertiesForKeys: nil)
+            let files = try fileManager.contentsOfDirectory(at: modelSessionsDir, includingPropertiesForKeys: nil)
             
             // Load session summaries from yesterday
             let yesterdaySummaries = files.filter { fileURL in
@@ -134,20 +134,37 @@ final class TelemetryReportWriter: @unchecked Sendable {
             \(combinedSummaries)
             """
             
+            let start = Date()
             var reportContent = ""
-            let stream = try await cleanupManager.streamCompletion(prompt: prompt, modelKind: .full)
+            let stream = try await cleanupManager.streamCompletion(prompt: prompt, modelKind: modelKind)
             for await token in stream {
                 if Task.isCancelled { break }
                 reportContent += token
             }
             
+            let elapsed = Date().timeIntervalSince(start)
             let trimmedReport = reportContent.trimmingCharacters(in: .whitespacesAndNewlines)
+            
             if !trimmedReport.isEmpty {
-                try fileManager.createDirectory(at: reportsDirectory, withIntermediateDirectories: true)
-                try trimmedReport.write(to: outputURL, atomically: true, encoding: .utf8)
+                let characterCount = trimmedReport.count
+                let throughput = elapsed > 0 ? Double(characterCount) / elapsed : 0.0
+                
+                let reportWithMetrics = """
+                \(trimmedReport)
+                
+                === METRICS ===
+                Report Generator Model: \(modelKind.rawValue)
+                Generation Time: \(String(format: "%.2f", elapsed)) seconds
+                Character Count: \(characterCount)
+                Throughput: \(String(format: "%.2f", throughput)) chars/sec
+                """
+                
+                let outputDir = outputURL.deletingLastPathComponent()
+                try fileManager.createDirectory(at: outputDir, withIntermediateDirectories: true)
+                try reportWithMetrics.write(to: outputURL, atomically: true, encoding: .utf8)
             }
         } catch {
-            print("Failed to generate daily report: \(error.localizedDescription)")
+            print("Failed to generate daily report for \(modelKind.rawValue): \(error.localizedDescription)")
         }
     }
 
@@ -161,7 +178,8 @@ final class TelemetryReportWriter: @unchecked Sendable {
         ## Automations
         None proposed.
         """
-        try? FileManager.default.createDirectory(at: reportsDirectory, withIntermediateDirectories: true)
+        let outputDir = outputURL.deletingLastPathComponent()
+        try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
         try? emptyReport.write(to: outputURL, atomically: true, encoding: .utf8)
     }
 

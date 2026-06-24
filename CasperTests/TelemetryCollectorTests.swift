@@ -116,15 +116,15 @@ final class TelemetryCollectorTests: XCTestCase {
 
         // Verify that exactly ONE typing session with a typedText of "aaa" was logged
         events = try storage.loadEvents(forDateString: dateString)
-        let typingEvents = events.compactMap { event -> (String, String, Double)? in
-            if case .typingSession(let app, let text, let duration) = event {
-                return (app, text, duration)
+        let typingEvents = events.compactMap { event -> (String, String?, String, Double)? in
+            if case .typingSession(let app, let target, let text, let duration) = event {
+                return (app, target, text, duration)
             }
             return nil
         }
 
         XCTAssertEqual(typingEvents.count, 1, "Should have exactly one typing session logged")
-        XCTAssertEqual(typingEvents.first?.1, "aaa", "Typed text should be 'aaa'")
+        XCTAssertEqual(typingEvents.first?.2, "aaa", "Typed text should be 'aaa'")
         XCTAssertFalse(typingEvents.first?.0.isEmpty ?? true, "App name should not be empty")
     }
 
@@ -156,7 +156,7 @@ final class TelemetryCollectorTests: XCTestCase {
 
         let events = try storage.loadEvents(forDateString: dateString)
         let typingEvents = events.compactMap { event -> String? in
-            if case .typingSession(_, let text, _) = event {
+            if case .typingSession(_, _, let text, _) = event {
                 return text
             }
             return nil
@@ -206,7 +206,7 @@ final class TelemetryCollectorTests: XCTestCase {
 
         let events = try storage.loadEvents(forDateString: dateString)
         let typingEvents = events.compactMap { event -> String? in
-            if case .typingSession(_, let text, _) = event {
+            if case .typingSession(_, _, let text, _) = event {
                 return text
             }
             return nil
@@ -256,7 +256,7 @@ final class TelemetryCollectorTests: XCTestCase {
 
         let events = try storage.loadEvents(forDateString: dateString)
         let typingEvents = events.compactMap { event -> String? in
-            if case .typingSession(_, let text, _) = event {
+            if case .typingSession(_, _, let text, _) = event {
                 return text
             }
             return nil
@@ -264,5 +264,99 @@ final class TelemetryCollectorTests: XCTestCase {
 
         XCTAssertEqual(typingEvents.count, 1)
         XCTAssertEqual(typingEvents.first, "<Cmd+a><Enter>", "Modifiers and special keycodes should be formatted cleanly")
+    }
+
+    @MainActor
+    func testTypingSessionGroupedBackspacesOnEmpty() throws {
+        let keyBackspace = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil, characters: "\u{007F}", charactersIgnoringModifiers: "\u{007F}", isARepeat: false, keyCode: 51)!
+
+        collector.handleKeyPress(keyBackspace)
+        collector.handleKeyPress(keyBackspace)
+        collector.handleKeyPress(keyBackspace)
+        
+        collector.flushActiveTypingSession()
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone.current
+        let dateString = formatter.string(from: Date())
+
+        let events = try storage.loadEvents(forDateString: dateString)
+        let typingEvents = events.compactMap { event -> String? in
+            if case .typingSession(_, _, let text, _) = event {
+                return text
+            }
+            return nil
+        }
+
+        XCTAssertTrue(typingEvents.contains("<Backspace x 3>"), "Consecutive backspaces on empty session should group")
+    }
+
+    @MainActor
+    func testTypingSessionShortcutIsolation() throws {
+        let keyA = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil, characters: "a", charactersIgnoringModifiers: "a", isARepeat: false, keyCode: 0)!
+        let cmdSEvent = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [.command], timestamp: 0, windowNumber: 0, context: nil, characters: "s", charactersIgnoringModifiers: "s", isARepeat: false, keyCode: 1)!
+        let keyB = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil, characters: "b", charactersIgnoringModifiers: "b", isARepeat: false, keyCode: 11)!
+
+        collector.handleKeyPress(keyA)
+        collector.handleKeyPress(cmdSEvent)
+        collector.handleKeyPress(keyB)
+        collector.flushActiveTypingSession()
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone.current
+        let dateString = formatter.string(from: Date())
+
+        let events = try storage.loadEvents(forDateString: dateString)
+        let typingEvents = events.compactMap { event -> String? in
+            if case .typingSession(_, _, let text, _) = event {
+                return text
+            }
+            return nil
+        }
+
+        XCTAssertTrue(typingEvents.contains("a"))
+        XCTAssertTrue(typingEvents.contains("<Cmd+s>"))
+        XCTAssertTrue(typingEvents.contains("b"))
+    }
+
+    @MainActor
+    func testTextCopiedTruncatesWhenLong() async throws {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        
+        let longText = String(repeating: "a", count: 1200)
+        pasteboard.setString(longText, forType: .string)
+        
+        collector.pollWorkspaceState()
+        
+        // Wait for the async task to append the event
+        try await Task.sleep(nanoseconds: 50_000_000) // 50ms sleep
+        
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone.current
+        let dateString = formatter.string(from: Date())
+        
+        let events = try storage.loadEvents(forDateString: dateString)
+        let copyEvents = events.compactMap { event -> String? in
+            if case .textCopied(let text) = event {
+                return text
+            }
+            return nil
+        }
+        
+        XCTAssertEqual(copyEvents.count, 1)
+        if let firstCopy = copyEvents.first {
+            XCTAssertTrue(firstCopy.hasPrefix("[Truncated Copy]:"))
+            XCTAssertTrue(firstCopy.hasSuffix("..."))
+            XCTAssertEqual(firstCopy.count, "[Truncated Copy]: ".count + 500 + "...".count)
+        } else {
+            XCTFail("No copy event captured")
+        }
     }
 }

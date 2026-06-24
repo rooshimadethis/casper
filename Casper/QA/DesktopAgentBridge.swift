@@ -11,7 +11,7 @@ enum DesktopUserEvent: Sendable, Codable {
     case mouseClicked(appName: String, elementClicked: String)
     case appStalled(appName: String, durationSeconds: Double)
     case userHesitated(appName: String, durationSeconds: Double)
-    case typingSession(appName: String, typedText: String, durationSeconds: Double)
+    case typingSession(appName: String, targetElement: String?, typedText: String, durationSeconds: Double)
 }
 
 /// Represents the accumulated real-time state of the user's workspace.

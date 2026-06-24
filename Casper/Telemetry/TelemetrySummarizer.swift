@@ -26,6 +26,7 @@ final class TelemetrySummarizer: @unchecked Sendable {
     private let storage: TelemetryStorage
     private let powerMonitor: any TelemetryPowerMonitoring
     private let cleanupManager: any LocalLLMStreaming
+    private let targetModels: [LocalCleanupModelKind]
     
     private var processTask: Task<Void, Never>?
     private var timer: Timer?
@@ -33,11 +34,13 @@ final class TelemetrySummarizer: @unchecked Sendable {
     init(
         storage: TelemetryStorage,
         powerMonitor: any TelemetryPowerMonitoring,
-        cleanupManager: any LocalLLMStreaming
+        cleanupManager: any LocalLLMStreaming,
+        targetModels: [LocalCleanupModelKind] = LocalCleanupModelKind.allCases
     ) {
         self.storage = storage
         self.powerMonitor = powerMonitor
         self.cleanupManager = cleanupManager
+        self.targetModels = targetModels
     }
 
     /// Starts a periodic check (every 5 minutes) to run idle summarizations.
@@ -136,8 +139,20 @@ final class TelemetrySummarizer: @unchecked Sendable {
 
             for session in pendingSessions {
                 if Task.isCancelled { break }
-                let summary = try await summarizeSession(session.records)
-                if try persistSummary(summary, for: session) {
+                
+                var anyModelSucceeded = false
+                for modelKind in targetModels {
+                    do {
+                        let summary = try await summarizeSession(session.records, modelKind: modelKind)
+                        if try persistSummary(summary, for: session, modelKind: modelKind) {
+                            anyModelSucceeded = true
+                        }
+                    } catch {
+                        print("Failed to summarize session using \(modelKind.rawValue): \(error.localizedDescription)")
+                    }
+                }
+                
+                if anyModelSucceeded {
                     updatedProgress.processedLineCounts[datePart] = session.endLine
                 }
             }
@@ -147,38 +162,59 @@ final class TelemetrySummarizer: @unchecked Sendable {
         return updatedProgress
     }
 
-    private func summarizeSession(_ records: [TelemetryEventRecord]) async throws -> String {
+    private func summarizeSession(_ records: [TelemetryEventRecord], modelKind: LocalCleanupModelKind) async throws -> String {
         let formattedSessionData = formatEventsForSummarization(records)
 
         let prompt = """
-        You are Casper's passive Telemetry Summarizer. Your goal is to write a single-paragraph summary of user activity based on the local telemetry events log below.
-        Summarize:
-        1. The primary applications used.
-        2. The user's focus patterns (e.g. switched frequently, focused on one task, copy-paste loops).
-        3. Recurrent terminal executions or error outputs if present.
-        4. User hesitation or app stalls.
+        You are Casper's passive Telemetry Summarizer. Your goal is to infer user actions and outcomes based on the local telemetry events log below.
         
-        Keep the summary factual, concise, and under 150 words. Do not invent any activity.
+        Analyze the log and output a list of inferred activities. For each distinct activity or sequence, format it exactly as:
+        - Context: What did the user see? (e.g., app name, window title, command outputs, or starting state)
+        - Action: What did the user try to do? (e.g., commands executed, typing patterns, copy-paste loops)
+        - Outcome: What was the outcome? (e.g., success, error, app stall duration, or user hesitation)
+        
+        Keep each point factual and extremely concise. Do not invent any activity. Keep the total output under 150 words.
         
         Telemetry Log:
         \(formattedSessionData)
         """
 
+        let start = Date()
         var summary = ""
-        let stream = try await cleanupManager.streamCompletion(prompt: prompt, modelKind: .fast)
+        let stream = try await cleanupManager.streamCompletion(prompt: prompt, modelKind: modelKind)
         for await token in stream {
             if Task.isCancelled { break }
             summary += token
         }
 
-        return summary.trimmingCharacters(in: .whitespacesAndNewlines)
+        let elapsed = Date().timeIntervalSince(start)
+        let trimmedSummary = summary.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        guard !trimmedSummary.isEmpty else { return "" }
+        
+        let characterCount = trimmedSummary.count
+        let throughput = elapsed > 0 ? Double(characterCount) / elapsed : 0.0
+        
+        let output = """
+        \(trimmedSummary)
+        
+        === METRICS ===
+        Model: \(modelKind.rawValue)
+        Generation Time: \(String(format: "%.2f", elapsed)) seconds
+        Character Count: \(characterCount)
+        Throughput: \(String(format: "%.2f", throughput)) chars/sec
+        """
+        
+        return output
     }
 
-    private func persistSummary(_ summary: String, for session: PendingSessionBatch) throws -> Bool {
+    private func persistSummary(_ summary: String, for session: PendingSessionBatch, modelKind: LocalCleanupModelKind) throws -> Bool {
         guard !summary.isEmpty else { return false }
 
         let fileManager = FileManager.default
-        let sessionsDir = storage.storageDirectory.appendingPathComponent("sessions", isDirectory: true)
+        let sessionsDir = storage.storageDirectory
+            .appendingPathComponent("sessions", isDirectory: true)
+            .appendingPathComponent(modelKind.rawValue, isDirectory: true)
         try fileManager.createDirectory(at: sessionsDir, withIntermediateDirectories: true)
 
         let summaryURL = sessionsDir.appendingPathComponent(
@@ -287,9 +323,13 @@ final class TelemetrySummarizer: @unchecked Sendable {
                 output += "\(prefix)\(timestamp) App stalled: \(app) was unresponsive for \(String(format: "%.1f", duration))s\n"
             case .userHesitated(let app, let duration):
                 output += "\(prefix)\(timestamp) User paused/hesitated on app: \(app) for \(String(format: "%.1f", duration))s\n"
-            case .typingSession(let app, let text, let duration):
+            case .typingSession(let app, let targetElement, let text, let duration):
                 let truncated = text.count > 100 ? text.prefix(100) + "..." : text
-                output += "\(prefix)\(timestamp) Typed \"\(truncated)\" in \(app) over \(String(format: "%.1f", duration))s\n"
+                if let targetElement = targetElement {
+                    output += "\(prefix)\(timestamp) Typed \"\(truncated)\" in \"\(targetElement)\" under \(app) over \(String(format: "%.1f", duration))s\n"
+                } else {
+                    output += "\(prefix)\(timestamp) Typed \"\(truncated)\" in \(app) over \(String(format: "%.1f", duration))s\n"
+                }
             }
         }
         return output

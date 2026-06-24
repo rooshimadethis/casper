@@ -30,7 +30,13 @@ final class TelemetryCollector: ObservableObject {
     private var activeTypingAppName = ""
     private var activeTypingStartTime: Date?
     private var activeTypingLastTime: Date?
-    private var activeTypingText = ""
+    private enum TypingToken {
+        case character(Character)
+        case special(String)
+        case backspace(count: Int)
+    }
+    private var activeTypingTokens: [TypingToken] = []
+    private var activeTypingTargetElement: String? = nil
     private var typingDebounceTimer: Timer?
     private var keyboardMonitor: Any?
     private var localKeyboardMonitor: Any?
@@ -51,28 +57,28 @@ final class TelemetryCollector: ObservableObject {
 
         // Core polling timer runs every 2.0 seconds
         pollTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
+            MainActor.assumeIsolated {
                 self?.pollWorkspaceState()
             }
         }
 
         // Global mouse click observer
         clickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown]) { [weak self] event in
-            Task { @MainActor in
+            MainActor.assumeIsolated {
                 self?.handleMouseClick(event)
             }
         }
 
         // Global keyboard observer (requires Accessibility or Input Monitoring permissions)
         keyboardMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
-            Task { @MainActor in
+            MainActor.assumeIsolated {
                 self?.handleKeyPress(event)
             }
         }
 
         // Local keyboard observer (captures when Casper window is active)
         localKeyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
-            Task { @MainActor in
+            MainActor.assumeIsolated {
                 self?.handleKeyPress(event)
             }
             return event
@@ -164,7 +170,13 @@ final class TelemetryCollector: ObservableObject {
             flushActiveTypingSession()
             lastChangeCount = pasteboard.changeCount
             if let text = pasteboard.string(forType: .string) {
-                let event = DesktopUserEvent.textCopied(text: text)
+                let processedText: String
+                if text.count > 500 {
+                    processedText = "[Truncated Copy]: " + text.prefix(500) + "..."
+                } else {
+                    processedText = text
+                }
+                let event = DesktopUserEvent.textCopied(text: processedText)
                 try? storage.appendEvent(event)
                 recordUserInteraction()
             }
@@ -287,6 +299,54 @@ final class TelemetryCollector: ObservableObject {
 
     // MARK: - Typing Session Management
 
+    private func handleBackspaceToken() {
+        if let lastToken = activeTypingTokens.last {
+            if case .special(let str) = lastToken,
+               str.lowercased() == "<cmd+a>" || str.lowercased() == "<cmd+shift+a>" {
+                activeTypingTokens.removeLast()
+                activeTypingTokens = activeTypingTokens.filter { token in
+                    if case .character = token { return false }
+                    return true
+                }
+                return
+            }
+        }
+        
+        if let lastCharIndex = activeTypingTokens.lastIndex(where: { token in
+            if case .character = token { return true }
+            return false
+        }) {
+            activeTypingTokens.remove(at: lastCharIndex)
+            return
+        }
+        
+        if let lastToken = activeTypingTokens.last, case .backspace(let count) = lastToken {
+            activeTypingTokens.removeLast()
+            activeTypingTokens.append(.backspace(count: count + 1))
+        } else {
+            activeTypingTokens.append(.backspace(count: 1))
+        }
+    }
+
+    private func compileTypingTokens() -> String {
+        var result = ""
+        for token in activeTypingTokens {
+            switch token {
+            case .character(let char):
+                result.append(char)
+            case .special(let str):
+                result.append(str)
+            case .backspace(let count):
+                if count == 1 {
+                    result.append("<Backspace>")
+                } else {
+                    result.append("<Backspace x \(count)>")
+                }
+            }
+        }
+        return result
+    }
+
     func handleKeyPress(_ event: NSEvent) {
         guard let characters = event.characters, !characters.isEmpty else {
             return
@@ -301,12 +361,6 @@ final class TelemetryCollector: ObservableObject {
 
         if !activeTypingAppName.isEmpty && appName != activeTypingAppName {
             flushActiveTypingSession()
-        }
-
-        if activeTypingAppName.isEmpty {
-            activeTypingAppName = appName
-            activeTypingStartTime = now
-            activeTypingText = ""
         }
 
         var representation = characters
@@ -344,10 +398,11 @@ final class TelemetryCollector: ObservableObject {
         if hasCmd { modifierStr += "Cmd+" }
         if hasCtrl { modifierStr += "Ctrl+" }
         if hasOpt { modifierStr += "Opt+" }
+        
+        let isSpecialKey = event.keyCode == 36 || event.keyCode == 48 || event.keyCode == 51 || event.keyCode == 53 || event.keyCode == 117
         if hasShift {
-            let isLetter = characters.count == 1 && characters.first?.isLetter == true
             let hasOtherModifiers = hasCmd || hasCtrl || hasOpt
-            if !isLetter || hasOtherModifiers {
+            if hasOtherModifiers || isSpecialKey {
                 modifierStr += "Shift+"
             }
         }
@@ -356,14 +411,57 @@ final class TelemetryCollector: ObservableObject {
             representation = "<\(modifierStr)\(representation)>"
         }
 
-        activeTypingText += representation
-        activeTypingLastTime = now
-        recordUserInteraction()
+        let isCmdA = representation.lowercased() == "<cmd+a>" || representation.lowercased() == "<cmd+shift+a>"
+        let isShortcut = (hasCmd || hasCtrl || hasOpt) && !isCmdA
 
-        typingDebounceTimer?.invalidate()
-        typingDebounceTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { [weak self] _ in
-            Task { @MainActor in
-                self?.flushActiveTypingSession()
+        if isShortcut {
+            if !activeTypingTokens.isEmpty {
+                flushActiveTypingSession()
+            }
+            
+            let locator = FocusedElementLocator()
+            activeTypingTargetElement = locator.focusedElementDescription()
+            
+            activeTypingAppName = appName
+            activeTypingStartTime = now
+            activeTypingLastTime = now
+            activeTypingTokens = [.special(representation)]
+            
+            flushActiveTypingSession()
+        } else {
+            if activeTypingAppName.isEmpty {
+                activeTypingAppName = appName
+                activeTypingStartTime = now
+                activeTypingTokens = []
+                
+                let locator = FocusedElementLocator()
+                activeTypingTargetElement = locator.focusedElementDescription()
+            }
+            activeTypingLastTime = now
+            recordUserInteraction()
+
+            let isEnterOrTab = event.keyCode == 36 || event.keyCode == 48 || representation == "<Enter>" || representation == "<Tab>"
+            
+            if isEnterOrTab {
+                activeTypingTokens.append(.special(representation))
+                flushActiveTypingSession()
+            } else if event.keyCode == 51 || representation == "<Backspace>" {
+                handleBackspaceToken()
+            } else {
+                if representation.count == 1, let char = representation.first {
+                    activeTypingTokens.append(.character(char))
+                } else {
+                    activeTypingTokens.append(.special(representation))
+                }
+            }
+
+            if !activeTypingAppName.isEmpty {
+                typingDebounceTimer?.invalidate()
+                typingDebounceTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { [weak self] _ in
+                    Task { @MainActor in
+                        self?.flushActiveTypingSession()
+                    }
+                }
             }
         }
     }
@@ -375,19 +473,24 @@ final class TelemetryCollector: ObservableObject {
         guard !activeTypingAppName.isEmpty,
               let startTime = activeTypingStartTime,
               let lastTime = activeTypingLastTime,
-              !activeTypingText.isEmpty else {
+              !activeTypingTokens.isEmpty else {
             activeTypingAppName = ""
             activeTypingStartTime = nil
             activeTypingLastTime = nil
-            activeTypingText = ""
+            activeTypingTargetElement = nil
+            activeTypingTokens = []
             return
         }
 
         let rawDuration = lastTime.timeIntervalSince(startTime)
         let duration = (rawDuration * 10).rounded() / 10.0
+        
+        let typedText = compileTypingTokens()
+        
         let event = DesktopUserEvent.typingSession(
             appName: activeTypingAppName,
-            typedText: activeTypingText,
+            targetElement: activeTypingTargetElement,
+            typedText: typedText,
             durationSeconds: duration
         )
 
@@ -396,6 +499,7 @@ final class TelemetryCollector: ObservableObject {
         activeTypingAppName = ""
         activeTypingStartTime = nil
         activeTypingLastTime = nil
-        activeTypingText = ""
+        activeTypingTargetElement = nil
+        activeTypingTokens = []
     }
 }
