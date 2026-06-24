@@ -220,15 +220,7 @@ final class TelemetryCollector: ObservableObject {
         let systemWide = AXUIElementCreateSystemWide()
         
         if AXUIElementCopyElementAtPosition(systemWide, cgX, cgY, &element) == .success, let clicked = element {
-            var titleValue: CFTypeRef?
-            var roleValue: CFTypeRef?
-            
-            AXUIElementCopyAttributeValue(clicked, kAXTitleAttribute as CFString, &titleValue)
-            AXUIElementCopyAttributeValue(clicked, kAXRoleAttribute as CFString, &roleValue)
-            
-            let title = (titleValue as? String) ?? ""
-            let role = (roleValue as? String) ?? "UnknownRole"
-            let label = title.isEmpty ? role : "\(role): \(title)"
+            let label = resolveElementLabel(for: clicked)
             
             let appName = lastAppName
             let clickCount = event.clickCount
@@ -250,6 +242,72 @@ final class TelemetryCollector: ObservableObject {
                 }
             }
         }
+    }
+
+    private func resolveElementLabel(for element: AXUIElement) -> String {
+        var current: AXUIElement = element
+        var depth = 0
+        
+        while depth < 3 {
+            var roleValue: CFTypeRef?
+            var titleValue: CFTypeRef?
+            var valueValue: CFTypeRef?
+            var descValue: CFTypeRef?
+            var placeholderValue: CFTypeRef?
+            
+            AXUIElementCopyAttributeValue(current, kAXRoleAttribute as CFString, &roleValue)
+            AXUIElementCopyAttributeValue(current, kAXTitleAttribute as CFString, &titleValue)
+            AXUIElementCopyAttributeValue(current, kAXValueAttribute as CFString, &valueValue)
+            AXUIElementCopyAttributeValue(current, kAXDescriptionAttribute as CFString, &descValue)
+            AXUIElementCopyAttributeValue(current, "AXPlaceholderValue" as CFString, &placeholderValue)
+            
+            let role = (roleValue as? String) ?? "UnknownRole"
+            let title = (titleValue as? String) ?? ""
+            
+            var valueStr = ""
+            if let val = valueValue {
+                if let str = val as? String {
+                    valueStr = str
+                } else if let attrStr = val as? NSAttributedString {
+                    valueStr = attrStr.string
+                }
+            }
+            
+            let desc = (descValue as? String) ?? ""
+            let placeholder = (placeholderValue as? String) ?? ""
+            
+            var details: [String] = []
+            if !title.isEmpty { details.append("Title: \(title)") }
+            if !valueStr.isEmpty {
+                let cleanVal = valueStr.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !cleanVal.isEmpty {
+                    let truncated = cleanVal.count > 120 ? cleanVal.prefix(120) + "..." : cleanVal
+                    details.append("Value: \(truncated)")
+                }
+            }
+            if !desc.isEmpty { details.append("Description: \(desc)") }
+            if !placeholder.isEmpty { details.append("Placeholder: \(placeholder)") }
+            
+            if !details.isEmpty {
+                return "\(role) (\(details.joined(separator: ", ")))"
+            }
+            
+            // Go to parent if details are empty
+            var parentValue: CFTypeRef?
+            if AXUIElementCopyAttributeValue(current, kAXParentAttribute as CFString, &parentValue) == .success,
+               let parent = parentValue,
+               CFGetTypeID(parent) == AXUIElementGetTypeID() {
+                current = unsafeBitCast(parent, to: AXUIElement.self)
+                depth += 1
+            } else {
+                break
+            }
+        }
+        
+        // Fallback to role of the original element
+        var originalRole: CFTypeRef?
+        AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &originalRole)
+        return (originalRole as? String) ?? "UnknownRole"
     }
 
     private func flushPendingClick() {
