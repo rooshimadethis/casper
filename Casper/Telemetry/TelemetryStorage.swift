@@ -67,7 +67,7 @@ final class TelemetryStorage: @unchecked Sendable {
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
-        let record = TelemetryEventRecord(recordedAt: recordedAt, event: event)
+        let record = TelemetryEventRecord(recordedAt: recordedAt, event: event.sanitized())
         var eventData = try encoder.encode(record)
         eventData.append(contentsOf: "\n".data(using: .utf8)!)
 

@@ -41,11 +41,6 @@ final class TelemetryReportWriter: @unchecked Sendable {
         timer = Timer.scheduledTimer(withTimeInterval: 3600.0, repeats: true) { [weak self] _ in
             self?.triggerDailyReportGeneration()
         }
-        
-        // Trigger a check shortly after starting
-        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 15.0) { [weak self] in
-            self?.triggerDailyReportGeneration()
-        }
     }
 
     /// Stops the timer.

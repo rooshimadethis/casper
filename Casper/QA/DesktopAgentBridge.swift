@@ -160,3 +160,52 @@ final class DesktopAgentBridge: ObservableObject {
         }
     }
 }
+
+extension DesktopUserEvent {
+    func sanitized() -> DesktopUserEvent {
+        switch self {
+        case .appActivated(let name, let bundleID, let title):
+            return .appActivated(
+                appName: TelemetrySanitizer.sanitize(name),
+                bundleID: bundleID,
+                windowTitle: TelemetrySanitizer.sanitize(title)
+            )
+        case .windowTitleChanged(let name, let title):
+            return .windowTitleChanged(
+                appName: TelemetrySanitizer.sanitize(name),
+                windowTitle: TelemetrySanitizer.sanitize(title)
+            )
+        case .textCopied(let text):
+            return .textCopied(text: TelemetrySanitizer.sanitize(text))
+        case .screenOcrCaptured(let text):
+            return .screenOcrCaptured(text: TelemetrySanitizer.sanitize(text))
+        case .commandExecuted(let command, let exitCode, let output):
+            return .commandExecuted(
+                command: TelemetrySanitizer.sanitize(command),
+                exitCode: exitCode,
+                output: output.map { TelemetrySanitizer.sanitize($0) }
+            )
+        case .customInput(let prompt):
+            return .customInput(prompt: TelemetrySanitizer.sanitize(prompt))
+        case .mouseClicked(let app, let element, let clickCount, let selectedText):
+            return .mouseClicked(
+                appName: TelemetrySanitizer.sanitize(app),
+                elementClicked: TelemetrySanitizer.sanitize(element),
+                clickCount: clickCount,
+                selectedText: selectedText.map { TelemetrySanitizer.sanitize($0) }
+            )
+        case .appStalled(let app, let duration):
+            return .appStalled(appName: TelemetrySanitizer.sanitize(app), durationSeconds: duration)
+        case .userHesitated(let app, let duration):
+            return .userHesitated(appName: TelemetrySanitizer.sanitize(app), durationSeconds: duration)
+        case .typingSession(let app, let targetElement, let text, let duration):
+            return .typingSession(
+                appName: TelemetrySanitizer.sanitize(app),
+                targetElement: targetElement.map { TelemetrySanitizer.sanitize($0) },
+                typedText: TelemetrySanitizer.sanitize(text),
+                durationSeconds: duration
+            )
+        }
+    }
+}
+
