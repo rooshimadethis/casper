@@ -716,6 +716,32 @@ struct SettingsView: View {
                         }
                     }
             }
+
+            SettingsCard("Telemetry") {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Use these controls after a real dogfood pass to force session summaries and generate a same-day telemetry report without waiting for the idle or daily schedulers.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    HStack(spacing: 12) {
+                        Button("Summarize telemetry now") {
+                            appState.generateTelemetrySessionSummariesNow()
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button("Generate telemetry report now") {
+                            appState.generateTelemetryReportNow()
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+
+                    Text("Scheduled behavior is unchanged: summaries still run on idle, and daily reports still run on AC power for the previous day.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
         }
     }
 

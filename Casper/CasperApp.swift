@@ -47,10 +47,12 @@ struct CasperApp: App {
                 }
             }
             .onAppear {
+                guard !RuntimeEnvironment.isRunningTests else { return }
                 ProcessInfo.processInfo.disableAutomaticTermination(Self.automaticTerminationReason)
                 guard !hasInitialized else { return }
                 hasInitialized = true
-                if onboardingCompleted {
+                let shouldSuppressAutomaticOnboarding = RuntimeEnvironment.suppressesAutomaticOnboarding
+                if onboardingCompleted || shouldSuppressAutomaticOnboarding {
                     Task {
                         await appState.initialize()
                     }
@@ -64,6 +66,7 @@ struct CasperApp: App {
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
+                guard !RuntimeEnvironment.isRunningTests else { return }
                 ProcessInfo.processInfo.enableAutomaticTermination(Self.automaticTerminationReason)
                 appState.prepareForTermination()
             }

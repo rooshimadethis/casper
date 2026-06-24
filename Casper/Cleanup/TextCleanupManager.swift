@@ -825,3 +825,5 @@ private final class DownloadProgressDelegate: NSObject, URLSessionDownloadDelega
         // Handled by the async download(from:) call
     }
 }
+
+extension TextCleanupManager: LocalLLMStreaming {}

@@ -3,6 +3,29 @@ import AVFoundation
 import CoreGraphics
 import IOKit.hidsystem
 
+enum RuntimeEnvironment {
+    private static let quietInstallArgument = "--quiet-install"
+    private static let quietInstallEnvironmentKey = "CASPER_QUIET_INSTALL"
+
+    static var isRunningTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    }
+
+    static var suppressesAutomaticOnboarding: Bool {
+        suppressesAutomaticOnboarding(
+            arguments: ProcessInfo.processInfo.arguments,
+            environment: ProcessInfo.processInfo.environment
+        )
+    }
+
+    static func suppressesAutomaticOnboarding(
+        arguments: [String],
+        environment: [String: String]
+    ) -> Bool {
+        arguments.contains(quietInstallArgument) || environment[quietInstallEnvironmentKey] == "1"
+    }
+}
+
 enum MicrophonePermissionStatus: Equatable {
     case authorized
     case denied
@@ -20,7 +43,7 @@ class PermissionChecker {
     }
 
     static let defaultClient: Client = {
-        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+        if RuntimeEnvironment.isRunningTests {
             return Client.test
         }
         return Client.live

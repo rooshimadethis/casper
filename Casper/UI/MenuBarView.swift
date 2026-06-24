@@ -1,10 +1,21 @@
 import SwiftUI
 import CoreAudio
 import ServiceManagement
+import Combine
 
 struct MenuBarView: View {
     @ObservedObject var appState: AppState
     @ObservedObject var updaterController: UpdaterController
+    @State private var telemetryStatus = TelemetryStatusSnapshot(
+        rawEventsDirectory: URL(fileURLWithPath: NSHomeDirectory()),
+        sessionsDirectory: URL(fileURLWithPath: NSHomeDirectory()),
+        todayLogURL: URL(fileURLWithPath: NSHomeDirectory()),
+        todayEventCount: 0,
+        latestEventAt: nil,
+        todaySummaryCount: 0,
+        latestSummaryURL: nil
+    )
+    private let telemetryRefreshTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -49,6 +60,10 @@ struct MenuBarView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 2)
             }
+
+            Divider()
+
+            telemetrySection
 
             if case .downloading(_, let progress) = appState.textCleanupManager.state {
                 ProgressView(value: progress)
@@ -105,6 +120,10 @@ struct MenuBarView: View {
             .keyboardShortcut("q")
         }
         .padding(.vertical, 4)
+        .onAppear(perform: refreshTelemetryStatus)
+        .onReceive(telemetryRefreshTimer) { _ in
+            refreshTelemetryStatus()
+        }
     }
 
     private var statusLine: String? {
@@ -123,4 +142,71 @@ struct MenuBarView: View {
             return nil
         }
     }
+
+    private var telemetrySection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Telemetry")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .padding(.horizontal, 14)
+                .padding(.top, 2)
+
+            Text(telemetryHeadline)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 14)
+
+            Text("Today: \(telemetryStatus.todayEventCount) event\(telemetryStatus.todayEventCount == 1 ? "" : "s")")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 14)
+
+            Text("Session summaries today: \(telemetryStatus.todaySummaryCount)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 14)
+
+            Button("Open Event Log Folder") {
+                appState.openTelemetryEventLogDirectory()
+            }
+
+            Button("Open Summary Folder") {
+                appState.openTelemetrySummaryDirectory()
+            }
+        }
+        .padding(.bottom, 2)
+    }
+
+    private var telemetryHeadline: String {
+        guard telemetryStatus.todayEventCount > 0 else {
+            return "No events captured yet today."
+        }
+
+        guard let latestEventAt = telemetryStatus.latestEventAt else {
+            return "Events recorded today."
+        }
+
+        let age = Date().timeIntervalSince(latestEventAt)
+        let relative = Self.relativeFormatter.localizedString(for: latestEventAt, relativeTo: Date())
+
+        if age <= 120 {
+            return "Telemetry active. Last event \(relative)."
+        }
+
+        if age <= 900 {
+            return "Telemetry looks healthy. Last event \(relative)."
+        }
+
+        return "Telemetry may be idle. Last event \(relative)."
+    }
+
+    private func refreshTelemetryStatus() {
+        telemetryStatus = appState.telemetryStorage.statusSnapshot()
+    }
+
+    private static let relativeFormatter: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return formatter
+    }()
 }

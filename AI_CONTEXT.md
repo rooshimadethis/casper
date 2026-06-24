@@ -51,7 +51,9 @@ This document contains canonical, project-specific context for developers and AI
 ### 🚀 App Launch Behavior
 * **Constraint:** The app starts quietly directly in the menu bar. 
 * **Details:** Automatic opening of the `MeetingTranscriptWindow` on app launch (or upon onboarding completion) has been **disabled** (modified in `CasperApp.swift`).
+* **No launch announcement modal:** The legacy `What's New in Casper` announcement alert in `AppState.initialize()` has been removed. Agents should not restore a startup modal for feature announcements; prefer passive discoverability inside the menu bar UI or explicit user-invoked surfaces.
 * **Activation Policy:** The onboarding window sets activation policy to `.regular`. When dismissed, it restores the policy to `.accessory` so the app runs solely as a status item in the menu bar.
+* **Brand asset generation:** `scripts/generate_brand_assets.swift` regenerates `AppIcon.appiconset` from `casper-logo.png` and the menu bar icon variants from `casper-plain.png`. The macOS menu bar image sets now intentionally ship only `1x` and `2x` entries to avoid `actool` unassigned-child warnings.
 
 ### 🚫 YouTube Transcription Dialogs
 * **Constraint:** The app must NOT prompt the user or open dialogs to transcribe YouTube videos.
@@ -64,6 +66,47 @@ This document contains canonical, project-specific context for developers and AI
   * **Workspace Context:** `DesktopWorkspaceContext` maintains state.
   * **Evaluation Heuristics:** Filter functions ensure the local LLM is only invoked during high-value events (e.g. CLI failures, manual queries, copy events).
   * **Just-in-Time (JIT) Recommendations:** The agent returns a JSON array of `DesktopAgentRecommendation` objects suggesting JIT actions like pasting context-aware content or executing Terminal scripts.
+
+### 📊 Local Telemetry Session Summaries
+* **Location:** `Casper/Telemetry/`
+* **Storage Shape:** Raw telemetry is written as timestamped `TelemetryEventRecord` JSONL entries, not bare `DesktopUserEvent` values. `TelemetryStorage.loadEventRecords(...)` remains backward-compatible with legacy lines by synthesizing fallback timestamps from file date + line offset.
+* **Summarization Behavior:** `TelemetrySummarizer` now batches raw logs into discrete sessions using a 10-minute inactivity gap between adjacent records, writes one summary file per session, and persists processed-line progress in `sessions/session_progress.json` instead of deleting whole daily log files after a single pass.
+* **Manual Dogfood Triggers:** Scheduled summarization still runs only when the user has been idle for 10 minutes, and scheduled report generation still runs only on AC power for the previous day. For post-feature dogfooding, Settings → General now exposes manual triggers that bypass those gates: `Summarize telemetry now` forces pending session summarization immediately, and `Generate telemetry report now` writes a same-day report for the current telemetry date.
+* **Menu Bar Telemetry Visibility:** The menu bar panel now shows a lightweight telemetry health section with a live status headline, today's event count, today's session-summary count, plus shortcuts to open the raw telemetry folder and the session-summary folder in Finder.
+* **Agent Dogfood Flow:** When a user wants a local dogfood build installed after validation, prefer `scripts/dogfood-install.sh` over a bare `xcodebuild test`. That script runs the configured test command first and, only on success, installs the fresh Debug build to the local app path and launches it automatically. Agents should use this flow instead of stopping at test success when the user asks to dogfood or install the latest local build.
+* **Dogfood Script Defaults:** `scripts/dogfood-install.sh` reuses an existing installed app path first (`~/Applications/Casper.app` or `/Applications/Casper.app`) so Accessibility/Input Monitoring TCC grants stay attached across reinstalls; otherwise it defaults to `~/Applications/Casper.app` to avoid permission stalls during local installs. Unless the caller explicitly passes test selection flags, it also skips `CasperTests/CleanupPromptEvalTests` by default because those live model evals are intentionally slow and are not the right default gate for every dogfood loop. Set `DOGFOOD_APP_PATH` to override the install target, `DOGFOOD_INCLUDE_SLOW_TESTS=1` to re-include the live eval suite, or `DOGFOOD_SKIP_DEFAULT_TEST_FILTERS=1` to fully control test filtering yourself.
+* **Quiet Install Launch:** `scripts/dogfood-install.sh` now launches the installed app with `--quiet-install` by default so first-run onboarding does not auto-pop after dogfood installs. `CasperApp` treats that flag as a one-launch suppression of automatic onboarding while still initializing the app and keeping `Show Setup Window` available from the menu bar. Set `QUIET_INSTALL_ON_LAUNCH=0` to restore the normal launch behavior during install automation.
+* **Brand Refresh in Dogfood Flow:** `scripts/dogfood-install.sh` now regenerates `AppIcon.appiconset` and menu bar icon assets from `casper-logo.png` and `casper-plain.png` before validation/build, so local installs pick up the latest Casper branding without requiring a separate manual asset-generation step. Set `DOGFOOD_SKIP_BRAND_ASSETS=1` only when intentionally bypassing that refresh.
+* **Signed Dogfood Builds Matter:** Do not install the app bundle produced by `xcodebuild test` when validating permission-sensitive behavior. The test command runs with code signing disabled to keep CLI validation reliable, but a freshly replaced unsigned/ad-hoc app can lose effective TCC identity even while System Settings still shows an older Casper row under Accessibility or Input Monitoring. `scripts/dogfood-install.sh` now follows the unsigned test pass with a separate normal `xcodebuild build` and installs that signed app bundle instead.
+
+### 🧪 Targeted Xcode Validation
+* **Working command:** For telemetry-targeted validation, use:
+  ```bash
+  xcodebuild test \
+    -project Casper.xcodeproj \
+    -scheme Casper \
+    -destination 'platform=macOS' \
+    -derivedDataPath .deriveddata \
+    -clonedSourcePackagesDirPath ~/Library/Developer/Xcode/DerivedData/Casper-hfmhqrbjcvzfnwfbhqzxsdkhcbxk/SourcePackages \
+    -disableAutomaticPackageResolution \
+    -skipMacroValidation \
+    CODE_SIGNING_ALLOWED=NO \
+    CODE_SIGNING_REQUIRED=NO \
+    CODE_SIGN_IDENTITY='' \
+    -only-testing:CasperTests/TelemetryStorageTests \
+    -only-testing:CasperTests/TelemetryAgentTests \
+    -only-testing:CasperTests/RuntimeEnvironmentTests
+  ```
+* **Why this matters:** Casper depends on cached Swift package checkouts outside the repo, the `LLM.swift` package requires `-skipMacroValidation` in CLI builds, and local validation can fail on machines without a matching `Mac Development` signing identity unless code signing is disabled for the test run.
+* **Hosted test guard:** `CasperApp` now treats `XCTestConfigurationFilePath` as a hard signal that the process is running as a hosted test app and skips onboarding plus app initialization side effects in that mode. Reuse `RuntimeEnvironment.isRunningTests` for any future startup behavior that should not run under `xcodebuild test`.
+* **Dogfood Install Command:** To validate, install, and launch a fresh local app build in one step, use:
+  ```bash
+  scripts/dogfood-install.sh \
+    -only-testing:CasperTests/TelemetryStorageTests \
+    -only-testing:CasperTests/TelemetryAgentTests \
+    -only-testing:CasperTests/RuntimeEnvironmentTests
+  ```
+  The script reuses the same DerivedData/package-cache assumptions as the working test command, then replaces the local installed app bundle and opens it automatically. Override `DOGFOOD_APP_PATH` if the install target should not be `/Applications/Casper.app`.
 
 ---
 

@@ -2,6 +2,7 @@ import SwiftUI
 import Combine
 import CoreAudio
 import ServiceManagement
+import AppKit
 
 enum AppStatus: String {
     case ready = "Ready"
@@ -81,7 +82,6 @@ class AppState: ObservableObject {
     @AppStorage("trelloDefaultListId") var trelloDefaultListId: String = ""
     @Published var trelloBoards: [TrelloBoard] = []
     @AppStorage("meetingTranscriptEnabled") var meetingTranscriptEnabled: Bool = false
-    @Published var showWhatsNew = false
     @AppStorage("meetingAutoDetectEnabled") var meetingAutoDetectEnabled: Bool = true
     @AppStorage("meetingWindowFloatsWhileRecording") var meetingWindowFloatsWhileRecording: Bool = true
     @AppStorage("meetingSummaryPrompt") var meetingSummaryPrompt: String = MeetingSummaryGenerator.defaultPrompt
@@ -121,6 +121,11 @@ class AppState: ObservableObject {
     let hotkeyMonitor: HotkeyMonitoring
     let overlay = RecordingOverlayController()
     let textCleanupManager: TextCleanupManager
+    let telemetryStorage: TelemetryStorage
+    let telemetryPowerMonitor: TelemetryPowerMonitor
+    let telemetryCollector: TelemetryCollector
+    let telemetrySummarizer: TelemetrySummarizer
+    let telemetryReportWriter: TelemetryReportWriter
     let usageStats = UsageStatsStore()
     let frontmostWindowOCRService: FrontmostWindowOCRService
     let cleanupPromptBuilder: CleanupPromptBuilder
@@ -244,6 +249,13 @@ class AppState: ObservableObject {
         self.toggleToTalkChord = chordBindingStore.binding(for: .toggleToTalk) ?? AppState.defaultToggleToTalkChord
         self.pepperChatChord = chordBindingStore.binding(for: .pepperChat) ?? AppState.defaultPepperChatChord
         self.textCleanupManager = textCleanupManager ?? TextCleanupManager(defaults: cleanupSettingsDefaults)
+        let storage = TelemetryStorage()
+        let powerMonitor = TelemetryPowerMonitor()
+        self.telemetryStorage = storage
+        self.telemetryPowerMonitor = powerMonitor
+        self.telemetryCollector = TelemetryCollector(storage: storage, powerMonitor: powerMonitor, ocrService: frontmostWindowOCRService)
+        self.telemetrySummarizer = TelemetrySummarizer(storage: storage, powerMonitor: powerMonitor, cleanupManager: self.textCleanupManager)
+        self.telemetryReportWriter = TelemetryReportWriter(storage: storage, powerMonitor: powerMonitor, cleanupManager: self.textCleanupManager)
         self.frontmostWindowOCRService = frontmostWindowOCRService
         self.recordingOCRPrefetch = RecordingOCRPrefetch { [frontmostWindowOCRService] customWords in
             await frontmostWindowOCRService.captureContext(customWords: customWords)
@@ -290,11 +302,6 @@ class AppState: ObservableObject {
             // User has used the app before (has a cleanup model selected) but never saw
             // the meeting transcript setting → this is an update, enable it
             meetingTranscriptEnabled = true
-        }
-        // Show "What's New" dialog once after update introduces meetings
-        if !UserDefaults.standard.bool(forKey: "hasSeenMeetingTranscriptAnnouncement"),
-           UserDefaults.standard.object(forKey: "selectedCleanupModelKind") != nil {
-            showWhatsNew = true
         }
         self.transcriber = SpeechTranscriber(modelManager: modelManager)
         self.textCleaner = TextCleaner(
@@ -456,25 +463,6 @@ class AppState: ObservableObject {
             }
         }
 
-        // Show "What's New" dialog for returning users who haven't seen the meeting announcement
-        if showWhatsNew {
-            showWhatsNew = false
-            UserDefaults.standard.set(true, forKey: "hasSeenMeetingTranscriptAnnouncement")
-            Task { @MainActor in
-                let alert = NSAlert()
-                alert.messageText = "What's New in Casper"
-                alert.informativeText = "Meeting transcription is here — record calls with notes, transcript, and AI-generated summaries.\n\n100% local. 100% private. Nothing leaves your Mac."
-                alert.alertStyle = .informational
-                alert.icon = NSImage(named: "AppIcon")
-                alert.addButton(withTitle: "Open Meetings")
-                alert.addButton(withTitle: "Got It")
-                let response = alert.runModal()
-                if response == .alertFirstButtonReturn {
-                    showMeetingTranscriptWindow()
-                }
-            }
-        }
-
         // Wire up Trello
         pepperChatWindowController.isTrelloConfigured = { [weak self] in
             guard let self = self else { return false }
@@ -559,6 +547,12 @@ class AppState: ObservableObject {
 
         // Start meeting detection if enabled
         setupMeetingDetector()
+
+        // Start passive telemetry and run log rotation/pruning
+        telemetryCollector.start()
+        telemetrySummarizer.start()
+        telemetryReportWriter.start()
+        try? telemetryStorage.rotateLogs()
     }
 
     func relaunchApp() {
@@ -567,6 +561,25 @@ class AppState: ObservableObject {
         } catch {
             errorMessage = "Failed to relaunch Casper: \(error.localizedDescription)"
         }
+    }
+
+    func generateTelemetrySessionSummariesNow() {
+        telemetrySummarizer.triggerProcessing(force: true)
+    }
+
+    func generateTelemetryReportNow() {
+        telemetryReportWriter.triggerDailyReportGeneration(
+            force: true,
+            dateString: Self.currentTelemetryDateString()
+        )
+    }
+
+    func openTelemetryEventLogDirectory() {
+        openDirectoryInFinder(telemetryStorage.storageDirectory)
+    }
+
+    func openTelemetrySummaryDirectory() {
+        openDirectoryInFinder(telemetryStorage.sessionsDirectory)
     }
 
     func startHotkeyMonitor() async {
@@ -650,6 +663,22 @@ class AppState: ObservableObject {
             status = .error
             debugLogStore.record(category: .hotkey, message: errorMessage ?? "Accessibility access required.")
         }
+    }
+
+    private static func currentTelemetryDateString() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone.current
+        return formatter.string(from: Date())
+    }
+
+    private func openDirectoryInFinder(_ directoryURL: URL) {
+        let fileManager = FileManager.default
+        if !fileManager.fileExists(atPath: directoryURL.path) {
+            try? fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        }
+        NSWorkspace.shared.open(directoryURL)
     }
 
     func prepareRecordingSessionIfNeeded() async {
@@ -1861,6 +1890,9 @@ class AppState: ObservableObject {
         recordingOCRPrefetch.cancel()
         textCleanupManager.shutdownBackend()
         meetingDetector.stop()
+        telemetryCollector.stop()
+        telemetrySummarizer.stop()
+        telemetryReportWriter.stop()
         if let session = activeMeetingSession {
             Task { await session.stop() }
         }

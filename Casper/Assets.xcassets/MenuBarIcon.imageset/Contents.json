@@ -9,11 +9,6 @@
       "filename" : "menubar-icon@2x.png",
       "idiom" : "mac",
       "scale" : "2x"
-    },
-    {
-      "filename" : "menubar-icon@3x.png",
-      "idiom" : "mac",
-      "scale" : "3x"
     }
   ],
   "info" : {
