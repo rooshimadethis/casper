@@ -28,6 +28,12 @@ final class TelemetryStorage: @unchecked Sendable {
         return storageDirectory.appendingPathComponent("sessions", isDirectory: true)
     }
 
+    var eventsDirectory: URL {
+        lock.lock()
+        defer { lock.unlock() }
+        return storageDirectory.appendingPathComponent("events", isDirectory: true)
+    }
+
     /// Initializes the storage manager with a directory.
     /// If none is provided, it defaults to Casper's Application Support folder.
     init(storageDirectory: URL? = nil) {
@@ -60,7 +66,7 @@ final class TelemetryStorage: @unchecked Sendable {
             fileURL = active
         } else {
             let tsStr = Self.timestampString(for: recordedAt)
-            let newURL = storageDirectory.appendingPathComponent("telemetry_events_\(tsStr).jsonl")
+            let newURL = storageDirectory.appendingPathComponent("events", isDirectory: true).appendingPathComponent("telemetry_events_\(tsStr).jsonl")
             activeLogURL = newURL
             fileURL = newURL
         }
@@ -96,7 +102,7 @@ final class TelemetryStorage: @unchecked Sendable {
         defer { lock.unlock() }
 
         // If it's a specific exact file match
-        let exactURL = storageDirectory.appendingPathComponent("telemetry_events_\(dateString).jsonl")
+        let exactURL = eventsDirectory.appendingPathComponent("telemetry_events_\(dateString).jsonl")
         if FileManager.default.fileExists(atPath: exactURL.path) {
             return try loadEventRecords(fromFileAt: exactURL, dateString: dateString)
         }
@@ -107,7 +113,7 @@ final class TelemetryStorage: @unchecked Sendable {
             return []
         }
 
-        let contents = try fileManager.contentsOfDirectory(at: storageDirectory, includingPropertiesForKeys: nil)
+        let contents = try fileManager.contentsOfDirectory(at: eventsDirectory, includingPropertiesForKeys: nil)
         let matchingFiles = contents
             .filter { fileURL in
                 let filename = fileURL.lastPathComponent
@@ -150,57 +156,12 @@ final class TelemetryStorage: @unchecked Sendable {
         }
     }
 
-    /// Rotates logs by removing daily partition files older than 7 days.
-    func rotateLogs() throws {
-        lock.lock()
-        defer { lock.unlock() }
-
-        let fileManager = FileManager.default
-        guard fileManager.fileExists(atPath: storageDirectory.path) else {
-            return
-        }
-
-        let contents = try fileManager.contentsOfDirectory(at: storageDirectory, includingPropertiesForKeys: nil)
-        let calendar = Calendar.current
-        let now = Date()
-        guard let sevenDaysAgo = calendar.date(byAdding: .day, value: -7, to: now) else {
-            return
-        }
-
-        // Format date key threshold as yyyy-MM-dd
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone.current
-
-        for fileURL in contents {
-            let filename = fileURL.lastPathComponent
-            guard filename.hasPrefix("telemetry_events_") && filename.hasSuffix(".jsonl") else {
-                continue
-            }
-
-            // Extract YYYY-MM-DD from full date/timestamp part
-            let prefixLength = "telemetry_events_".count
-            let suffixLength = ".jsonl".count
-            let startIdx = filename.index(filename.startIndex, offsetBy: prefixLength)
-            let endIdx = filename.index(filename.endIndex, offsetBy: -suffixLength)
-            let fullDatePart = String(filename[startIdx..<endIdx])
-            let datePart = String(fullDatePart.prefix(10)) // Extract YYYY-MM-DD segment
-
-            if let fileDate = formatter.date(from: datePart) {
-                if fileDate < sevenDaysAgo {
-                    try fileManager.removeItem(at: fileURL)
-                }
-            }
-        }
-    }
-
     func statusSnapshot(referenceDate: Date = Date()) -> TelemetryStatusSnapshot {
         lock.lock()
         defer { lock.unlock() }
 
         let dateString = Self.dateString(for: referenceDate)
-        let fallbackTodayLogURL = storageDirectory.appendingPathComponent("telemetry_events_\(dateString).jsonl")
+        let fallbackTodayLogURL = eventsDirectory.appendingPathComponent("telemetry_events_\(dateString).jsonl")
         let todayLogURL = activeLogURL ?? fallbackTodayLogURL
         let records = (try? loadEventRecords(forDateString: dateString)) ?? []
         let latestEventAt = records.last?.recordedAt
@@ -216,7 +177,7 @@ final class TelemetryStorage: @unchecked Sendable {
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
 
         return TelemetryStatusSnapshot(
-            rawEventsDirectory: storageDirectory,
+            rawEventsDirectory: eventsDirectory,
             sessionsDirectory: sessionsDirectory,
             todayLogURL: todayLogURL,
             todayEventCount: records.count,
@@ -232,6 +193,9 @@ final class TelemetryStorage: @unchecked Sendable {
         let fileManager = FileManager.default
         if !fileManager.fileExists(atPath: storageDirectory.path) {
             try fileManager.createDirectory(at: storageDirectory, withIntermediateDirectories: true)
+        }
+        if !fileManager.fileExists(atPath: eventsDirectory.path) {
+            try fileManager.createDirectory(at: eventsDirectory, withIntermediateDirectories: false)
         }
     }
 

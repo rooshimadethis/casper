@@ -548,11 +548,10 @@ class AppState: ObservableObject {
         // Start meeting detection if enabled
         setupMeetingDetector()
 
-        // Start passive telemetry and run log rotation/pruning
+        // Start passive telemetry
         telemetryCollector.start()
         telemetrySummarizer.start()
         telemetryReportWriter.start()
-        try? telemetryStorage.rotateLogs()
     }
 
     func relaunchApp() {

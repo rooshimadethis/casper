@@ -31,6 +31,7 @@ final class TelemetryReportWriter: @unchecked Sendable {
             self.reportsDirectory = appSupport
                 .appendingPathComponent("Casper", isDirectory: true)
                 .appendingPathComponent("telemetry", isDirectory: true)
+                .appendingPathComponent("reports", isDirectory: true)
         }
     }
 

@@ -54,6 +54,7 @@
 		40DF3E0837BAC816AFCE7917 /* TranscriptionLabRunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A84B1A933F611CA2409C9C /* TranscriptionLabRunnerTests.swift */; };
 		427BF5DEF8E7BA94BCDEC731 /* UsageReportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9578F33D5AFDD3C0861FCCA2 /* UsageReportView.swift */; };
 		44939861E3F0E5EF6BCCB2E2 /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53384B9FD07CED4ED6E01538 /* AudioRecorder.swift */; };
+		44973DDBE4C79BD198C9DA35 /* TelemetryModelProbeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94727570952D5E3D6420471D /* TelemetryModelProbeTests.swift */; };
 		44A80938B1F6E14E0FD4408D /* sprite_frame_2@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 214297EE926074C0649E158F /* sprite_frame_2@2x.png */; };
 		463431324BAB2A8B35FC950F /* ChordAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41FF3DE622E38ADB53989CA3 /* ChordAction.swift */; };
 		467E5183CE841867CDC09287 /* CleanupBackendTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 955C4617A22353D322123212 /* CleanupBackendTests.swift */; };
@@ -262,7 +263,7 @@
 		2C185F3D460883C897BA387B /* IndexEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndexEntry.swift; sourceTree = "<group>"; };
 		2C5E3AC91AD9ED2F242E2C2B /* RuntimeModelInventoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeModelInventoryTests.swift; sourceTree = "<group>"; };
 		2C61FBBF8D090F9E47497028 /* SpeechTranscriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechTranscriber.swift; sourceTree = "<group>"; };
-		2FCA91568B09CEA9D687AF91 /* Secrets.example */ = {isa = PBXFileReference; lastKnownFileType = text; path = Secrets.example; sourceTree = "<group>"; };
+		2FCA91568B09CEA9D687AF91 /* Secrets.example */ = {isa = PBXFileReference; path = Secrets.example; sourceTree = "<group>"; };
 		30AA420ED406D688230EABC3 /* CleanupPromptBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupPromptBuilder.swift; sourceTree = "<group>"; };
 		311EF28956A8C4D11BD0851C /* ShortcutCaptureState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutCaptureState.swift; sourceTree = "<group>"; };
 		3141609898F757CB40E777B7 /* KeyChordTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyChordTests.swift; sourceTree = "<group>"; };
@@ -296,7 +297,7 @@
 		52E6865F602908B0854BCA5C /* PerformanceTrace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceTrace.swift; sourceTree = "<group>"; };
 		5322EC72E15C0A5106753F8B /* MeetingTranscriptSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingTranscriptSettings.swift; sourceTree = "<group>"; };
 		53384B9FD07CED4ED6E01538 /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
-		5610E25E1D89F88E1D40BE2D /* CleanupModelProbe */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = text; path = CleanupModelProbe; sourceTree = BUILT_PRODUCTS_DIR; };
+		5610E25E1D89F88E1D40BE2D /* CleanupModelProbe */ = {isa = PBXFileReference; includeInIndex = 0; path = CleanupModelProbe; sourceTree = BUILT_PRODUCTS_DIR; };
 		562732092724FDD87B3EC866 /* casper-character.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "casper-character.png"; sourceTree = "<group>"; };
 		574C69A99E554914B948D9A3 /* TranscriptionLabEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionLabEntry.swift; sourceTree = "<group>"; };
 		5798D68D88395DE41F988685 /* UpdaterController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterController.swift; sourceTree = "<group>"; };
@@ -342,6 +343,7 @@
 		9376482C7B41363E47D6AF2C /* SpeakerIdentityResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeakerIdentityResolverTests.swift; sourceTree = "<group>"; };
 		93EFB9A4E4DAF8D49170F7D6 /* CleanupBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupBackend.swift; sourceTree = "<group>"; };
 		945E6A96D1209DA1B3C33193 /* PepperChatSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PepperChatSession.swift; sourceTree = "<group>"; };
+		94727570952D5E3D6420471D /* TelemetryModelProbeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryModelProbeTests.swift; sourceTree = "<group>"; };
 		955C4617A22353D322123212 /* CleanupBackendTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupBackendTests.swift; sourceTree = "<group>"; };
 		9578F33D5AFDD3C0861FCCA2 /* UsageReportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageReportView.swift; sourceTree = "<group>"; };
 		95D73B415326D692C81BDAC0 /* IndexSystemPromptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndexSystemPromptTests.swift; sourceTree = "<group>"; };
@@ -714,6 +716,7 @@
 				B48D8F9C22D2AC0ECB367C84 /* SpeechTranscriberTests.swift */,
 				06716A1AEF3896448AB142E3 /* TelemetryAgentTests.swift */,
 				739133F2779C20F3468DFB2A /* TelemetryCollectorTests.swift */,
+				94727570952D5E3D6420471D /* TelemetryModelProbeTests.swift */,
 				C03E464965AE1BB12858977C /* TelemetrySanitizerTests.swift */,
 				42FCBC71C150983301BE651E /* TelemetryStorageTests.swift */,
 				98F67B6762C6CD8D40794369 /* TextCleanerTests.swift */,
@@ -965,6 +968,7 @@
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					1D1E8313F0D3142C1AB255FE = {
+						DevelopmentTeam = BBVMGXR9AY;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -1066,6 +1070,7 @@
 				673ABF7212C07A6ADC7697BD /* SpeechTranscriberTests.swift in Sources */,
 				6C9AAB71903A52404594F9DC /* TelemetryAgentTests.swift in Sources */,
 				8A5D368E943BAB8357910D38 /* TelemetryCollectorTests.swift in Sources */,
+				44973DDBE4C79BD198C9DA35 /* TelemetryModelProbeTests.swift in Sources */,
 				E20F512A808FFB17A8E2FBD5 /* TelemetrySanitizerTests.swift in Sources */,
 				FCD89CB514EDDC82F2CC2619 /* TelemetryStorageTests.swift in Sources */,
 				DD13F5B82963CA2E4111F2AB /* TextCleanerTests.swift in Sources */,
@@ -1264,7 +1269,6 @@
 				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
 				CODE_SIGN_ENTITLEMENTS = Casper/Casper.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = 9P8MXPB2KF;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
 				INFOPLIST_FILE = Casper/Info.plist;
@@ -1449,7 +1453,6 @@
 				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
 				CODE_SIGN_ENTITLEMENTS = Casper/Casper.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = 9P8MXPB2KF;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
 				INFOPLIST_FILE = Casper/Info.plist;

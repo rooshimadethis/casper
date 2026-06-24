@@ -75,44 +75,6 @@ final class TelemetryStorageTests: XCTestCase {
         }
     }
 
-    func testRotateLogsDeletesFilesOlderThan7Days() throws {
-        let fileManager = FileManager.default
-        let calendar = Calendar.current
-        let now = Date()
-
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone.current
-
-        // Create 3 files: 10 days ago (should delete), 6 days ago (should keep), today (should keep)
-        let dates = [
-            (calendar.date(byAdding: .day, value: -10, to: now)!, true),
-            (calendar.date(byAdding: .day, value: -6, to: now)!, false),
-            (now, false)
-        ]
-
-        for (date, _) in dates {
-            let dateStr = formatter.string(from: date)
-            let fileURL = tempDirectory.appendingPathComponent("telemetry_events_\(dateStr).jsonl")
-            try "dummy content\n".write(to: fileURL, atomically: true, encoding: .utf8)
-        }
-
-        try storage.rotateLogs()
-
-        let remainingFiles = try fileManager.contentsOfDirectory(at: tempDirectory, includingPropertiesForKeys: nil)
-        XCTAssertEqual(remainingFiles.count, 2)
-
-        for fileURL in remainingFiles {
-            let filename = fileURL.lastPathComponent
-            XCTAssertFalse(filename.contains(formatter.string(from: dates[0].0)))
-            XCTAssertTrue(
-                filename.contains(formatter.string(from: dates[1].0)) ||
-                filename.contains(formatter.string(from: dates[2].0))
-            )
-        }
-    }
-
     func testRollActiveLogCreatesNewTimestampedFile() throws {
         let baseTime = Date(timeIntervalSince1970: 1_719_225_600)
         let event1 = DesktopUserEvent.textCopied(text: "First event")
@@ -126,7 +88,8 @@ final class TelemetryStorageTests: XCTestCase {
         // Append another event, which should go to a new timestamped file (time + 1s to ensure distinct timestamp)
         try storage.appendEvent(event2, recordedAt: baseTime.addingTimeInterval(1))
 
-        let remainingFiles = try FileManager.default.contentsOfDirectory(at: tempDirectory, includingPropertiesForKeys: nil)
+        let eventsDir = tempDirectory.appendingPathComponent("events", isDirectory: true)
+        let remainingFiles = try FileManager.default.contentsOfDirectory(at: eventsDir, includingPropertiesForKeys: nil)
         let logFiles = remainingFiles.filter { $0.lastPathComponent.hasPrefix("telemetry_events_") && $0.lastPathComponent.hasSuffix(".jsonl") }
         
         XCTAssertEqual(logFiles.count, 2)

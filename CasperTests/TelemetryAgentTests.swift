@@ -83,11 +83,12 @@ final class TelemetryAgentTests: XCTestCase {
         formatter.timeZone = TimeZone.current
         let dateString = formatter.string(from: baseTime)
         
+        let eventsDir = tempDirectory.appendingPathComponent("events", isDirectory: true)
         let hasRawFile = { (dir: URL) -> Bool in
             let files = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
             return files.contains { $0.lastPathComponent.hasPrefix("telemetry_events_\(dateString)") }
         }
-        XCTAssertTrue(hasRawFile(tempDirectory))
+        XCTAssertTrue(hasRawFile(eventsDir))
         
         mockLLM.responsesToReturn = [
             "Session one summary",
@@ -97,7 +98,7 @@ final class TelemetryAgentTests: XCTestCase {
         summarizer.triggerProcessing()
         try await Task.sleep(nanoseconds: 200_000_000)
         
-        XCTAssertTrue(hasRawFile(tempDirectory))
+        XCTAssertTrue(hasRawFile(eventsDir))
         
         let sessionsDir = tempDirectory
             .appendingPathComponent("sessions", isDirectory: true)

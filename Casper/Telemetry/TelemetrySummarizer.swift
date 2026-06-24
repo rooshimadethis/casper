@@ -89,12 +89,12 @@ final class TelemetrySummarizer: @unchecked Sendable {
         storage.rollActiveLog()
         
         let fileManager = FileManager.default
-        let storageDir = storage.storageDirectory
+        let eventsDir = storage.eventsDirectory
         
-        guard fileManager.fileExists(atPath: storageDir.path) else { return }
+        guard fileManager.fileExists(atPath: eventsDir.path) else { return }
         
         do {
-            let files = try fileManager.contentsOfDirectory(at: storageDir, includingPropertiesForKeys: nil)
+            let files = try fileManager.contentsOfDirectory(at: eventsDir, includingPropertiesForKeys: nil)
             let logFiles = files
                 .filter { $0.lastPathComponent.hasPrefix("telemetry_events_") && $0.lastPathComponent.hasSuffix(".jsonl") }
                 .sorted { $0.lastPathComponent < $1.lastPathComponent }
@@ -122,7 +122,6 @@ final class TelemetrySummarizer: @unchecked Sendable {
             let records = try storage.loadEventRecords(forDateString: datePart)
 
             guard !records.isEmpty else {
-                try? FileManager.default.removeItem(at: fileURL)
                 return updatedProgress
             }
 
