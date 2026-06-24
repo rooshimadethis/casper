@@ -1,15 +1,23 @@
 current:
+ watcher:
  - mark summary by priority/logicality?
- - will need to split up summaries by groups maybe my timestamp for context control
+ - will need to split up summaries by groups maybe by timestamp for context control
 
+ predictor:
+ - dynamic context to real time llm based on some of the user events for context/speed
 
-
+ - mcp
+ - keyboard shortcut to run action
 
 
 quick suggestions
  - n-gram transition matrix
  - markov chain
-can be trained on raw event data and quickly find patterns and suggestion them through computation
+can be trained on raw event data and quickly find patterns and suggest them through computation
+a matcher will find the pattern and then the llm would take the pattern and output a suggestion. trying to get the llm to constantly run, try to come up with patterns and suggestions would take a lot of power
+
+
+
 
 
 You should completely clear or reset the model's episodic context window based on three explicit triggers:
