@@ -317,8 +317,14 @@ final class TelemetrySummarizer: @unchecked Sendable {
                 output += "\(prefix)\(timestamp) Executed terminal command: `\(command)` | Exit Code: \(exitCode) | Output: \(truncatedOut)\n"
             case .customInput(let prompt):
                 output += "\(prefix)\(timestamp) Custom prompt input: \"\(prompt)\"\n"
-            case .mouseClicked(let app, let element):
-                output += "\(prefix)\(timestamp) Clicked UI element \"\(element)\" in app \(app)\n"
+            case .mouseClicked(let app, let element, let clickCount, let selectedText):
+                let clickType = clickCount == 2 ? "Double-clicked" : (clickCount >= 3 ? "Triple-clicked" : "Clicked")
+                var msg = "\(prefix)\(timestamp) \(clickType) UI element \"\(element)\" in app \(app)"
+                if let selectedText = selectedText, !selectedText.isEmpty {
+                    let truncated = selectedText.count > 100 ? selectedText.prefix(100) + "..." : selectedText
+                    msg += " (highlighted: \"\(truncated)\")"
+                }
+                output += msg + "\n"
             case .appStalled(let app, let duration):
                 output += "\(prefix)\(timestamp) App stalled: \(app) was unresponsive for \(String(format: "%.1f", duration))s\n"
             case .userHesitated(let app, let duration):

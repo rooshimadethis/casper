@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import CoreGraphics
+import ApplicationServices
 
 /// Passive telemetry collector that monitors window titles, application focus,
 /// clipboard copies, user clicks, and app stalls on macOS.
@@ -21,6 +22,10 @@ final class TelemetryCollector: ObservableObject {
     private var lastEventTime = Date()
     private var lastFocusChangeTime = Date()
     private var didLogHesitationForCurrentFocus = false
+    
+    // Click tracking state
+    private var pendingClickTimer: Timer?
+    private var pendingClickEvent: (appName: String, element: String, clickCount: Int, recordedAt: Date)?
     
     // App stall tracking
     private var stalledAppName: String?
@@ -107,11 +112,13 @@ final class TelemetryCollector: ObservableObject {
             localKeyboardMonitor = nil
         }
         flushActiveTypingSession()
+        flushPendingClick()
     }
 
     /// Public endpoint for shell integrations to forward executed command logs.
     func logCommandExecuted(command: String, exitCode: Int, output: String?) {
         flushActiveTypingSession()
+        flushPendingClick()
         let event = DesktopUserEvent.commandExecuted(command: command, exitCode: exitCode, output: output)
         try? storage.appendEvent(event)
         recordUserInteraction()
@@ -134,6 +141,7 @@ final class TelemetryCollector: ObservableObject {
         // 1. Detect App Activation or Window Title Changes
         if bundleID != lastBundleID {
             flushActiveTypingSession()
+            flushPendingClick()
             // Log Hesitation if user was looking at last focus and paused
             triggerHesitationCheckIfNeeded(now: now)
             
@@ -153,6 +161,7 @@ final class TelemetryCollector: ObservableObject {
             
         } else if activeTitle != lastWindowTitle {
             flushActiveTypingSession()
+            flushPendingClick()
             // Log Window Title Change
             let event = DesktopUserEvent.windowTitleChanged(appName: appName, windowTitle: activeTitle)
             try? storage.appendEvent(event)
@@ -168,6 +177,7 @@ final class TelemetryCollector: ObservableObject {
         let pasteboard = NSPasteboard.general
         if pasteboard.changeCount != lastChangeCount {
             flushActiveTypingSession()
+            flushPendingClick()
             lastChangeCount = pasteboard.changeCount
             if let text = pasteboard.string(forType: .string) {
                 let processedText: String
@@ -220,12 +230,65 @@ final class TelemetryCollector: ObservableObject {
             let role = (roleValue as? String) ?? "UnknownRole"
             let label = title.isEmpty ? role : "\(role): \(title)"
             
-            let clickEvent = DesktopUserEvent.mouseClicked(
-                appName: lastAppName,
-                elementClicked: label
-            )
-            try? storage.appendEvent(clickEvent)
+            let appName = lastAppName
+            let clickCount = event.clickCount
+            let now = Date()
+            
+            pendingClickTimer?.invalidate()
+            
+            if clickCount > 1, let pending = pendingClickEvent, pending.element == label {
+                pendingClickEvent = (appName: appName, element: label, clickCount: clickCount, recordedAt: pending.recordedAt)
+            } else {
+                flushPendingClick()
+                pendingClickEvent = (appName: appName, element: label, clickCount: clickCount, recordedAt: now)
+            }
+            
+            let delay = NSEvent.doubleClickInterval
+            pendingClickTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
+                Task { @MainActor in
+                    self?.flushPendingClick()
+                }
+            }
         }
+    }
+
+    private func flushPendingClick() {
+        pendingClickTimer?.invalidate()
+        pendingClickTimer = nil
+        
+        guard let pending = pendingClickEvent else { return }
+        pendingClickEvent = nil
+        
+        var selectedText: String? = nil
+        
+        if pending.clickCount > 1 {
+            if PermissionChecker.checkAccessibility(),
+               let frontmost = NSWorkspace.shared.frontmostApplication {
+                let pid = frontmost.processIdentifier
+                let appElement = AXUIElementCreateApplication(pid)
+                var focusedElementValue: CFTypeRef?
+                
+                if AXUIElementCopyAttributeValue(appElement, kAXFocusedUIElementAttribute as CFString, &focusedElementValue) == .success,
+                   let val = focusedElementValue,
+                   CFGetTypeID(val) == AXUIElementGetTypeID() {
+                    let focusedElement = unsafeBitCast(val, to: AXUIElement.self)
+                    var selectedTextValue: CFTypeRef?
+                    if AXUIElementCopyAttributeValue(focusedElement, kAXSelectedTextAttribute as CFString, &selectedTextValue) == .success,
+                       let text = selectedTextValue as? String,
+                       !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        selectedText = text
+                    }
+                }
+            }
+        }
+        
+        let clickEvent = DesktopUserEvent.mouseClicked(
+            appName: pending.appName,
+            elementClicked: pending.element,
+            clickCount: pending.clickCount,
+            selectedText: selectedText
+        )
+        try? storage.appendEvent(clickEvent, recordedAt: pending.recordedAt)
     }
 
     private func isApplicationResponding(_ app: NSRunningApplication) -> Bool {
@@ -348,6 +411,7 @@ final class TelemetryCollector: ObservableObject {
     }
 
     func handleKeyPress(_ event: NSEvent) {
+        flushPendingClick()
         guard let characters = event.characters, !characters.isEmpty else {
             return
         }
