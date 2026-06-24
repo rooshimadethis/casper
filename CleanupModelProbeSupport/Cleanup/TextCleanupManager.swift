@@ -1,1 +1,1 @@
-../../GhostPepper/Cleanup/TextCleanupManager.swift
+../../Casper/Cleanup/TextCleanupManager.swift

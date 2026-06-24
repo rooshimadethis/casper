@@ -1,7 +1,7 @@
 import Foundation
 
 enum CleanupModelProbeMain {
-    private static let ghostPepperDefaultsDomain = "com.github.matthartman.ghostpepper"
+    private static let ghostPepperDefaultsDomain = "com.rooshi.casper"
 
     @MainActor
     static func run() async -> Int32 {

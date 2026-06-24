@@ -3,7 +3,7 @@
 Extract Granola meeting notes via the public API, including full transcripts.
 
 Requires: GRANOLA_API_KEY environment variable
-Writes: ~/Documents/Ghost Pepper Meetings/{date}/{slug}.md
+Writes: ~/Documents/Casper Meetings/{date}/{slug}.md
 
 Run extract_granola.py first (local cache, no API key needed), then run this
 to enrich files with transcripts. Files that already have ## Transcript are skipped.
@@ -185,7 +185,7 @@ def main():
         print('Get your key from Granola settings.')
         sys.exit(1)
 
-    output_base = os.path.expanduser('~/Documents/Ghost Pepper Meetings')
+    output_base = os.path.expanduser('~/Documents/Casper Meetings')
     if len(sys.argv) > 1:
         output_base = sys.argv[1]
 

@@ -6,7 +6,7 @@ Add a user-facing `Transcription Lab` section to Settings that keeps the last 50
 
 ## Why
 
-Ghost Pepper now has enough moving parts that users need a safe place to understand what each stage is doing:
+Casper now has enough moving parts that users need a safe place to understand what each stage is doing:
 
 - what the speech engine heard
 - what cleanup changed
@@ -260,27 +260,27 @@ Actual hard failures like missing audio files or model load failures should be s
 
 New files:
 
-- `GhostPepper/Lab/TranscriptionLabEntry.swift`
+- `Casper/Lab/TranscriptionLabEntry.swift`
   - archive entry model
-- `GhostPepper/Lab/TranscriptionLabStore.swift`
+- `Casper/Lab/TranscriptionLabStore.swift`
   - archive persistence, pruning, disk cleanup
-- `GhostPepper/Lab/TranscriptionLabRunner.swift`
+- `Casper/Lab/TranscriptionLabRunner.swift`
   - rerun orchestration from archived audio plus archived OCR
-- `GhostPepper/UI/TranscriptionLabView.swift`
+- `Casper/UI/TranscriptionLabView.swift`
   - lab UI inside Settings
 
 Modified files:
 
-- `GhostPepper/AppState.swift`
+- `Casper/AppState.swift`
   - capture/archive live results
   - expose pipeline lock and lab runner access
-- `GhostPepper/Audio/AudioRecorder.swift`
+- `Casper/Audio/AudioRecorder.swift`
   - audio serialization helpers for archive storage
-- `GhostPepper/Cleanup/TextCleaner.swift`
+- `Casper/Cleanup/TextCleaner.swift`
   - accept explicit cleanup model choice and explicit OCR context for lab reruns
-- `GhostPepper/Cleanup/TextCleanupManager.swift`
+- `Casper/Cleanup/TextCleanupManager.swift`
   - expose cleanup model metadata for lab UI and reruns
-- `GhostPepper/UI/SettingsWindow.swift`
+- `Casper/UI/SettingsWindow.swift`
   - add the `Transcription Lab` section
 
 ## Testing Strategy

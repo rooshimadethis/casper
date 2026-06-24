@@ -1,1 +1,1 @@
-../../GhostPepper/Cleanup/CleanupPromptBuilder.swift
+../../Casper/Cleanup/CleanupPromptBuilder.swift

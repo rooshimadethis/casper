@@ -6,7 +6,7 @@ Add a first-pass `Ignore other speakers` feature that works only on the `FluidAu
 
 ## Why
 
-Ghost Pepper is still a stop-and-paste app, but the longer-term platform direction is broader:
+Casper is still a stop-and-paste app, but the longer-term platform direction is broader:
 
 - multi-speaker continuous conversation transcripts
 - online analysis over a live session
@@ -64,7 +64,7 @@ Behavior:
 
 When `Ignore other speakers` is off:
 
-- Ghost Pepper behaves exactly as it does today
+- Casper behaves exactly as it does today
 
 When `Ignore other speakers` is on and the selected speech model uses `FluidAudio`:
 
@@ -96,13 +96,13 @@ The cumulative duration may be made up of multiple spans from the same speaker.
 Target selection rule:
 
 - diarization may revise provisional speaker spans while recording is in progress
-- Ghost Pepper does not permanently lock the target speaker during recording
-- on stop, Ghost Pepper uses the finalized diarization output and selects the earliest speaker in time order whose cumulative voiced speech reaches `0.5s`
+- Casper does not permanently lock the target speaker during recording
+- on stop, Casper uses the finalized diarization output and selects the earliest speaker in time order whose cumulative voiced speech reaches `0.5s`
 - if no speaker reaches that threshold, the feature falls back to the normal full-audio transcript path
 
 Known failure case Jesse explicitly accepts:
 
-- if somebody else speaks first, Ghost Pepper may follow the wrong speaker for that recording
+- if somebody else speaks first, Casper may follow the wrong speaker for that recording
 
 This is acceptable for V1.
 
@@ -215,7 +215,7 @@ If any of the following happens:
 - filtered audio extraction fails
 - filtered-audio ASR returns `nil` or an empty transcript
 
-then Ghost Pepper should fall back to the normal full-audio transcript path for that recording.
+then Casper should fall back to the normal full-audio transcript path for that recording.
 
 This avoids losing dictation completely when the speaker filter is uncertain or broken.
 
@@ -227,7 +227,7 @@ V1 should not attempt a semantic “degraded transcript” detector beyond these
 
 V1 needs one additional seam:
 
-- a chunk callback from the same converted 16 kHz mono Float32 capture path Ghost Pepper already uses for final transcription
+- a chunk callback from the same converted 16 kHz mono Float32 capture path Casper already uses for final transcription
 
 Required contract:
 
@@ -278,7 +278,7 @@ Do not persist:
 - intermediate target-speaker guesses
 - a second stored unfiltered transcript for the same live run
 
-The archive write happens when the live recording finishes, at the same time Ghost Pepper stores the original raw and cleaned transcript data for the lab.
+The archive write happens when the live recording finishes, at the same time Casper stores the original raw and cleaned transcript data for the lab.
 
 ## Lab Behavior
 
@@ -312,23 +312,23 @@ That means V1 can be added by extending the current app structure instead of rew
 
 ### Existing files likely to change
 
-- `GhostPepper/AppState.swift`
+- `Casper/AppState.swift`
   - own the new setting and route live recordings through diarization when applicable
-- `GhostPepper/Transcription/ModelManager.swift`
+- `Casper/Transcription/ModelManager.swift`
   - expose enough backend capability to support `FluidAudioSpeechSession`
-- `GhostPepper/Transcription/SpeechModelCatalog.swift`
+- `Casper/Transcription/SpeechModelCatalog.swift`
   - expose whether a speech model supports speaker filtering
-- `GhostPepper/UI/SettingsWindow.swift`
+- `Casper/UI/SettingsWindow.swift`
   - add the visible-but-disabled `Ignore other speakers` toggle in Recording
   - add diarization visualization in the lab
-- `GhostPepper/Audio/AudioRecorder.swift`
+- `Casper/Audio/AudioRecorder.swift`
   - expose audio chunk data cleanly if the current API is too buffer-oriented
 
 ### New files likely to be added
 
-- `GhostPepper/Transcription/RecordingSessionCoordinator.swift`
-- `GhostPepper/Transcription/FluidAudioSpeechSession.swift`
-- `GhostPepper/Transcription/DiarizationSummary.swift`
+- `Casper/Transcription/RecordingSessionCoordinator.swift`
+- `Casper/Transcription/FluidAudioSpeechSession.swift`
+- `Casper/Transcription/DiarizationSummary.swift`
 
 These names describe domain responsibilities, not implementation history.
 
@@ -426,7 +426,7 @@ This keeps product risk down now, but the speech stack remains more complex than
 
 This feature is successful when:
 
-- Ghost Pepper can ignore side speakers in common push-to-talk recordings on `FluidAudio`
+- Casper can ignore side speakers in common push-to-talk recordings on `FluidAudio`
 - the setting is visible in Recording and disabled cleanly for `WhisperKit`
 - ordinary dictation still returns a transcript even when diarization cannot produce a safe result
 - the lab makes diarization decisions inspectable without adding new complexity to the live product

@@ -15,8 +15,8 @@
 ### Task 1: Add failing tests for Context Bundler enablement defaults and hotkey gating
 
 **Files:**
-- Modify: `GhostPepperTests/GhostPepperTests.swift`
-- Test: `GhostPepperTests/GhostPepperTests.swift`
+- Modify: `CasperTests/CasperTests.swift`
+- Test: `CasperTests/CasperTests.swift`
 
 - [ ] **Step 1: Write the failing tests**
 - [ ] **Step 2: Run the focused tests and verify they fail for the missing behavior**
@@ -27,7 +27,7 @@
 ### Task 2: Gate new Context Bundler launches in the app state
 
 **Files:**
-- Modify: `GhostPepper/AppState.swift`
+- Modify: `Casper/AppState.swift`
 
 - [ ] **Step 1: Add a failing test or extend an existing one if needed**
 - [ ] **Step 2: Guard new Context Bundler launches/recordings behind `pepperChatEnabled`**
@@ -39,9 +39,9 @@
 ### Task 3: Update settings and menu bar UI
 
 **Files:**
-- Modify: `GhostPepper/UI/SettingsWindow.swift`
-- Modify: `GhostPepper/UI/MenuBarView.swift`
-- Test: `GhostPepperTests/GhostPepperTests.swift`
+- Modify: `Casper/UI/SettingsWindow.swift`
+- Modify: `Casper/UI/MenuBarView.swift`
+- Test: `CasperTests/CasperTests.swift`
 
 - [ ] **Step 1: Add or extend tests for the visible behavior where practical**
 - [ ] **Step 2: Add the Context Bundler enable toggle in Settings**

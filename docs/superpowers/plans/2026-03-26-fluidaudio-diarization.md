@@ -13,42 +13,42 @@
 ## File Structure
 
 **Modify:**
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/AppState.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/AppState.swift`
   - Persist the new setting, gate live recording behavior by backend, route eligible recordings through the diarization session, and archive final diarization metadata.
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Audio/AudioRecorder.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Audio/AudioRecorder.swift`
   - Expose logical chunk delivery from the existing converted 16 kHz mono Float32 stream without changing the final-buffer behavior.
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Transcription/SpeechModelCatalog.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Transcription/SpeechModelCatalog.swift`
   - Mark which speech models support speaker filtering and provide picker-level capability checks.
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Transcription/ModelManager.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Transcription/ModelManager.swift`
   - Expose enough `FluidAudio` access for one recording-scoped diarization/transcription session while leaving WhisperKit on the existing path.
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Lab/TranscriptionLabEntry.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Lab/TranscriptionLabEntry.swift`
   - Extend the archive schema to include finalized diarization metadata.
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Lab/TranscriptionLabStore.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Lab/TranscriptionLabStore.swift`
   - Persist and load diarization summaries alongside existing lab entries and timings.
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Lab/TranscriptionLabController.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Lab/TranscriptionLabController.swift`
   - Expose archived diarization summaries to the lab UI.
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/UI/SettingsWindow.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/UI/SettingsWindow.swift`
   - Add the visible-but-disabled toggle in Recording and render the lab’s diarization timeline/kept-span visualization.
 **Create:**
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Transcription/FluidAudioSpeechSession.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Transcription/FluidAudioSpeechSession.swift`
   - Recording-scoped `FluidAudio` helper that accepts converted chunks, finalizes target-speaker spans, extracts filtered audio, and transcribes it.
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Transcription/RecordingSessionCoordinator.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Transcription/RecordingSessionCoordinator.swift`
   - Thin lifecycle owner that glues `AudioRecorder` chunk delivery to `FluidAudioSpeechSession`.
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Transcription/DiarizationSummary.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Transcription/DiarizationSummary.swift`
   - Final archived speaker-attribution result for one completed recording.
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/FluidAudioSpeechSessionTests.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/FluidAudioSpeechSessionTests.swift`
   - Unit coverage for first-substantial-speaker selection, span merging, and measurable fallback rules.
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/RecordingSessionCoordinatorTests.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/RecordingSessionCoordinatorTests.swift`
   - Unit coverage for chunk accumulation, stop-time finalization, and fallback handoff.
 
 **Test:**
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/AudioRecorderTests.swift`
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/SpeechTranscriberTests.swift`
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/GhostPepperTests.swift`
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/TranscriptionLabStoreTests.swift`
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/TranscriptionLabControllerTests.swift`
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/FluidAudioSpeechSessionTests.swift`
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/RecordingSessionCoordinatorTests.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/AudioRecorderTests.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/SpeechTranscriberTests.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/CasperTests.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/TranscriptionLabStoreTests.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/TranscriptionLabControllerTests.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/FluidAudioSpeechSessionTests.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/RecordingSessionCoordinatorTests.swift`
 
 ---
 
@@ -57,11 +57,11 @@
 ### Task 1: Add failing tests for backend capability and the disabled Recording toggle
 
 **Files:**
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Transcription/SpeechModelCatalog.swift`
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/AppState.swift`
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/UI/SettingsWindow.swift`
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/SpeechTranscriberTests.swift`
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/GhostPepperTests.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Transcription/SpeechModelCatalog.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/AppState.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/UI/SettingsWindow.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/SpeechTranscriberTests.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/CasperTests.swift`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -76,7 +76,7 @@ Add tests that prove:
 
 Run:
 ```sh
-xcodebuild -project /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/build/diarization-capability-red -clonedSourcePackagesDirPath /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/build/diarization-capability-red-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:GhostPepperTests/SpeechTranscriberTests/testFluidAudioSpeechModelsSupportSpeakerFiltering -only-testing:GhostPepperTests/GhostPepperTests/testAppStatePersistsIgnoreOtherSpeakersPreference -only-testing:GhostPepperTests/GhostPepperTests/testRecordingSettingsDisablesIgnoreOtherSpeakersForWhisperModels test
+xcodebuild -project /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper.xcodeproj -scheme Casper -derivedDataPath /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/build/diarization-capability-red -clonedSourcePackagesDirPath /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/build/diarization-capability-red-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:CasperTests/SpeechTranscriberTests/testFluidAudioSpeechModelsSupportSpeakerFiltering -only-testing:CasperTests/CasperTests/testAppStatePersistsIgnoreOtherSpeakersPreference -only-testing:CasperTests/CasperTests/testRecordingSettingsDisablesIgnoreOtherSpeakersForWhisperModels test
 ```
 
 Expected:
@@ -85,11 +85,11 @@ Expected:
 - [ ] **Step 3: Implement the minimal capability and setting plumbing**
 
 In:
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Transcription/SpeechModelCatalog.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Transcription/SpeechModelCatalog.swift`
   - add a `supportsSpeakerFiltering` property derived from backend
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/AppState.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/AppState.swift`
   - add persisted `ignoreOtherSpeakers`
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/UI/SettingsWindow.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/UI/SettingsWindow.swift`
   - add a tiny presentation helper for the toggle state, then render the visible toggle in Recording and disable it when the selected speech model does not support speaker filtering
 
 - [ ] **Step 4: Re-run the targeted tests to verify they pass**
@@ -102,9 +102,9 @@ Expected:
 - [ ] **Step 5: Commit**
 
 ```sh
-git -C /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline status --short
-git -C /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline add /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Transcription/SpeechModelCatalog.swift /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/AppState.swift /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/UI/SettingsWindow.swift /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/SpeechTranscriberTests.swift /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/GhostPepperTests.swift
-git -C /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline commit -m "Add speaker filtering setting"
+git -C /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline status --short
+git -C /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline add /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Transcription/SpeechModelCatalog.swift /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/AppState.swift /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/UI/SettingsWindow.swift /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/SpeechTranscriberTests.swift /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/CasperTests.swift
+git -C /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline commit -m "Add speaker filtering setting"
 ```
 
 ---
@@ -114,8 +114,8 @@ git -C /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcripti
 ### Task 3: Add a failing recorder test for chunk delivery from the existing converted stream
 
 **Files:**
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Audio/AudioRecorder.swift`
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/AudioRecorderTests.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Audio/AudioRecorder.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/AudioRecorderTests.swift`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -128,7 +128,7 @@ Add a small recorder seam and tests that prove:
 
 Run:
 ```sh
-xcodebuild -project /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/build/diarization-recorder-red -clonedSourcePackagesDirPath /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/build/diarization-recorder-red-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:GhostPepperTests/AudioRecorderTests/testConvertedSamplesAreDeliveredToChunkCallback -only-testing:GhostPepperTests/AudioRecorderTests/testChunkDeliveryStillAccumulatesFinalAudioBuffer test
+xcodebuild -project /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper.xcodeproj -scheme Casper -derivedDataPath /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/build/diarization-recorder-red -clonedSourcePackagesDirPath /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/build/diarization-recorder-red-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:CasperTests/AudioRecorderTests/testConvertedSamplesAreDeliveredToChunkCallback -only-testing:CasperTests/AudioRecorderTests/testChunkDeliveryStillAccumulatesFinalAudioBuffer test
 ```
 
 Expected:
@@ -136,7 +136,7 @@ Expected:
 
 - [ ] **Step 3: Implement the minimal chunk-delivery seam**
 
-In `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Audio/AudioRecorder.swift`:
+In `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Audio/AudioRecorder.swift`:
 - add an optional callback for converted samples
 - invoke it from the existing `convert(buffer:using:)` path
 - keep `stopRecording()` and `audioBuffer` semantics unchanged
@@ -151,19 +151,19 @@ Expected:
 - [ ] **Step 5: Commit**
 
 ```sh
-git -C /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline status --short
-git -C /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline add /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Audio/AudioRecorder.swift /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/AudioRecorderTests.swift
-git -C /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline commit -m "Expose converted audio chunks"
+git -C /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline status --short
+git -C /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline add /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Audio/AudioRecorder.swift /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/AudioRecorderTests.swift
+git -C /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline commit -m "Expose converted audio chunks"
 ```
 
 ### Task 4: Add failing tests for `FluidAudioSpeechSession` target-speaker and fallback rules
 
 **Files:**
-- Create: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Transcription/FluidAudioSpeechSession.swift`
-- Create: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Transcription/RecordingSessionCoordinator.swift`
-- Create: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Transcription/DiarizationSummary.swift`
-- Create: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/FluidAudioSpeechSessionTests.swift`
-- Create: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/RecordingSessionCoordinatorTests.swift`
+- Create: `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Transcription/FluidAudioSpeechSession.swift`
+- Create: `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Transcription/RecordingSessionCoordinator.swift`
+- Create: `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Transcription/DiarizationSummary.swift`
+- Create: `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/FluidAudioSpeechSessionTests.swift`
+- Create: `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/RecordingSessionCoordinatorTests.swift`
 
 - [ ] **Step 1: Write the failing unit tests**
 
@@ -180,7 +180,7 @@ Add tests that prove:
 
 Run:
 ```sh
-xcodebuild -project /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/build/diarization-session-red -clonedSourcePackagesDirPath /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/build/diarization-session-red-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:GhostPepperTests/FluidAudioSpeechSessionTests -only-testing:GhostPepperTests/RecordingSessionCoordinatorTests test
+xcodebuild -project /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper.xcodeproj -scheme Casper -derivedDataPath /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/build/diarization-session-red -clonedSourcePackagesDirPath /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/build/diarization-session-red-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:CasperTests/FluidAudioSpeechSessionTests -only-testing:CasperTests/RecordingSessionCoordinatorTests test
 ```
 
 Expected:
@@ -189,11 +189,11 @@ Expected:
 - [ ] **Step 3: Implement the minimal `FluidAudio` session core**
 
 In:
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Transcription/DiarizationSummary.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Transcription/DiarizationSummary.swift`
   - add the final span and summary types driven by the session rules above
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Transcription/FluidAudioSpeechSession.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Transcription/FluidAudioSpeechSession.swift`
   - add the smallest testable surface for chunk ingestion, finalized span selection, filtered-audio extraction, and ASR fallback
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Transcription/RecordingSessionCoordinator.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Transcription/RecordingSessionCoordinator.swift`
   - add a thin owner around one live session, not a general-purpose transcript engine
 
 Keep test seams closure- or protocol-based inside these files rather than pushing speculative abstractions into unrelated types.
@@ -208,18 +208,18 @@ Expected:
 - [ ] **Step 5: Commit**
 
 ```sh
-git -C /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline status --short
-git -C /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline add /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Transcription/DiarizationSummary.swift /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Transcription/FluidAudioSpeechSession.swift /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Transcription/RecordingSessionCoordinator.swift /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/FluidAudioSpeechSessionTests.swift /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/RecordingSessionCoordinatorTests.swift
-git -C /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline commit -m "Add FluidAudio speaker filtering session"
+git -C /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline status --short
+git -C /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline add /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Transcription/DiarizationSummary.swift /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Transcription/FluidAudioSpeechSession.swift /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Transcription/RecordingSessionCoordinator.swift /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/FluidAudioSpeechSessionTests.swift /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/RecordingSessionCoordinatorTests.swift
+git -C /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline commit -m "Add FluidAudio speaker filtering session"
 ```
 
 ### Task 5: Add failing archive tests for finalized diarization metadata
 
 **Files:**
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Lab/TranscriptionLabEntry.swift`
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Lab/TranscriptionLabStore.swift`
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/TranscriptionLabStoreTests.swift`
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/GhostPepperTests.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Lab/TranscriptionLabEntry.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Lab/TranscriptionLabStore.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/TranscriptionLabStoreTests.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/CasperTests.swift`
 
 - [ ] **Step 1: Write the failing archive tests**
 
@@ -232,7 +232,7 @@ Add tests that prove:
 
 Run:
 ```sh
-xcodebuild -project /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/build/diarization-archive-red -clonedSourcePackagesDirPath /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/build/diarization-archive-red-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:GhostPepperTests/TranscriptionLabStoreTests/testTranscriptionLabEntryRoundTripsDiarizationSummary -only-testing:GhostPepperTests/TranscriptionLabStoreTests/testTranscriptionLabStorePersistsDiarizationSummary -only-testing:GhostPepperTests/GhostPepperTests/testAppStateArchivesRecordingWithDiarizationSummary test
+xcodebuild -project /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper.xcodeproj -scheme Casper -derivedDataPath /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/build/diarization-archive-red -clonedSourcePackagesDirPath /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/build/diarization-archive-red-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:CasperTests/TranscriptionLabStoreTests/testTranscriptionLabEntryRoundTripsDiarizationSummary -only-testing:CasperTests/TranscriptionLabStoreTests/testTranscriptionLabStorePersistsDiarizationSummary -only-testing:CasperTests/CasperTests/testAppStateArchivesRecordingWithDiarizationSummary test
 ```
 
 Expected:
@@ -241,9 +241,9 @@ Expected:
 - [ ] **Step 3: Implement the minimal archive schema**
 
 In:
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Lab/TranscriptionLabEntry.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Lab/TranscriptionLabEntry.swift`
   - add optional archived diarization summary fields
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Lab/TranscriptionLabStore.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Lab/TranscriptionLabStore.swift`
   - persist and load the new fields without changing retention behavior
 
 - [ ] **Step 4: Re-run the targeted tests to verify they pass**
@@ -256,9 +256,9 @@ Expected:
 - [ ] **Step 5: Commit**
 
 ```sh
-git -C /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline status --short
-git -C /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline add /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Lab/TranscriptionLabEntry.swift /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Lab/TranscriptionLabStore.swift /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/TranscriptionLabStoreTests.swift /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/GhostPepperTests.swift
-git -C /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline commit -m "Archive diarization summaries"
+git -C /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline status --short
+git -C /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline add /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Lab/TranscriptionLabEntry.swift /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Lab/TranscriptionLabStore.swift /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/TranscriptionLabStoreTests.swift /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/CasperTests.swift
+git -C /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline commit -m "Archive diarization summaries"
 ```
 
 ---
@@ -268,9 +268,9 @@ git -C /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcripti
 ### Task 5: Add failing integration tests for backend-specific routing and archive behavior
 
 **Files:**
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/AppState.swift`
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Transcription/ModelManager.swift`
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/GhostPepperTests.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/AppState.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Transcription/ModelManager.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/CasperTests.swift`
 
 - [ ] **Step 1: Write the failing integration tests**
 
@@ -287,7 +287,7 @@ If the current `AppState` surface is too private, first add the smallest interna
 
 Run:
 ```sh
-xcodebuild -project /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/build/diarization-appstate-red -clonedSourcePackagesDirPath /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/build/diarization-appstate-red-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:GhostPepperTests/GhostPepperTests/testWhisperRecordingIgnoresSpeakerFilteringSetting -only-testing:GhostPepperTests/GhostPepperTests/testFluidAudioRecordingUsesSpeakerFilteringSession -only-testing:GhostPepperTests/GhostPepperTests/testAppStateArchivesDiarizationFallbackState test
+xcodebuild -project /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper.xcodeproj -scheme Casper -derivedDataPath /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/build/diarization-appstate-red -clonedSourcePackagesDirPath /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/build/diarization-appstate-red-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:CasperTests/CasperTests/testWhisperRecordingIgnoresSpeakerFilteringSetting -only-testing:CasperTests/CasperTests/testFluidAudioRecordingUsesSpeakerFilteringSession -only-testing:CasperTests/CasperTests/testAppStateArchivesDiarizationFallbackState test
 ```
 
 Expected:
@@ -296,9 +296,9 @@ Expected:
 - [ ] **Step 3: Implement the minimal live integration**
 
 In:
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Transcription/ModelManager.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Transcription/ModelManager.swift`
   - expose only the `FluidAudio` access the new session helper needs
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/AppState.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/AppState.swift`
   - create a coordinator only for eligible `FluidAudio` recordings
   - feed recorder chunks into it
   - on stop, choose between filtered-audio transcription and the existing full-audio path based on the session result
@@ -314,9 +314,9 @@ Expected:
 - [ ] **Step 5: Commit**
 
 ```sh
-git -C /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline status --short
-git -C /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline add /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/AppState.swift /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Transcription/ModelManager.swift /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/GhostPepperTests.swift
-git -C /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline commit -m "Route FluidAudio recordings through speaker filtering"
+git -C /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline status --short
+git -C /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline add /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/AppState.swift /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Transcription/ModelManager.swift /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/CasperTests.swift
+git -C /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline commit -m "Route FluidAudio recordings through speaker filtering"
 ```
 
 ---
@@ -326,9 +326,9 @@ git -C /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcripti
 ### Task 6: Add failing lab tests for diarization visualization and archived summary display
 
 **Files:**
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Lab/TranscriptionLabController.swift`
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/UI/SettingsWindow.swift`
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/TranscriptionLabControllerTests.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Lab/TranscriptionLabController.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/UI/SettingsWindow.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/TranscriptionLabControllerTests.swift`
 
 - [ ] **Step 1: Write the failing lab tests**
 
@@ -340,7 +340,7 @@ Add tests that prove:
 
 Run:
 ```sh
-xcodebuild -project /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/build/diarization-lab-red -clonedSourcePackagesDirPath /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/build/diarization-lab-red-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:GhostPepperTests/TranscriptionLabControllerTests test
+xcodebuild -project /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper.xcodeproj -scheme Casper -derivedDataPath /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/build/diarization-lab-red -clonedSourcePackagesDirPath /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/build/diarization-lab-red-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:CasperTests/TranscriptionLabControllerTests test
 ```
 
 Expected:
@@ -349,9 +349,9 @@ Expected:
 - [ ] **Step 3: Implement the minimal lab visualization**
 
 In:
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Lab/TranscriptionLabController.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Lab/TranscriptionLabController.swift`
   - expose view-ready diarization summary data
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/UI/SettingsWindow.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/UI/SettingsWindow.swift`
   - render a compact kept/discarded span visualization only for entries that contain archived summary data
   - do not add new production UI outside the lab
 
@@ -365,9 +365,9 @@ Expected:
 - [ ] **Step 5: Commit**
 
 ```sh
-git -C /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline status --short
-git -C /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline add /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/Lab/TranscriptionLabController.swift /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper/UI/SettingsWindow.swift /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests/TranscriptionLabControllerTests.swift
-git -C /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline commit -m "Show diarization decisions in transcription lab"
+git -C /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline status --short
+git -C /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline add /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/Lab/TranscriptionLabController.swift /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper/UI/SettingsWindow.swift /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests/TranscriptionLabControllerTests.swift
+git -C /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline commit -m "Show diarization decisions in transcription lab"
 ```
 
 ### Task 7: Run end-to-end verification
@@ -379,7 +379,7 @@ git -C /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcripti
 
 Run:
 ```sh
-xcodebuild -project /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/build/diarization-focused-green -clonedSourcePackagesDirPath /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/build/diarization-focused-green-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:GhostPepperTests/AudioRecorderTests -only-testing:GhostPepperTests/FluidAudioSpeechSessionTests -only-testing:GhostPepperTests/RecordingSessionCoordinatorTests -only-testing:GhostPepperTests/TranscriptionLabStoreTests -only-testing:GhostPepperTests/TranscriptionLabControllerTests -only-testing:GhostPepperTests/GhostPepperTests test
+xcodebuild -project /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper.xcodeproj -scheme Casper -derivedDataPath /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/build/diarization-focused-green -clonedSourcePackagesDirPath /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/build/diarization-focused-green-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:CasperTests/AudioRecorderTests -only-testing:CasperTests/FluidAudioSpeechSessionTests -only-testing:CasperTests/RecordingSessionCoordinatorTests -only-testing:CasperTests/TranscriptionLabStoreTests -only-testing:CasperTests/TranscriptionLabControllerTests -only-testing:CasperTests/CasperTests test
 ```
 
 Expected:
@@ -389,17 +389,17 @@ Expected:
 
 Run:
 ```sh
-xcodebuild -project /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/build/diarization-full-green -clonedSourcePackagesDirPath /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/build/diarization-full-green-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation test
+xcodebuild -project /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper.xcodeproj -scheme Casper -derivedDataPath /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/build/diarization-full-green -clonedSourcePackagesDirPath /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/build/diarization-full-green-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation test
 ```
 
 Expected:
-- the full Ghost Pepper test suite passes
+- the full Casper test suite passes
 
 - [ ] **Step 3: Build the app from a clean derived-data path**
 
 Run:
 ```sh
-xcodebuild -project /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper.xcodeproj -scheme GhostPepper -configuration Debug -derivedDataPath /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/build/diarization-build-green -clonedSourcePackagesDirPath /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/build/diarization-build-green-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation build
+xcodebuild -project /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper.xcodeproj -scheme Casper -configuration Debug -derivedDataPath /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/build/diarization-build-green -clonedSourcePackagesDirPath /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/build/diarization-build-green-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation build
 ```
 
 Expected:
@@ -408,7 +408,7 @@ Expected:
 - [ ] **Step 4: Commit the final implementation**
 
 ```sh
-git -C /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline status --short
-git -C /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline add /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepper /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline/GhostPepperTests
-git -C /Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-transcription-lab-mainline commit -m "Add FluidAudio speaker filtering"
+git -C /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline status --short
+git -C /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline add /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/Casper /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline/CasperTests
+git -C /Users/jesse/.config/superpowers/worktrees/casper/codex-transcription-lab-mainline commit -m "Add FluidAudio speaker filtering"
 ```

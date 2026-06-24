@@ -77,8 +77,8 @@ Below the existing buttons, render:
 
 | File | Change |
 |---|---|
-| `GhostPepper/Calendar/GoogleCalendarService.swift` | Add `eventsForToday()`; extract shared item parser; extend `CalendarEvent` with `startDate`, `endDate`, `isAllDay`, `attendeeCount`; harden `currentMeeting()` |
-| `GhostPepper/UI/MeetingTranscriptWindow.swift` | Add `todayCalendarSection` to `newTabView`; load today's events; refresh on focus and after stop |
+| `Casper/Calendar/GoogleCalendarService.swift` | Add `eventsForToday()`; extract shared item parser; extend `CalendarEvent` with `startDate`, `endDate`, `isAllDay`, `attendeeCount`; harden `currentMeeting()` |
+| `Casper/UI/MeetingTranscriptWindow.swift` | Add `todayCalendarSection` to `newTabView`; load today's events; refresh on focus and after stop |
 
 ## Out of scope
 

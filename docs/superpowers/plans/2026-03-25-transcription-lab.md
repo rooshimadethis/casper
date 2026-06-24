@@ -15,9 +15,9 @@
 ### Task 1: Add archive entry model and store
 
 **Files:**
-- Create: `GhostPepper/Lab/TranscriptionLabEntry.swift`
-- Create: `GhostPepper/Lab/TranscriptionLabStore.swift`
-- Test: `GhostPepperTests/TranscriptionLabStoreTests.swift`
+- Create: `Casper/Lab/TranscriptionLabEntry.swift`
+- Create: `Casper/Lab/TranscriptionLabStore.swift`
+- Test: `CasperTests/TranscriptionLabStoreTests.swift`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -30,7 +30,7 @@ Add tests covering:
 
 - [ ] **Step 2: Run the targeted tests to verify failure**
 
-Run: `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/transcription-lab-tests -skipMacroValidation CODE_SIGNING_ALLOWED=NO -only-testing:GhostPepperTests/TranscriptionLabStoreTests test`
+Run: `xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/transcription-lab-tests -skipMacroValidation CODE_SIGNING_ALLOWED=NO -only-testing:CasperTests/TranscriptionLabStoreTests test`
 
 Expected: FAIL because the archive entry and store do not exist.
 
@@ -49,7 +49,7 @@ Run the same command and expect all store tests to pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/Lab/TranscriptionLabEntry.swift GhostPepper/Lab/TranscriptionLabStore.swift GhostPepperTests/TranscriptionLabStoreTests.swift
+git add Casper/Lab/TranscriptionLabEntry.swift Casper/Lab/TranscriptionLabStore.swift CasperTests/TranscriptionLabStoreTests.swift
 git commit -m "Add transcription lab archive store"
 ```
 
@@ -58,8 +58,8 @@ git commit -m "Add transcription lab archive store"
 ### Task 2: Add audio serialization helpers
 
 **Files:**
-- Modify: `GhostPepper/Audio/AudioRecorder.swift`
-- Test: `GhostPepperTests/AudioRecorderTests.swift`
+- Modify: `Casper/Audio/AudioRecorder.swift`
+- Test: `CasperTests/AudioRecorderTests.swift`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -67,7 +67,7 @@ Add a round-trip test for converting `[Float]` audio samples to persisted data a
 
 - [ ] **Step 2: Run the targeted test to verify failure**
 
-Run: `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/transcription-lab-tests -skipMacroValidation CODE_SIGNING_ALLOWED=NO -only-testing:GhostPepperTests/AudioRecorderTests test`
+Run: `xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/transcription-lab-tests -skipMacroValidation CODE_SIGNING_ALLOWED=NO -only-testing:CasperTests/AudioRecorderTests test`
 
 Expected: FAIL because no persistence helper exists.
 
@@ -82,17 +82,17 @@ Expect the new audio test to pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/Audio/AudioRecorder.swift GhostPepperTests/AudioRecorderTests.swift
+git add Casper/Audio/AudioRecorder.swift CasperTests/AudioRecorderTests.swift
 git commit -m "Add audio serialization for transcription lab"
 ```
 
 ### Task 3: Archive live runs from AppState
 
 **Files:**
-- Modify: `GhostPepper/AppState.swift`
-- Modify: `GhostPepper/Cleanup/TextCleaner.swift`
-- Modify: `GhostPepper/Lab/TranscriptionLabStore.swift`
-- Test: `GhostPepperTests/GhostPepperTests.swift`
+- Modify: `Casper/AppState.swift`
+- Modify: `Casper/Cleanup/TextCleaner.swift`
+- Modify: `Casper/Lab/TranscriptionLabStore.swift`
+- Test: `CasperTests/CasperTests.swift`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -105,7 +105,7 @@ Add tests that verify:
 
 - [ ] **Step 2: Run the targeted tests to verify failure**
 
-Run: `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/transcription-lab-tests -skipMacroValidation CODE_SIGNING_ALLOWED=NO -only-testing:GhostPepperTests/GhostPepperTests test`
+Run: `xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/transcription-lab-tests -skipMacroValidation CODE_SIGNING_ALLOWED=NO -only-testing:CasperTests/CasperTests test`
 
 Expected: FAIL because AppState does not archive runs.
 
@@ -124,7 +124,7 @@ Expect the new archive-behavior tests to pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/AppState.swift GhostPepper/Cleanup/TextCleaner.swift GhostPepperTests/GhostPepperTests.swift
+git add Casper/AppState.swift Casper/Cleanup/TextCleaner.swift CasperTests/CasperTests.swift
 git commit -m "Archive live recordings for transcription lab"
 ```
 
@@ -133,9 +133,9 @@ git commit -m "Archive live recordings for transcription lab"
 ### Task 4: Add explicit cleanup-model selection for reruns
 
 **Files:**
-- Modify: `GhostPepper/Cleanup/TextCleaner.swift`
-- Modify: `GhostPepper/Cleanup/TextCleanupManager.swift`
-- Test: `GhostPepperTests/TextCleanerTests.swift`
+- Modify: `Casper/Cleanup/TextCleaner.swift`
+- Modify: `Casper/Cleanup/TextCleanupManager.swift`
+- Test: `CasperTests/TextCleanerTests.swift`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -147,7 +147,7 @@ Add tests verifying lab cleanup can:
 
 - [ ] **Step 2: Run the targeted tests to verify failure**
 
-Run: `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/transcription-lab-tests -skipMacroValidation CODE_SIGNING_ALLOWED=NO -only-testing:GhostPepperTests/TextCleanerTests test`
+Run: `xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/transcription-lab-tests -skipMacroValidation CODE_SIGNING_ALLOWED=NO -only-testing:CasperTests/TextCleanerTests test`
 
 Expected: FAIL because the cleaner does not expose a lab rerun path with explicit model choice.
 
@@ -167,18 +167,18 @@ Expect all cleaner tests to pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/Cleanup/TextCleaner.swift GhostPepper/Cleanup/TextCleanupManager.swift GhostPepperTests/TextCleanerTests.swift
+git add Casper/Cleanup/TextCleaner.swift Casper/Cleanup/TextCleanupManager.swift CasperTests/TextCleanerTests.swift
 git commit -m "Add explicit cleanup controls for transcription lab"
 ```
 
 ### Task 5: Add shared pipeline lock and lab runner
 
 **Files:**
-- Create: `GhostPepper/Lab/TranscriptionLabRunner.swift`
-- Modify: `GhostPepper/AppState.swift`
-- Modify: `GhostPepper/Transcription/ModelManager.swift`
-- Test: `GhostPepperTests/TranscriptionLabRunnerTests.swift`
-- Test: `GhostPepperTests/GhostPepperTests.swift`
+- Create: `Casper/Lab/TranscriptionLabRunner.swift`
+- Modify: `Casper/AppState.swift`
+- Modify: `Casper/Transcription/ModelManager.swift`
+- Test: `CasperTests/TranscriptionLabRunnerTests.swift`
+- Test: `CasperTests/CasperTests.swift`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -192,7 +192,7 @@ Add tests verifying:
 
 - [ ] **Step 2: Run the targeted tests to verify failure**
 
-Run: `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/transcription-lab-tests -skipMacroValidation CODE_SIGNING_ALLOWED=NO -only-testing:GhostPepperTests/TranscriptionLabRunnerTests -only-testing:GhostPepperTests/GhostPepperTests test`
+Run: `xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/transcription-lab-tests -skipMacroValidation CODE_SIGNING_ALLOWED=NO -only-testing:CasperTests/TranscriptionLabRunnerTests -only-testing:CasperTests/CasperTests test`
 
 Expected: FAIL because the runner and pipeline lock do not exist.
 
@@ -210,7 +210,7 @@ Expect the rerun and lock tests to pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/Lab/TranscriptionLabRunner.swift GhostPepper/AppState.swift GhostPepper/Transcription/ModelManager.swift GhostPepperTests/TranscriptionLabRunnerTests.swift GhostPepperTests/GhostPepperTests.swift
+git add Casper/Lab/TranscriptionLabRunner.swift Casper/AppState.swift Casper/Transcription/ModelManager.swift CasperTests/TranscriptionLabRunnerTests.swift CasperTests/CasperTests.swift
 git commit -m "Add transcription lab rerun pipeline"
 ```
 
@@ -219,9 +219,9 @@ git commit -m "Add transcription lab rerun pipeline"
 ### Task 6: Add Transcription Lab section to Settings
 
 **Files:**
-- Create: `GhostPepper/UI/TranscriptionLabView.swift`
-- Modify: `GhostPepper/UI/SettingsWindow.swift`
-- Test: `GhostPepperTests/TranscriptionLabViewTests.swift`
+- Create: `Casper/UI/TranscriptionLabView.swift`
+- Modify: `Casper/UI/SettingsWindow.swift`
+- Test: `CasperTests/TranscriptionLabViewTests.swift`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -234,7 +234,7 @@ Add tests for:
 
 - [ ] **Step 2: Run the targeted tests to verify failure**
 
-Run: `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/transcription-lab-tests -skipMacroValidation CODE_SIGNING_ALLOWED=NO -only-testing:GhostPepperTests/TranscriptionLabViewTests test`
+Run: `xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/transcription-lab-tests -skipMacroValidation CODE_SIGNING_ALLOWED=NO -only-testing:CasperTests/TranscriptionLabViewTests test`
 
 Expected: FAIL because the lab view and settings section do not exist.
 
@@ -257,7 +257,7 @@ Expect the lab view tests to pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/UI/TranscriptionLabView.swift GhostPepper/UI/SettingsWindow.swift GhostPepperTests/TranscriptionLabViewTests.swift
+git add Casper/UI/TranscriptionLabView.swift Casper/UI/SettingsWindow.swift CasperTests/TranscriptionLabViewTests.swift
 git commit -m "Add transcription lab settings UI"
 ```
 
@@ -270,7 +270,7 @@ git commit -m "Add transcription lab settings UI"
 
 - [ ] **Step 1: Run the full suite**
 
-Run: `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/transcription-lab-full -skipMacroValidation CODE_SIGNING_ALLOWED=NO test`
+Run: `xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/transcription-lab-full -skipMacroValidation CODE_SIGNING_ALLOWED=NO test`
 
 Expected: PASS.
 
@@ -287,7 +287,7 @@ Run the same command again and confirm it passes cleanly.
 Run:
 
 ```bash
-xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -configuration Debug -derivedDataPath build/transcription-lab-signed -skipMacroValidation CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Developer ID Application: Jesse Vincent (87WJ58S66M)' DEVELOPMENT_TEAM=87WJ58S66M build
+xcodebuild -project Casper.xcodeproj -scheme Casper -configuration Debug -derivedDataPath build/transcription-lab-signed -skipMacroValidation CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Developer ID Application: Jesse Vincent (87WJ58S66M)' DEVELOPMENT_TEAM=87WJ58S66M build
 ```
 
 Expected: `** BUILD SUCCEEDED **`

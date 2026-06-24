@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a single `Play sounds` preference and rebuild Ghost Pepper's settings window into a large, spacious, macOS-style sidebar settings app without removing any existing settings.
+**Goal:** Add a single `Play sounds` preference and rebuild Casper's settings window into a large, spacious, macOS-style sidebar settings app without removing any existing settings.
 
 **Architecture:** Keep `SettingsWindowController` as the AppKit host, but move the settings content to a SwiftUI sidebar/detail shell driven by a `SettingsSection` enum. Preserve existing settings logic and helpers, add a persisted sound preference in `AppState`, and split the current monolithic settings form into focused section views.
 
@@ -13,13 +13,13 @@
 ## File Structure
 
 **Modify:**
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepper/AppState.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/Casper/AppState.swift`
   - Add persisted sound preference state and defaults wiring.
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepper/Audio/SoundEffects.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/Casper/Audio/SoundEffects.swift`
   - Make sound playback conditional on the new setting.
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepper/UI/SettingsWindow.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/Casper/UI/SettingsWindow.swift`
   - Replace the single-page form with a larger sidebar/detail SwiftUI shell and section subviews.
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepperTests/GhostPepperTests.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/CasperTests/CasperTests.swift`
   - Extend window-host and app-state tests for the new settings structure and sound preference persistence.
 
 **Create:**
@@ -27,7 +27,7 @@
 - Optional follow-up extraction only if `SettingsWindow.swift` becomes unreasonably large during implementation.
 
 **Test:**
-- `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepperTests/GhostPepperTests.swift`
+- `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/CasperTests/CasperTests.swift`
 
 ---
 
@@ -36,8 +36,8 @@
 ### Task 1: Add a failing persistence test for the new sound preference
 
 **Files:**
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepperTests/GhostPepperTests.swift`
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepper/AppState.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/CasperTests/CasperTests.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/Casper/AppState.swift`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -50,7 +50,7 @@ Add tests that prove:
 
 Run:
 ```sh
-xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/settings-sound-red -clonedSourcePackagesDirPath build/settings-sound-red-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:GhostPepperTests/GhostPepperTests/testAppStateDefaultsSoundsEnabled -only-testing:GhostPepperTests/GhostPepperTests/testAppStatePersistsSoundPreference test
+xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/settings-sound-red -clonedSourcePackagesDirPath build/settings-sound-red-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:CasperTests/CasperTests/testAppStateDefaultsSoundsEnabled -only-testing:CasperTests/CasperTests/testAppStatePersistsSoundPreference test
 ```
 
 Expected:
@@ -58,7 +58,7 @@ Expected:
 
 - [ ] **Step 3: Implement the minimal app-state preference**
 
-In `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepper/AppState.swift`:
+In `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/Casper/AppState.swift`:
 - add a persisted `playSounds` setting
 - store it in defaults with the rest of the app-owned preferences
 - keep the default `true`
@@ -73,16 +73,16 @@ Expected:
 - [ ] **Step 5: Commit**
 
 ```sh
-git add GhostPepper/AppState.swift GhostPepperTests/GhostPepperTests.swift
+git add Casper/AppState.swift CasperTests/CasperTests.swift
 git commit -m "Persist sound effects preference"
 ```
 
 ### Task 2: Make `SoundEffects` honor the setting
 
 **Files:**
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepper/Audio/SoundEffects.swift`
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepper/AppState.swift`
-- Test: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepperTests/GhostPepperTests.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/Casper/Audio/SoundEffects.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/Casper/AppState.swift`
+- Test: `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/CasperTests/CasperTests.swift`
 
 - [ ] **Step 1: Write a failing behavior test**
 
@@ -92,7 +92,7 @@ Add a small test seam around `SoundEffects` so a test can verify that playback i
 
 Run:
 ```sh
-xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/sound-effects-red -clonedSourcePackagesDirPath build/sound-effects-red-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:GhostPepperTests/GhostPepperTests/testSoundEffectsSkipPlaybackWhenDisabled test
+xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/sound-effects-red -clonedSourcePackagesDirPath build/sound-effects-red-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:CasperTests/CasperTests/testSoundEffectsSkipPlaybackWhenDisabled test
 ```
 
 Expected:
@@ -100,7 +100,7 @@ Expected:
 
 - [ ] **Step 3: Implement the minimal guard**
 
-Update `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepper/Audio/SoundEffects.swift` to accept a simple enabled provider or equivalent test seam, and wire it from `AppState`.
+Update `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/Casper/Audio/SoundEffects.swift` to accept a simple enabled provider or equivalent test seam, and wire it from `AppState`.
 
 - [ ] **Step 4: Run the targeted test to verify it passes**
 
@@ -112,7 +112,7 @@ Expected:
 - [ ] **Step 5: Commit**
 
 ```sh
-git add GhostPepper/Audio/SoundEffects.swift GhostPepper/AppState.swift GhostPepperTests/GhostPepperTests.swift
+git add Casper/Audio/SoundEffects.swift Casper/AppState.swift CasperTests/CasperTests.swift
 git commit -m "Honor sound effects preference"
 ```
 
@@ -123,8 +123,8 @@ git commit -m "Honor sound effects preference"
 ### Task 3: Add a failing settings window size test
 
 **Files:**
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepperTests/GhostPepperTests.swift`
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepper/UI/SettingsWindow.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/CasperTests/CasperTests.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/Casper/UI/SettingsWindow.swift`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -134,7 +134,7 @@ Add a test asserting that the settings window opens substantially larger than th
 
 Run:
 ```sh
-xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/settings-window-size-red -clonedSourcePackagesDirPath build/settings-window-size-red-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:GhostPepperTests/GhostPepperTests/testSettingsWindowUsesLargeRoomyFrame test
+xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/settings-window-size-red -clonedSourcePackagesDirPath build/settings-window-size-red-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:CasperTests/CasperTests/testSettingsWindowUsesLargeRoomyFrame test
 ```
 
 Expected:
@@ -142,7 +142,7 @@ Expected:
 
 - [ ] **Step 3: Implement the larger window frame**
 
-Update `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepper/UI/SettingsWindow.swift` to use the new larger default size while preserving existing window reuse and close behavior.
+Update `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/Casper/UI/SettingsWindow.swift` to use the new larger default size while preserving existing window reuse and close behavior.
 
 - [ ] **Step 4: Run the targeted test to verify it passes**
 
@@ -154,15 +154,15 @@ Expected:
 - [ ] **Step 5: Commit**
 
 ```sh
-git add GhostPepper/UI/SettingsWindow.swift GhostPepperTests/GhostPepperTests.swift
+git add Casper/UI/SettingsWindow.swift CasperTests/CasperTests.swift
 git commit -m "Increase settings window size"
 ```
 
 ### Task 4: Replace the single long form with a sidebar shell
 
 **Files:**
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepper/UI/SettingsWindow.swift`
-- Test: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepperTests/GhostPepperTests.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/Casper/UI/SettingsWindow.swift`
+- Test: `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/CasperTests/CasperTests.swift`
 
 - [ ] **Step 1: Add a shallow failing structure test**
 
@@ -172,7 +172,7 @@ Add a test that proves the settings window still hosts SwiftUI content and remai
 
 Run:
 ```sh
-xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/settings-shell-red -clonedSourcePackagesDirPath build/settings-shell-red-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:GhostPepperTests/GhostPepperTests/testSettingsWindowHostsSwiftUIViaContentViewController -only-testing:GhostPepperTests/GhostPepperTests/testSettingsWindowControllerCloseButtonOrdersWindowOutWithoutClosing -only-testing:GhostPepperTests/GhostPepperTests/testAppStateShowSettingsReusesSingleWindow test
+xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/settings-shell-red -clonedSourcePackagesDirPath build/settings-shell-red-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:CasperTests/CasperTests/testSettingsWindowHostsSwiftUIViaContentViewController -only-testing:CasperTests/CasperTests/testSettingsWindowControllerCloseButtonOrdersWindowOutWithoutClosing -only-testing:CasperTests/CasperTests/testAppStateShowSettingsReusesSingleWindow test
 ```
 
 Expected:
@@ -180,7 +180,7 @@ Expected:
 
 - [ ] **Step 3: Implement the sidebar shell**
 
-In `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepper/UI/SettingsWindow.swift`:
+In `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/Casper/UI/SettingsWindow.swift`:
 - add `SettingsSection`
 - add a SwiftUI root shell with sidebar selection and detail pane
 - keep the AppKit host window controller intact
@@ -196,7 +196,7 @@ Expected:
 - [ ] **Step 5: Commit**
 
 ```sh
-git add GhostPepper/UI/SettingsWindow.swift GhostPepperTests/GhostPepperTests.swift
+git add Casper/UI/SettingsWindow.swift CasperTests/CasperTests.swift
 git commit -m "Add sidebar settings shell"
 ```
 
@@ -207,9 +207,9 @@ git commit -m "Add sidebar settings shell"
 ### Task 5: Build out the `Recording` page and add the `Play sounds` toggle
 
 **Files:**
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepper/UI/SettingsWindow.swift`
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepper/AppState.swift`
-- Test: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepperTests/GhostPepperTests.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/Casper/UI/SettingsWindow.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/Casper/AppState.swift`
+- Test: `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/CasperTests/CasperTests.swift`
 
 - [ ] **Step 1: Add a failing recording-page expectation**
 
@@ -219,7 +219,7 @@ Add a shallow test or state-level assertion covering the presence/wiring of the 
 
 Run:
 ```sh
-xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/settings-recording-red -clonedSourcePackagesDirPath build/settings-recording-red-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:GhostPepperTests/GhostPepperTests/testAppStatePersistsSoundPreference test
+xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/settings-recording-red -clonedSourcePackagesDirPath build/settings-recording-red-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:CasperTests/CasperTests/testAppStatePersistsSoundPreference test
 ```
 
 Expected:
@@ -243,20 +243,20 @@ Expected:
 - [ ] **Step 5: Commit**
 
 ```sh
-git add GhostPepper/UI/SettingsWindow.swift GhostPepper/AppState.swift GhostPepperTests/GhostPepperTests.swift
+git add Casper/UI/SettingsWindow.swift Casper/AppState.swift CasperTests/CasperTests.swift
 git commit -m "Add recording settings section"
 ```
 
 ### Task 6: Move cleanup and corrections into their own pages
 
 **Files:**
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepper/UI/SettingsWindow.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/Casper/UI/SettingsWindow.swift`
 
 - [ ] **Step 1: Run a focused existing settings smoke suite**
 
 Run:
 ```sh
-xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/settings-cleanup-sections-pre -clonedSourcePackagesDirPath build/settings-cleanup-sections-pre-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:GhostPepperTests/GhostPepperTests/testSettingsWindowHostsSwiftUIViaContentViewController -only-testing:GhostPepperTests/GhostPepperTests/testAppStateShowSettingsReusesSingleWindow test
+xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/settings-cleanup-sections-pre -clonedSourcePackagesDirPath build/settings-cleanup-sections-pre-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:CasperTests/CasperTests/testSettingsWindowHostsSwiftUIViaContentViewController -only-testing:CasperTests/CasperTests/testAppStateShowSettingsReusesSingleWindow test
 ```
 
 Expected:
@@ -274,20 +274,20 @@ Expected:
 - [ ] **Step 4: Commit**
 
 ```sh
-git add GhostPepper/UI/SettingsWindow.swift
+git add Casper/UI/SettingsWindow.swift
 git commit -m "Split cleanup and corrections settings"
 ```
 
 ### Task 7: Move models and general settings into their own pages
 
 **Files:**
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepper/UI/SettingsWindow.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/Casper/UI/SettingsWindow.swift`
 
 - [ ] **Step 1: Run a focused settings smoke suite**
 
 Run:
 ```sh
-xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/settings-models-general-pre -clonedSourcePackagesDirPath build/settings-models-general-pre-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:GhostPepperTests/GhostPepperTests/testSettingsWindowControllerCloseButtonOrdersWindowOutWithoutClosing -only-testing:GhostPepperTests/GhostPepperTests/testAppStateShowSettingsReusesSingleWindow test
+xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/settings-models-general-pre -clonedSourcePackagesDirPath build/settings-models-general-pre-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation -only-testing:CasperTests/CasperTests/testSettingsWindowControllerCloseButtonOrdersWindowOutWithoutClosing -only-testing:CasperTests/CasperTests/testAppStateShowSettingsReusesSingleWindow test
 ```
 
 Expected:
@@ -305,7 +305,7 @@ Expected:
 - [ ] **Step 4: Commit**
 
 ```sh
-git add GhostPepper/UI/SettingsWindow.swift
+git add Casper/UI/SettingsWindow.swift
 git commit -m "Split models and general settings"
 ```
 
@@ -322,7 +322,7 @@ git commit -m "Split models and general settings"
 
 Run:
 ```sh
-xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/settings-sidebar-full -clonedSourcePackagesDirPath build/settings-sidebar-full-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation test
+xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/settings-sidebar-full -clonedSourcePackagesDirPath build/settings-sidebar-full-source CODE_SIGNING_ALLOWED=NO -skipMacroValidation test
 ```
 
 Expected:
@@ -332,7 +332,7 @@ Expected:
 
 Run:
 ```sh
-xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -configuration Debug -derivedDataPath build/settings-sidebar-signed -clonedSourcePackagesDirPath build/settings-sidebar-signed-source -skipMacroValidation CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Developer ID Application: Jesse Vincent (87WJ58S66M)' DEVELOPMENT_TEAM=87WJ58S66M build
+xcodebuild -project Casper.xcodeproj -scheme Casper -configuration Debug -derivedDataPath build/settings-sidebar-signed -clonedSourcePackagesDirPath build/settings-sidebar-signed-source -skipMacroValidation CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Developer ID Application: Jesse Vincent (87WJ58S66M)' DEVELOPMENT_TEAM=87WJ58S66M build
 ```
 
 Expected:
@@ -342,9 +342,9 @@ Expected:
 
 Run:
 ```sh
-rm -rf /Applications/GhostPepper.app
-cp -R build/settings-sidebar-signed/Build/Products/Debug/GhostPepper.app /Applications/GhostPepper.app
-open -na /Applications/GhostPepper.app
+rm -rf /Applications/Casper.app
+cp -R build/settings-sidebar-signed/Build/Products/Debug/Casper.app /Applications/Casper.app
+open -na /Applications/Casper.app
 ```
 
 Expected:
@@ -361,6 +361,6 @@ Verify:
 - [ ] **Step 5: Commit**
 
 ```sh
-git add GhostPepper/AppState.swift GhostPepper/Audio/SoundEffects.swift GhostPepper/UI/SettingsWindow.swift GhostPepperTests/GhostPepperTests.swift
+git add Casper/AppState.swift Casper/Audio/SoundEffects.swift Casper/UI/SettingsWindow.swift CasperTests/CasperTests.swift
 git commit -m "Redesign settings window and add sound toggle"
 ```

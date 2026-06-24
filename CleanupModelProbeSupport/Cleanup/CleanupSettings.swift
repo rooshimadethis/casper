@@ -1,1 +1,1 @@
-../../GhostPepper/Cleanup/CleanupSettings.swift
+../../Casper/Cleanup/CleanupSettings.swift

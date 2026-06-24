@@ -4,7 +4,7 @@ Date: 2026-03-25
 
 ## Goals
 
-- Add one simple user setting to disable Ghost Pepper's recording/status sounds.
+- Add one simple user setting to disable Casper's recording/status sounds.
 - Redesign Settings into a large, spacious, modern macOS-style window.
 - Keep every existing setting; this is a reorganization, not a pruning pass.
 - Move more of the settings content structure into SwiftUI where that makes the implementation cleaner.
@@ -17,7 +17,7 @@ Date: 2026-03-25
 
 ## Current Problems
 
-- Settings are implemented as one long single-page form in [`GhostPepper/UI/SettingsWindow.swift`](/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepper/UI/SettingsWindow.swift), which has grown into a dense monolith.
+- Settings are implemented as one long single-page form in [`Casper/UI/SettingsWindow.swift`](/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/Casper/UI/SettingsWindow.swift), which has grown into a dense monolith.
 - The current window size is small for desktop use and does not feel like a native macOS settings surface.
 - Sound effects are always on and have no user control.
 
@@ -146,5 +146,5 @@ Retain existing settings window behavior tests unless the host type changes enou
 
 - Settings opens as a larger, more spacious window with a sidebar section layout.
 - All current settings remain available.
-- Users can disable Ghost Pepper sounds with one toggle.
+- Users can disable Casper sounds with one toggle.
 - Existing settings behaviors still work without regressions.

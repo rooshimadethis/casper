@@ -19,79 +19,79 @@
 
 ### Existing Files To Modify
 
-- `GhostPepper/AppState.swift`
+- `Casper/AppState.swift`
   Wire new chord actions, cleanup pipeline, OCR context, and post-paste learning into the existing app flow.
-- `GhostPepper/Input/HotkeyMonitor.swift`
+- `Casper/Input/HotkeyMonitor.swift`
   Convert from Control-only logic into a wrapper around the new chord engine, or replace its internals while preserving the app-facing callback shape.
-- `GhostPepper/UI/SettingsWindow.swift`
+- `Casper/UI/SettingsWindow.swift`
   Add `Shortcuts`, `Cleanup`, `Context`, and `Corrections` sections.
-- `GhostPepper/UI/OnboardingWindow.swift`
+- `Casper/UI/OnboardingWindow.swift`
   Keep onboarding minimal while pointing advanced users to settings.
-- `GhostPepper/Cleanup/TextCleanupManager.swift`
+- `Casper/Cleanup/TextCleanupManager.swift`
   Move from implicit local-model behavior toward explicit backend/model policy state.
-- `GhostPepper/Cleanup/TextCleaner.swift`
+- `Casper/Cleanup/TextCleaner.swift`
   Stop owning all cleanup decisions directly; call the deterministic correction layer, optional OCR context provider, and selected cleanup backend.
-- `GhostPepper/PermissionChecker.swift`
+- `Casper/PermissionChecker.swift`
   Add Screen Recording status/open-settings helpers.
-- `GhostPepper/Input/TextPaster.swift`
+- `Casper/Input/TextPaster.swift`
   Expose enough paste metadata for the delayed learning branch.
 - `.gitignore`
   Keep `docs/superpowers/specs` and `docs/superpowers/plans` tracked.
 
 ### New Input Files
 
-- `GhostPepper/Input/PhysicalKey.swift`
-- `GhostPepper/Input/KeyChord.swift`
-- `GhostPepper/Input/ChordAction.swift`
-- `GhostPepper/Input/ChordBindingStore.swift`
-- `GhostPepper/Input/ChordEngine.swift`
-- `GhostPepper/Input/PasteSession.swift`
-- `GhostPepper/UI/ShortcutRecorderView.swift`
+- `Casper/Input/PhysicalKey.swift`
+- `Casper/Input/KeyChord.swift`
+- `Casper/Input/ChordAction.swift`
+- `Casper/Input/ChordBindingStore.swift`
+- `Casper/Input/ChordEngine.swift`
+- `Casper/Input/PasteSession.swift`
+- `Casper/UI/ShortcutRecorderView.swift`
 
 ### New Cleanup Files
 
-- `GhostPepper/Cleanup/CleanupBackend.swift`
-- `GhostPepper/Cleanup/LocalLLMCleanupBackend.swift`
-- `GhostPepper/Cleanup/FoundationModelsCleanupBackend.swift`
-- `GhostPepper/Cleanup/FoundationModelAvailabilityProvider.swift`
-- `GhostPepper/Cleanup/CleanupSettings.swift`
-- `GhostPepper/Cleanup/CleanupPromptBuilder.swift`
-- `GhostPepper/Cleanup/CorrectionStore.swift`
-- `GhostPepper/Cleanup/DeterministicCorrectionEngine.swift`
-- `GhostPepper/Cleanup/PostPasteLearningCoordinator.swift`
+- `Casper/Cleanup/CleanupBackend.swift`
+- `Casper/Cleanup/LocalLLMCleanupBackend.swift`
+- `Casper/Cleanup/FoundationModelsCleanupBackend.swift`
+- `Casper/Cleanup/FoundationModelAvailabilityProvider.swift`
+- `Casper/Cleanup/CleanupSettings.swift`
+- `Casper/Cleanup/CleanupPromptBuilder.swift`
+- `Casper/Cleanup/CorrectionStore.swift`
+- `Casper/Cleanup/DeterministicCorrectionEngine.swift`
+- `Casper/Cleanup/PostPasteLearningCoordinator.swift`
 
 ### New OCR/Context Files
 
-- `GhostPepper/Context/OCRContext.swift`
-- `GhostPepper/Context/OCRRequestFactory.swift`
-- `GhostPepper/Context/WindowCaptureService.swift`
-- `GhostPepper/Context/FrontmostWindowOCRService.swift`
-- `GhostPepper/Context/FocusedElementLocator.swift`
+- `Casper/Context/OCRContext.swift`
+- `Casper/Context/OCRRequestFactory.swift`
+- `Casper/Context/WindowCaptureService.swift`
+- `Casper/Context/FrontmostWindowOCRService.swift`
+- `Casper/Context/FocusedElementLocator.swift`
 
 ### New Test Files
 
-- `GhostPepperTests/KeyChordTests.swift`
-- `GhostPepperTests/ChordEngineTests.swift`
-- `GhostPepperTests/ChordBindingStoreTests.swift`
-- `GhostPepperTests/TextCleanupManagerTests.swift`
-- `GhostPepperTests/TextCleanerTests.swift`
-- `GhostPepperTests/CleanupPromptBuilderTests.swift`
-- `GhostPepperTests/CleanupBackendTests.swift`
-- `GhostPepperTests/OCRContextTests.swift`
-- `GhostPepperTests/CorrectionStoreTests.swift`
-- `GhostPepperTests/PostPasteLearningCoordinatorTests.swift`
+- `CasperTests/KeyChordTests.swift`
+- `CasperTests/ChordEngineTests.swift`
+- `CasperTests/ChordBindingStoreTests.swift`
+- `CasperTests/TextCleanupManagerTests.swift`
+- `CasperTests/TextCleanerTests.swift`
+- `CasperTests/CleanupPromptBuilderTests.swift`
+- `CasperTests/CleanupBackendTests.swift`
+- `CasperTests/OCRContextTests.swift`
+- `CasperTests/CorrectionStoreTests.swift`
+- `CasperTests/PostPasteLearningCoordinatorTests.swift`
 
 ## Chunk 1: `codex/chord-actions`
 
 ### Task 1: Add the chord domain model and persistence
 
 **Files:**
-- Create: `GhostPepper/Input/PhysicalKey.swift`
-- Create: `GhostPepper/Input/KeyChord.swift`
-- Create: `GhostPepper/Input/ChordAction.swift`
-- Create: `GhostPepper/Input/ChordBindingStore.swift`
-- Test: `GhostPepperTests/KeyChordTests.swift`
-- Test: `GhostPepperTests/ChordBindingStoreTests.swift`
+- Create: `Casper/Input/PhysicalKey.swift`
+- Create: `Casper/Input/KeyChord.swift`
+- Create: `Casper/Input/ChordAction.swift`
+- Create: `Casper/Input/ChordBindingStore.swift`
+- Test: `CasperTests/KeyChordTests.swift`
+- Test: `CasperTests/ChordBindingStoreTests.swift`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -105,7 +105,7 @@ func testBindingStoreRejectsDuplicateBindings()
 
 - [ ] **Step 2: Run the targeted tests to verify they fail**
 
-Run: `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test -only-testing:GhostPepperTests/KeyChordTests -only-testing:GhostPepperTests/ChordBindingStoreTests`
+Run: `xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test -only-testing:CasperTests/KeyChordTests -only-testing:CasperTests/ChordBindingStoreTests`
 Expected: FAIL because the new types do not exist yet.
 
 - [ ] **Step 3: Write the minimal implementation**
@@ -135,17 +135,17 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/Input/PhysicalKey.swift GhostPepper/Input/KeyChord.swift GhostPepper/Input/ChordAction.swift GhostPepper/Input/ChordBindingStore.swift GhostPepperTests/KeyChordTests.swift GhostPepperTests/ChordBindingStoreTests.swift
+git add Casper/Input/PhysicalKey.swift Casper/Input/KeyChord.swift Casper/Input/ChordAction.swift Casper/Input/ChordBindingStore.swift CasperTests/KeyChordTests.swift CasperTests/ChordBindingStoreTests.swift
 git commit -m "feat: add chord bindings"
 ```
 
 ### Task 2: Replace Control-only matching with a chord engine
 
 **Files:**
-- Create: `GhostPepper/Input/ChordEngine.swift`
-- Modify: `GhostPepper/Input/HotkeyMonitor.swift`
-- Modify: `GhostPepperTests/HotkeyMonitorTests.swift`
-- Test: `GhostPepperTests/ChordEngineTests.swift`
+- Create: `Casper/Input/ChordEngine.swift`
+- Modify: `Casper/Input/HotkeyMonitor.swift`
+- Modify: `CasperTests/HotkeyMonitorTests.swift`
+- Test: `CasperTests/ChordEngineTests.swift`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -158,7 +158,7 @@ func testPushToTalkStopsWhenAnyRequiredKeyReleases()
 
 - [ ] **Step 2: Run the targeted tests to verify they fail**
 
-Run: `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test -only-testing:GhostPepperTests/ChordEngineTests -only-testing:GhostPepperTests/HotkeyMonitorTests`
+Run: `xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test -only-testing:CasperTests/ChordEngineTests -only-testing:CasperTests/HotkeyMonitorTests`
 Expected: FAIL because prefix-aware chord matching does not exist.
 
 - [ ] **Step 3: Write the minimal implementation**
@@ -176,24 +176,24 @@ Update `HotkeyMonitor` to observe `.flagsChanged`, `.keyDown`, and `.keyUp`, con
 - [ ] **Step 4: Run the targeted and full test suites**
 
 Run targeted command from Step 2, then:
-`xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test`
+`xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/Input/ChordEngine.swift GhostPepper/Input/HotkeyMonitor.swift GhostPepperTests/ChordEngineTests.swift GhostPepperTests/HotkeyMonitorTests.swift
+git add Casper/Input/ChordEngine.swift Casper/Input/HotkeyMonitor.swift CasperTests/ChordEngineTests.swift CasperTests/HotkeyMonitorTests.swift
 git commit -m "feat: add chord engine"
 ```
 
 ### Task 3: Add settings/onboarding support for push and toggle chords
 
 **Files:**
-- Create: `GhostPepper/UI/ShortcutRecorderView.swift`
-- Modify: `GhostPepper/UI/SettingsWindow.swift`
-- Modify: `GhostPepper/UI/OnboardingWindow.swift`
-- Modify: `GhostPepper/AppState.swift`
-- Test: `GhostPepperTests/GhostPepperTests.swift`
+- Create: `Casper/UI/ShortcutRecorderView.swift`
+- Modify: `Casper/UI/SettingsWindow.swift`
+- Modify: `Casper/UI/OnboardingWindow.swift`
+- Modify: `Casper/AppState.swift`
+- Test: `CasperTests/CasperTests.swift`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -201,7 +201,7 @@ Add app-state-level tests that assert default bindings are loaded and both actio
 
 - [ ] **Step 2: Run the targeted tests to verify they fail**
 
-Run: `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test -only-testing:GhostPepperTests/GhostPepperTests`
+Run: `xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test -only-testing:CasperTests/CasperTests`
 Expected: FAIL on missing shortcut defaults or missing recorder wiring.
 
 - [ ] **Step 3: Write the minimal implementation**
@@ -211,14 +211,14 @@ Add a `Shortcuts` settings section, keep onboarding focused on the default behav
 - [ ] **Step 4: Run the full test suite and build**
 
 Run:
-- `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test`
-- `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -configuration Debug -derivedDataPath build/derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO build`
+- `xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test`
+- `xcodebuild -project Casper.xcodeproj -scheme Casper -configuration Debug -derivedDataPath build/derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO build`
 Expected: PASS / BUILD SUCCEEDED.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/UI/ShortcutRecorderView.swift GhostPepper/UI/SettingsWindow.swift GhostPepper/UI/OnboardingWindow.swift GhostPepper/AppState.swift GhostPepperTests/GhostPepperTests.swift
+git add Casper/UI/ShortcutRecorderView.swift Casper/UI/SettingsWindow.swift Casper/UI/OnboardingWindow.swift Casper/AppState.swift CasperTests/CasperTests.swift
 git commit -m "feat: add shortcut settings"
 ```
 
@@ -227,10 +227,10 @@ git commit -m "feat: add shortcut settings"
 ### Task 4: Add explicit cleanup settings and local model policy
 
 **Files:**
-- Create: `GhostPepper/Cleanup/CleanupSettings.swift`
-- Modify: `GhostPepper/Cleanup/TextCleanupManager.swift`
-- Test: `GhostPepperTests/TextCleanerTests.swift`
-- Test: `GhostPepperTests/TextCleanupManagerTests.swift`
+- Create: `Casper/Cleanup/CleanupSettings.swift`
+- Modify: `Casper/Cleanup/TextCleanupManager.swift`
+- Test: `CasperTests/TextCleanerTests.swift`
+- Test: `CasperTests/TextCleanupManagerTests.swift`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -243,7 +243,7 @@ func testQuestionSelectionStillFlowsThroughManagerPolicy()
 
 - [ ] **Step 2: Run the targeted tests to verify they fail**
 
-Run: `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test -only-testing:GhostPepperTests/TextCleanupManagerTests`
+Run: `xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test -only-testing:CasperTests/TextCleanupManagerTests`
 Expected: FAIL because explicit policy types do not exist.
 
 - [ ] **Step 3: Write the minimal implementation**
@@ -253,23 +253,23 @@ Add a persisted local policy enum and replace `model(for:)` with a manager-owned
 - [ ] **Step 4: Run targeted and full tests**
 
 Run targeted command from Step 2, then:
-`xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test`
+`xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/Cleanup/CleanupSettings.swift GhostPepper/Cleanup/TextCleanupManager.swift GhostPepperTests/TextCleanupManagerTests.swift GhostPepperTests/TextCleanerTests.swift
+git add Casper/Cleanup/CleanupSettings.swift Casper/Cleanup/TextCleanupManager.swift CasperTests/TextCleanupManagerTests.swift CasperTests/TextCleanerTests.swift
 git commit -m "feat: add cleanup model policy"
 ```
 
 ### Task 5: Expose cleanup model policy in settings
 
 **Files:**
-- Modify: `GhostPepper/UI/SettingsWindow.swift`
-- Modify: `GhostPepper/AppState.swift`
-- Modify: `GhostPepper/Cleanup/TextCleaner.swift`
-- Test: `GhostPepperTests/TextCleanerTests.swift`
+- Modify: `Casper/UI/SettingsWindow.swift`
+- Modify: `Casper/AppState.swift`
+- Modify: `Casper/Cleanup/TextCleaner.swift`
+- Test: `CasperTests/TextCleanerTests.swift`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -277,7 +277,7 @@ Add `TextCleaner`-level tests that verify the selected manager policy is consult
 
 - [ ] **Step 2: Run the targeted tests to verify they fail**
 
-Run: `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test -only-testing:GhostPepperTests/TextCleanerTests`
+Run: `xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test -only-testing:CasperTests/TextCleanerTests`
 Expected: FAIL because `TextCleaner.clean` still bypasses the selected policy.
 
 - [ ] **Step 3: Write the minimal implementation**
@@ -287,14 +287,14 @@ Add a model picker under the `Cleanup` section and update `TextCleaner.clean` to
 - [ ] **Step 4: Run the full test suite and build**
 
 Run:
-- `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test`
-- `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -configuration Debug -derivedDataPath build/derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO build`
+- `xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test`
+- `xcodebuild -project Casper.xcodeproj -scheme Casper -configuration Debug -derivedDataPath build/derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO build`
 Expected: PASS / BUILD SUCCEEDED.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/UI/SettingsWindow.swift GhostPepper/AppState.swift GhostPepper/Cleanup/TextCleaner.swift
+git add Casper/UI/SettingsWindow.swift Casper/AppState.swift Casper/Cleanup/TextCleaner.swift
 git commit -m "feat: add cleanup model picker"
 ```
 
@@ -303,11 +303,11 @@ git commit -m "feat: add cleanup model picker"
 ### Task 6: Introduce a pluggable cleanup backend layer
 
 **Files:**
-- Create: `GhostPepper/Cleanup/CleanupBackend.swift`
-- Create: `GhostPepper/Cleanup/LocalLLMCleanupBackend.swift`
-- Modify: `GhostPepper/Cleanup/TextCleaner.swift`
-- Modify: `GhostPepper/Cleanup/TextCleanupManager.swift`
-- Test: `GhostPepperTests/CleanupBackendTests.swift`
+- Create: `Casper/Cleanup/CleanupBackend.swift`
+- Create: `Casper/Cleanup/LocalLLMCleanupBackend.swift`
+- Modify: `Casper/Cleanup/TextCleaner.swift`
+- Modify: `Casper/Cleanup/TextCleanupManager.swift`
+- Test: `CasperTests/CleanupBackendTests.swift`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -318,7 +318,7 @@ func testCleanerFallsBackToCorrectedRawTextWhenBackendFails()
 
 - [ ] **Step 2: Run the targeted tests to verify they fail**
 
-Run: `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test -only-testing:GhostPepperTests/CleanupBackendTests`
+Run: `xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test -only-testing:CasperTests/CleanupBackendTests`
 Expected: FAIL because the backend abstraction does not exist.
 
 - [ ] **Step 3: Write the minimal implementation**
@@ -334,24 +334,24 @@ Move the current `LLM.swift` cleanup behavior behind `LocalLLMCleanupBackend`, m
 - [ ] **Step 4: Run targeted and full tests**
 
 Run targeted command from Step 2, then:
-`xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test`
+`xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/Cleanup/CleanupBackend.swift GhostPepper/Cleanup/LocalLLMCleanupBackend.swift GhostPepper/Cleanup/TextCleaner.swift GhostPepper/Cleanup/TextCleanupManager.swift GhostPepperTests/CleanupBackendTests.swift
+git add Casper/Cleanup/CleanupBackend.swift Casper/Cleanup/LocalLLMCleanupBackend.swift Casper/Cleanup/TextCleaner.swift Casper/Cleanup/TextCleanupManager.swift CasperTests/CleanupBackendTests.swift
 git commit -m "refactor: add cleanup backend abstraction"
 ```
 
 ### Task 7: Add the optional Foundation Models backend
 
 **Files:**
-- Create: `GhostPepper/Cleanup/FoundationModelsCleanupBackend.swift`
-- Create: `GhostPepper/Cleanup/FoundationModelAvailabilityProvider.swift`
-- Modify: `GhostPepper/Cleanup/CleanupSettings.swift`
-- Modify: `GhostPepper/UI/SettingsWindow.swift`
-- Modify: `GhostPepper/AppState.swift`
+- Create: `Casper/Cleanup/FoundationModelsCleanupBackend.swift`
+- Create: `Casper/Cleanup/FoundationModelAvailabilityProvider.swift`
+- Modify: `Casper/Cleanup/CleanupSettings.swift`
+- Modify: `Casper/UI/SettingsWindow.swift`
+- Modify: `Casper/AppState.swift`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -363,7 +363,7 @@ func testFoundationAvailabilityCanBeStubbedInTests()
 
 - [ ] **Step 2: Run the targeted tests to verify they fail**
 
-Run: `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test -only-testing:GhostPepperTests/CleanupBackendTests`
+Run: `xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test -only-testing:CasperTests/CleanupBackendTests`
 Expected: FAIL because there is no Foundation Models backend or fallback behavior.
 
 - [ ] **Step 3: Write the minimal implementation**
@@ -373,14 +373,14 @@ Guard Foundation Models code with `if #available(macOS 26.0, *)` and `SystemLang
 - [ ] **Step 4: Run the full test suite and build**
 
 Run:
-- `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test`
-- `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -configuration Debug -derivedDataPath build/derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO build`
+- `xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test`
+- `xcodebuild -project Casper.xcodeproj -scheme Casper -configuration Debug -derivedDataPath build/derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO build`
 Expected: PASS / BUILD SUCCEEDED.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/Cleanup/FoundationModelsCleanupBackend.swift GhostPepper/Cleanup/FoundationModelAvailabilityProvider.swift GhostPepper/Cleanup/CleanupSettings.swift GhostPepper/UI/SettingsWindow.swift GhostPepper/AppState.swift GhostPepperTests/CleanupBackendTests.swift
+git add Casper/Cleanup/FoundationModelsCleanupBackend.swift Casper/Cleanup/FoundationModelAvailabilityProvider.swift Casper/Cleanup/CleanupSettings.swift Casper/UI/SettingsWindow.swift Casper/AppState.swift CasperTests/CleanupBackendTests.swift
 git commit -m "feat: add foundation models cleanup backend"
 ```
 
@@ -403,12 +403,12 @@ Reference implementation notes:
 ### Task 8: Add permission-aware window capture and OCR services
 
 **Files:**
-- Create: `GhostPepper/Context/OCRContext.swift`
-- Create: `GhostPepper/Context/OCRRequestFactory.swift`
-- Create: `GhostPepper/Context/WindowCaptureService.swift`
-- Create: `GhostPepper/Context/FrontmostWindowOCRService.swift`
-- Modify: `GhostPepper/PermissionChecker.swift`
-- Test: `GhostPepperTests/OCRContextTests.swift`
+- Create: `Casper/Context/OCRContext.swift`
+- Create: `Casper/Context/OCRRequestFactory.swift`
+- Create: `Casper/Context/WindowCaptureService.swift`
+- Create: `Casper/Context/FrontmostWindowOCRService.swift`
+- Modify: `Casper/PermissionChecker.swift`
+- Test: `CasperTests/OCRContextTests.swift`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -421,7 +421,7 @@ func testMissingScreenRecordingPermissionDisablesCapture()
 
 - [ ] **Step 2: Run the targeted tests to verify they fail**
 
-Run: `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test -only-testing:GhostPepperTests/OCRContextTests`
+Run: `xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test -only-testing:CasperTests/OCRContextTests`
 Expected: FAIL because capture/OCR services do not exist.
 
 - [ ] **Step 3: Write the minimal implementation**
@@ -431,24 +431,24 @@ Add an `OCRRequestFactory` that builds the configured `VNRecognizeTextRequest` s
 - [ ] **Step 4: Run targeted and full tests**
 
 Run targeted command from Step 2, then:
-`xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test`
+`xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/Context/OCRContext.swift GhostPepper/Context/OCRRequestFactory.swift GhostPepper/Context/WindowCaptureService.swift GhostPepper/Context/FrontmostWindowOCRService.swift GhostPepper/PermissionChecker.swift GhostPepperTests/OCRContextTests.swift
+git add Casper/Context/OCRContext.swift Casper/Context/OCRRequestFactory.swift Casper/Context/WindowCaptureService.swift Casper/Context/FrontmostWindowOCRService.swift Casper/PermissionChecker.swift CasperTests/OCRContextTests.swift
 git commit -m "feat: add OCR context services"
 ```
 
 ### Task 9: Inject OCR context into the cleanup prompt
 
 **Files:**
-- Create: `GhostPepper/Cleanup/CleanupPromptBuilder.swift`
-- Modify: `GhostPepper/AppState.swift`
-- Modify: `GhostPepper/Cleanup/TextCleaner.swift`
-- Modify: `GhostPepper/UI/SettingsWindow.swift`
-- Test: `GhostPepperTests/CleanupPromptBuilderTests.swift`
+- Create: `Casper/Cleanup/CleanupPromptBuilder.swift`
+- Modify: `Casper/AppState.swift`
+- Modify: `Casper/Cleanup/TextCleaner.swift`
+- Modify: `Casper/UI/SettingsWindow.swift`
+- Test: `CasperTests/CleanupPromptBuilderTests.swift`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -460,7 +460,7 @@ func testBuilderTrimsLongOCRContextBeforePromptAssembly()
 
 - [ ] **Step 2: Run the targeted tests to verify they fail**
 
-Run: `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test -only-testing:GhostPepperTests/CleanupPromptBuilderTests`
+Run: `xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test -only-testing:CasperTests/CleanupPromptBuilderTests`
 Expected: FAIL because prompt assembly still lives inline in the cleanup path.
 
 - [ ] **Step 3: Write the minimal implementation**
@@ -470,14 +470,14 @@ Move prompt assembly into `CleanupPromptBuilder`, add a `Context` settings secti
 - [ ] **Step 4: Run the full test suite and build**
 
 Run:
-- `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test`
-- `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -configuration Debug -derivedDataPath build/derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO build`
+- `xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test`
+- `xcodebuild -project Casper.xcodeproj -scheme Casper -configuration Debug -derivedDataPath build/derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO build`
 Expected: PASS / BUILD SUCCEEDED.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/Cleanup/CleanupPromptBuilder.swift GhostPepper/AppState.swift GhostPepper/Cleanup/TextCleaner.swift GhostPepper/UI/SettingsWindow.swift GhostPepperTests/CleanupPromptBuilderTests.swift
+git add Casper/Cleanup/CleanupPromptBuilder.swift Casper/AppState.swift Casper/Cleanup/TextCleaner.swift Casper/UI/SettingsWindow.swift CasperTests/CleanupPromptBuilderTests.swift
 git commit -m "feat: inject OCR context into cleanup"
 ```
 
@@ -486,11 +486,11 @@ git commit -m "feat: inject OCR context into cleanup"
 ### Task 10: Add the correction store and deterministic correction engine
 
 **Files:**
-- Create: `GhostPepper/Cleanup/CorrectionStore.swift`
-- Create: `GhostPepper/Cleanup/DeterministicCorrectionEngine.swift`
-- Modify: `GhostPepper/Cleanup/TextCleaner.swift`
-- Test: `GhostPepperTests/TextCleanerTests.swift`
-- Test: `GhostPepperTests/CorrectionStoreTests.swift`
+- Create: `Casper/Cleanup/CorrectionStore.swift`
+- Create: `Casper/Cleanup/DeterministicCorrectionEngine.swift`
+- Modify: `Casper/Cleanup/TextCleaner.swift`
+- Test: `CasperTests/TextCleanerTests.swift`
+- Test: `CasperTests/CorrectionStoreTests.swift`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -503,7 +503,7 @@ func testDeterministicCorrectionsStillApplyWhenNoCleanupBackendIsAvailable()
 
 - [ ] **Step 2: Run the targeted tests to verify they fail**
 
-Run: `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test -only-testing:GhostPepperTests/CorrectionStoreTests`
+Run: `xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test -only-testing:CasperTests/CorrectionStoreTests`
 Expected: FAIL because the store and deterministic correction engine do not exist.
 
 - [ ] **Step 3: Write the minimal implementation**
@@ -513,32 +513,32 @@ Persist both lists locally, apply them deterministically before any backend call
 - [ ] **Step 4: Run targeted and full tests**
 
 Run targeted command from Step 2, then:
-`xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test`
+`xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/Cleanup/CorrectionStore.swift GhostPepper/Cleanup/DeterministicCorrectionEngine.swift GhostPepper/Cleanup/TextCleaner.swift GhostPepperTests/CorrectionStoreTests.swift GhostPepperTests/TextCleanerTests.swift
+git add Casper/Cleanup/CorrectionStore.swift Casper/Cleanup/DeterministicCorrectionEngine.swift Casper/Cleanup/TextCleaner.swift CasperTests/CorrectionStoreTests.swift CasperTests/TextCleanerTests.swift
 git commit -m "feat: add deterministic transcription corrections"
 ```
 
 ### Task 11: Add corrections UI and feed preferred words into OCR
 
 **Files:**
-- Modify: `GhostPepper/UI/SettingsWindow.swift`
-- Modify: `GhostPepper/Context/FrontmostWindowOCRService.swift`
-- Modify: `GhostPepper/AppState.swift`
-- Modify: `GhostPepper/Cleanup/CorrectionStore.swift`
-- Modify: `GhostPepperTests/GhostPepperTests.swift`
+- Modify: `Casper/UI/SettingsWindow.swift`
+- Modify: `Casper/Context/FrontmostWindowOCRService.swift`
+- Modify: `Casper/AppState.swift`
+- Modify: `Casper/Cleanup/CorrectionStore.swift`
+- Modify: `CasperTests/CasperTests.swift`
 
 - [ ] **Step 1: Write the failing tests**
 
-Add `CorrectionStoreTests` and `GhostPepperTests` coverage that preferred words are forwarded into the OCR configuration and that correction settings round-trip through app state/store persistence.
+Add `CorrectionStoreTests` and `CasperTests` coverage that preferred words are forwarded into the OCR configuration and that correction settings round-trip through app state/store persistence.
 
 - [ ] **Step 2: Run the targeted tests to verify they fail**
 
-Run: `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test -only-testing:GhostPepperTests/CorrectionStoreTests -only-testing:GhostPepperTests/GhostPepperTests`
+Run: `xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test -only-testing:CasperTests/CorrectionStoreTests -only-testing:CasperTests/CasperTests`
 Expected: FAIL because the UI wiring and OCR custom words integration do not exist.
 
 - [ ] **Step 3: Write the minimal implementation**
@@ -548,14 +548,14 @@ Add a `Corrections` settings section with editor affordances for both lists and 
 - [ ] **Step 4: Run the full test suite and build**
 
 Run:
-- `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test`
-- `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -configuration Debug -derivedDataPath build/derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO build`
+- `xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test`
+- `xcodebuild -project Casper.xcodeproj -scheme Casper -configuration Debug -derivedDataPath build/derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO build`
 Expected: PASS / BUILD SUCCEEDED.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/UI/SettingsWindow.swift GhostPepper/Context/FrontmostWindowOCRService.swift GhostPepper/AppState.swift GhostPepper/Cleanup/CorrectionStore.swift GhostPepperTests/CorrectionStoreTests.swift GhostPepperTests/GhostPepperTests.swift
+git add Casper/UI/SettingsWindow.swift Casper/Context/FrontmostWindowOCRService.swift Casper/AppState.swift Casper/Cleanup/CorrectionStore.swift CasperTests/CorrectionStoreTests.swift CasperTests/CasperTests.swift
 git commit -m "feat: add corrections settings"
 ```
 
@@ -564,12 +564,12 @@ git commit -m "feat: add corrections settings"
 ### Task 12: Add paste metadata capture and the delayed learning coordinator
 
 **Files:**
-- Create: `GhostPepper/Input/PasteSession.swift`
-- Create: `GhostPepper/Context/FocusedElementLocator.swift`
-- Create: `GhostPepper/Cleanup/PostPasteLearningCoordinator.swift`
-- Modify: `GhostPepper/Input/TextPaster.swift`
-- Modify: `GhostPepper/AppState.swift`
-- Test: `GhostPepperTests/PostPasteLearningCoordinatorTests.swift`
+- Create: `Casper/Input/PasteSession.swift`
+- Create: `Casper/Context/FocusedElementLocator.swift`
+- Create: `Casper/Cleanup/PostPasteLearningCoordinator.swift`
+- Modify: `Casper/Input/TextPaster.swift`
+- Modify: `Casper/AppState.swift`
+- Test: `CasperTests/PostPasteLearningCoordinatorTests.swift`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -582,7 +582,7 @@ func testCoordinatorUsesInjectedSchedulerInsteadOfRealSleep()
 
 - [ ] **Step 2: Run the targeted tests to verify they fail**
 
-Run: `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test -only-testing:GhostPepperTests/PostPasteLearningCoordinatorTests`
+Run: `xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test -only-testing:CasperTests/PostPasteLearningCoordinatorTests`
 Expected: FAIL because the learning coordinator does not exist.
 
 - [ ] **Step 3: Write the minimal implementation**
@@ -592,32 +592,32 @@ Introduce a `PasteSession` contract that captures pasted text, timestamp, frontm
 - [ ] **Step 4: Run targeted and full tests**
 
 Run targeted command from Step 2, then:
-`xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test`
+`xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/Input/PasteSession.swift GhostPepper/Context/FocusedElementLocator.swift GhostPepper/Cleanup/PostPasteLearningCoordinator.swift GhostPepper/Input/TextPaster.swift GhostPepper/AppState.swift GhostPepperTests/PostPasteLearningCoordinatorTests.swift
+git add Casper/Input/PasteSession.swift Casper/Context/FocusedElementLocator.swift Casper/Cleanup/PostPasteLearningCoordinator.swift Casper/Input/TextPaster.swift Casper/AppState.swift CasperTests/PostPasteLearningCoordinatorTests.swift
 git commit -m "feat: add post-paste learning"
 ```
 
 ### Task 13: Add user-facing learning controls and final verification
 
 **Files:**
-- Modify: `GhostPepper/UI/SettingsWindow.swift`
-- Modify: `GhostPepper/Cleanup/CorrectionStore.swift`
-- Modify: `GhostPepper/Cleanup/PostPasteLearningCoordinator.swift`
-- Modify: `GhostPepper/AppState.swift`
-- Modify: `GhostPepperTests/GhostPepperTests.swift`
+- Modify: `Casper/UI/SettingsWindow.swift`
+- Modify: `Casper/Cleanup/CorrectionStore.swift`
+- Modify: `Casper/Cleanup/PostPasteLearningCoordinator.swift`
+- Modify: `Casper/AppState.swift`
+- Modify: `CasperTests/CasperTests.swift`
 
 - [ ] **Step 1: Write the failing tests**
 
-Add `GhostPepperTests` and `PostPasteLearningCoordinatorTests` coverage for learning enablement/disablement and rejection of ambiguous OCR corrections even when learning is on.
+Add `CasperTests` and `PostPasteLearningCoordinatorTests` coverage for learning enablement/disablement and rejection of ambiguous OCR corrections even when learning is on.
 
 - [ ] **Step 2: Run the targeted tests to verify they fail**
 
-Run: `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test -only-testing:GhostPepperTests/PostPasteLearningCoordinatorTests -only-testing:GhostPepperTests/GhostPepperTests`
+Run: `xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test -only-testing:CasperTests/PostPasteLearningCoordinatorTests -only-testing:CasperTests/CasperTests`
 Expected: FAIL because learning controls are not wired into the coordinator.
 
 - [ ] **Step 3: Write the minimal implementation**
@@ -627,8 +627,8 @@ Add settings for learning behavior, keep automatic learning conservative, and de
 - [ ] **Step 4: Run the complete verification suite**
 
 Run:
-- `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test`
-- `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -configuration Debug -derivedDataPath build/derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO build`
+- `xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/test-derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO test`
+- `xcodebuild -project Casper.xcodeproj -scheme Casper -configuration Debug -derivedDataPath build/derived -skipMacroValidation CODE_SIGNING_ALLOWED=NO build`
 
 Smoke-check:
 - launch the built app
@@ -642,7 +642,7 @@ Expected: PASS / BUILD SUCCEEDED / manual smoke path works.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/UI/SettingsWindow.swift GhostPepper/Cleanup/CorrectionStore.swift GhostPepper/Cleanup/PostPasteLearningCoordinator.swift GhostPepper/AppState.swift GhostPepperTests/GhostPepperTests.swift
+git add Casper/UI/SettingsWindow.swift Casper/Cleanup/CorrectionStore.swift Casper/Cleanup/PostPasteLearningCoordinator.swift Casper/AppState.swift CasperTests/CasperTests.swift
 git commit -m "feat: finalize transcription learning controls"
 ```
 

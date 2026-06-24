@@ -1,17 +1,17 @@
 #!/bin/bash
 set -euo pipefail
 
-APP_NAME="GhostPepper"
-DMG_NAME="GhostPepper"
+APP_NAME="Casper"
+DMG_NAME="Casper"
 BUILD_DIR="build"
 DMG_DIR="$BUILD_DIR/dmg"
 SIGNING_IDENTITY="Developer ID Application: Matthew Hartman (BBVMGXR9AY)"
 TEAM_ID="BBVMGXR9AY"
-SOURCE_ENTITLEMENTS="$(pwd)/GhostPepper/GhostPepper.entitlements"
+SOURCE_ENTITLEMENTS="$(pwd)/Casper/Casper.entitlements"
 
 # Get version from Info.plist
-VERSION=$(defaults read "$(pwd)/GhostPepper/Info.plist" CFBundleShortVersionString)
-BUILD_NUMBER=$(defaults read "$(pwd)/GhostPepper/Info.plist" CFBundleVersion)
+VERSION=$(defaults read "$(pwd)/Casper/Info.plist" CFBundleShortVersionString)
+BUILD_NUMBER=$(defaults read "$(pwd)/Casper/Info.plist" CFBundleVersion)
 
 echo "==> Building $APP_NAME v$VERSION (build $BUILD_NUMBER)..."
 
@@ -95,7 +95,7 @@ else
 fi
 
 echo "==> Generating Sparkle signature..."
-SPARKLE_SIGN=$(find ~/Library/Developer/Xcode/DerivedData/GhostPepper-*/SourcePackages/artifacts/sparkle/Sparkle/bin/sign_update 2>/dev/null | head -1)
+SPARKLE_SIGN=$(find ~/Library/Developer/Xcode/DerivedData/Casper-*/SourcePackages/artifacts/sparkle/Sparkle/bin/sign_update 2>/dev/null | head -1)
 if [ -n "$SPARKLE_SIGN" ]; then
   SIGNATURE=$("$SPARKLE_SIGN" "$BUILD_DIR/$DMG_NAME.dmg" 2>&1)
   echo "$SIGNATURE"
@@ -117,4 +117,4 @@ echo ""
 echo "Next steps:"
 echo "  1. Update appcast.xml with version $VERSION, size $DMG_SIZE, and signature above"
 echo "  2. Commit and push appcast.xml"
-echo "  3. Create a GitHub release: gh release create v$VERSION $BUILD_DIR/$DMG_NAME.dmg --title \"Ghost Pepper v$VERSION 🌶️\""
+echo "  3. Create a GitHub release: gh release create v$VERSION $BUILD_DIR/$DMG_NAME.dmg --title \"Casper v$VERSION 🌶️\""

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace Ghost Pepper's keyword-scoring + 30 KB-cram cross-meeting Q&A core with a bounded agentic tool-use loop (grep/read_file/list_dir, cap 15 iterations) over the local meeting archive, behind a swappable `LLMProvider` protocol.
+**Goal:** Replace Casper's keyword-scoring + 30 KB-cram cross-meeting Q&A core with a bounded agentic tool-use loop (grep/read_file/list_dir, cap 15 iterations) over the local meeting archive, behind a swappable `LLMProvider` protocol.
 
 **Architecture:** A new `MeetingQAAgent` orchestrator owns the iteration loop and tool dispatch. It calls a thin `LLMProvider` protocol (one round trip per call) — only `AnthropicProvider` ships now, but the seam admits future Ollama/OpenAI providers. Three read-only tools (`grep`, `read_file`, `list_dir`) operate inside a `PathSandbox` rooted at the meetings folder. UI surfaces tool calls as a collapsed status line plus an expandable trace; existing prompt caching, streaming, and cost display from the predecessor spec are preserved.
 
@@ -16,31 +16,31 @@
 
 Run the full test suite:
 ```bash
-xcodebuild test -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -quiet
+xcodebuild test -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -quiet
 ```
 
 Run a single test class (used heavily in this plan):
 ```bash
-xcodebuild test -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -only-testing:GhostPepperTests/<TestClassName> -quiet
+xcodebuild test -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -only-testing:CasperTests/<TestClassName> -quiet
 ```
 
 Build only (no tests):
 ```bash
-xcodebuild build -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -quiet
+xcodebuild build -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -quiet
 ```
 
 Launch the debug build for manual verification (per memory):
 ```bash
-xcodebuild build -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/derived -skipMacroValidation
-cp -R build/derived/Build/Products/Debug/GhostPepper.app /Applications/
-open /Applications/GhostPepper.app
+xcodebuild build -project Casper.xcodeproj -scheme Casper -derivedDataPath build/derived -skipMacroValidation
+cp -R build/derived/Build/Products/Debug/Casper.app /Applications/
+open /Applications/Casper.app
 ```
 
 ---
 
 ## File structure summary
 
-**New files (all in `GhostPepper/QA/`):**
+**New files (all in `Casper/QA/`):**
 - `LLMProvider.swift` — protocol, `LLMMessage`, `LLMTool`, `ProviderEvent`, `ProviderUsage`, `LLMProviderKind` enum.
 - `AnthropicProvider.swift` — implements `LLMProvider` against Anthropic Messages API.
 - `MeetingQAAgent.swift` — orchestrator. Owns iteration loop, message list, cancellation.
@@ -50,7 +50,7 @@ open /Applications/GhostPepper.app
 - `QATranscript.swift` — `ObservableObject` event log for the trace UI.
 - `MeetingQASystemPrompt.swift` — system prompt builder with archive-root interpolation.
 
-**Test files (all in `GhostPepperTests/`):**
+**Test files (all in `CasperTests/`):**
 - `PathSandboxTests.swift`
 - `MeetingQAToolsTests.swift`
 - `MeetingQASystemPromptTests.swift`
@@ -58,16 +58,16 @@ open /Applications/GhostPepper.app
 - `MeetingQAAgentTests.swift`
 
 **Modified:**
-- `GhostPepper/AppState.swift` — replace `onAskQuestion` closure body with `MeetingQAAgent` instantiation; drop the keyword-scoring + dual-backend code path.
-- `GhostPepper/UI/MeetingTranscriptWindow.swift` — drop keyword scoring in `askAcrossMeetings()`; add status line + expandable trace + Stop button.
-- `GhostPepper/UI/SettingsWindow.swift` — replace backend picker with provider picker; drop the local-Q&A-model row.
-- `GhostPepper.xcodeproj/project.pbxproj` — register new files; remove old; rename.
+- `Casper/AppState.swift` — replace `onAskQuestion` closure body with `MeetingQAAgent` instantiation; drop the keyword-scoring + dual-backend code path.
+- `Casper/UI/MeetingTranscriptWindow.swift` — drop keyword scoring in `askAcrossMeetings()`; add status line + expandable trace + Stop button.
+- `Casper/UI/SettingsWindow.swift` — replace backend picker with provider picker; drop the local-Q&A-model row.
+- `Casper.xcodeproj/project.pbxproj` — register new files; remove old; rename.
 
 **Deleted:**
-- `GhostPepper/QA/ClaudeAPIClient.swift` — subsumed by `AnthropicProvider.swift`.
+- `Casper/QA/ClaudeAPIClient.swift` — subsumed by `AnthropicProvider.swift`.
 
 **Renamed:**
-- `GhostPepper/QA/QABackendKind.swift` → `GhostPepper/QA/LLMProviderKind.swift` (also drops `.local` case; moves `QAStreamEvent` and `QAUsage` out).
+- `Casper/QA/QABackendKind.swift` → `Casper/QA/LLMProviderKind.swift` (also drops `.local` case; moves `QAStreamEvent` and `QAUsage` out).
 
 ---
 
@@ -89,67 +89,67 @@ Bottom-up dependency order keeps the build green at every commit:
 ## Task 1: Setup — register all new file stubs in pbxproj
 
 **Files:**
-- Create: `GhostPepper/QA/LLMProvider.swift` (stub)
-- Create: `GhostPepper/QA/AnthropicProvider.swift` (stub)
-- Create: `GhostPepper/QA/MeetingQAAgent.swift` (stub)
-- Create: `GhostPepper/QA/MeetingQATools.swift` (stub)
-- Create: `GhostPepper/QA/PathSandbox.swift` (stub)
-- Create: `GhostPepper/QA/QAEvent.swift` (stub)
-- Create: `GhostPepper/QA/QATranscript.swift` (stub)
-- Create: `GhostPepper/QA/MeetingQASystemPrompt.swift` (stub)
-- Create: `GhostPepperTests/PathSandboxTests.swift` (stub)
-- Create: `GhostPepperTests/MeetingQAToolsTests.swift` (stub)
-- Create: `GhostPepperTests/MeetingQASystemPromptTests.swift` (stub)
-- Create: `GhostPepperTests/AnthropicProviderSSETests.swift` (stub)
-- Create: `GhostPepperTests/MeetingQAAgentTests.swift` (stub)
-- Modify: `GhostPepper.xcodeproj/project.pbxproj` (add via `xcodeproj` Ruby gem)
+- Create: `Casper/QA/LLMProvider.swift` (stub)
+- Create: `Casper/QA/AnthropicProvider.swift` (stub)
+- Create: `Casper/QA/MeetingQAAgent.swift` (stub)
+- Create: `Casper/QA/MeetingQATools.swift` (stub)
+- Create: `Casper/QA/PathSandbox.swift` (stub)
+- Create: `Casper/QA/QAEvent.swift` (stub)
+- Create: `Casper/QA/QATranscript.swift` (stub)
+- Create: `Casper/QA/MeetingQASystemPrompt.swift` (stub)
+- Create: `CasperTests/PathSandboxTests.swift` (stub)
+- Create: `CasperTests/MeetingQAToolsTests.swift` (stub)
+- Create: `CasperTests/MeetingQASystemPromptTests.swift` (stub)
+- Create: `CasperTests/AnthropicProviderSSETests.swift` (stub)
+- Create: `CasperTests/MeetingQAAgentTests.swift` (stub)
+- Modify: `Casper.xcodeproj/project.pbxproj` (add via `xcodeproj` Ruby gem)
 
 - [ ] **Step 1: Create empty stubs for all 8 new source files**
 
 ```bash
-cat > GhostPepper/QA/LLMProvider.swift <<'EOF'
+cat > Casper/QA/LLMProvider.swift <<'EOF'
 import Foundation
 
 // Implemented in Task 8.
 EOF
 
-cat > GhostPepper/QA/AnthropicProvider.swift <<'EOF'
+cat > Casper/QA/AnthropicProvider.swift <<'EOF'
 import Foundation
 
 // Implemented in Tasks 9-10.
 EOF
 
-cat > GhostPepper/QA/MeetingQAAgent.swift <<'EOF'
+cat > Casper/QA/MeetingQAAgent.swift <<'EOF'
 import Foundation
 
 // Implemented in Task 11.
 EOF
 
-cat > GhostPepper/QA/MeetingQATools.swift <<'EOF'
+cat > Casper/QA/MeetingQATools.swift <<'EOF'
 import Foundation
 
 // Implemented in Tasks 3-5.
 EOF
 
-cat > GhostPepper/QA/PathSandbox.swift <<'EOF'
+cat > Casper/QA/PathSandbox.swift <<'EOF'
 import Foundation
 
 // Implemented in Task 2.
 EOF
 
-cat > GhostPepper/QA/QAEvent.swift <<'EOF'
+cat > Casper/QA/QAEvent.swift <<'EOF'
 import Foundation
 
 // Implemented in Task 7.
 EOF
 
-cat > GhostPepper/QA/QATranscript.swift <<'EOF'
+cat > Casper/QA/QATranscript.swift <<'EOF'
 import Foundation
 
 // Implemented in Task 7.
 EOF
 
-cat > GhostPepper/QA/MeetingQASystemPrompt.swift <<'EOF'
+cat > Casper/QA/MeetingQASystemPrompt.swift <<'EOF'
 import Foundation
 
 // Implemented in Task 6.
@@ -160,9 +160,9 @@ EOF
 
 ```bash
 for f in PathSandboxTests MeetingQAToolsTests MeetingQASystemPromptTests AnthropicProviderSSETests MeetingQAAgentTests; do
-  cat > GhostPepperTests/$f.swift <<EOF
+  cat > CasperTests/$f.swift <<EOF
 import XCTest
-@testable import GhostPepper
+@testable import Casper
 
 final class ${f}: XCTestCase {
     // Tests added in subsequent tasks.
@@ -180,16 +180,16 @@ done
 ruby <<'RUBY'
 require 'xcodeproj'
 
-project = Xcodeproj::Project.open('GhostPepper.xcodeproj')
+project = Xcodeproj::Project.open('Casper.xcodeproj')
 
-main_target = project.targets.find { |t| t.name == 'GhostPepper' }
-test_target = project.targets.find { |t| t.name == 'GhostPepperTests' }
-abort 'GhostPepper target not found' unless main_target
-abort 'GhostPepperTests target not found' unless test_target
+main_target = project.targets.find { |t| t.name == 'Casper' }
+test_target = project.targets.find { |t| t.name == 'CasperTests' }
+abort 'Casper target not found' unless main_target
+abort 'CasperTests target not found' unless test_target
 
-# Find or create the QA group under the GhostPepper folder.
-ghost_group = project.main_group.find_subpath('GhostPepper', false)
-abort 'GhostPepper group not found' unless ghost_group
+# Find or create the QA group under the Casper folder.
+ghost_group = project.main_group.find_subpath('Casper', false)
+abort 'Casper group not found' unless ghost_group
 qa_group = ghost_group.find_subpath('QA', true)
 qa_group.set_source_tree('<group>')
 qa_group.set_path('QA')
@@ -210,8 +210,8 @@ new_qa_files.each do |fname|
   main_target.add_file_references([ref])
 end
 
-tests_group = project.main_group.find_subpath('GhostPepperTests', false)
-abort 'GhostPepperTests group not found' unless tests_group
+tests_group = project.main_group.find_subpath('CasperTests', false)
+abort 'CasperTests group not found' unless tests_group
 
 new_test_files = %w[
   PathSandboxTests.swift
@@ -233,20 +233,20 @@ RUBY
 
 - [ ] **Step 4: Verify build still green**
 
-Run: `xcodebuild build -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -quiet`
+Run: `xcodebuild build -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -quiet`
 
 Expected: `** BUILD SUCCEEDED **`. The stub files contain only comments + `import Foundation`, so nothing breaks.
 
 - [ ] **Step 5: Verify the stub test passes (proves the test target picks up new files)**
 
-Run: `xcodebuild test -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -only-testing:GhostPepperTests/PathSandboxTests -quiet`
+Run: `xcodebuild test -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -only-testing:CasperTests/PathSandboxTests -quiet`
 
 Expected: `Test Suite 'PathSandboxTests' passed`.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add GhostPepper/QA/*.swift GhostPepperTests/{PathSandboxTests,MeetingQAToolsTests,MeetingQASystemPromptTests,AnthropicProviderSSETests,MeetingQAAgentTests}.swift GhostPepper.xcodeproj/project.pbxproj
+git add Casper/QA/*.swift CasperTests/{PathSandboxTests,MeetingQAToolsTests,MeetingQASystemPromptTests,AnthropicProviderSSETests,MeetingQAAgentTests}.swift Casper.xcodeproj/project.pbxproj
 git commit -m "feat(qa): scaffold agentic Q&A files and register in pbxproj"
 ```
 
@@ -255,16 +255,16 @@ git commit -m "feat(qa): scaffold agentic Q&A files and register in pbxproj"
 ## Task 2: PathSandbox — safe path resolution inside the meeting archive
 
 **Files:**
-- Modify: `GhostPepper/QA/PathSandbox.swift` (replace stub)
-- Modify: `GhostPepperTests/PathSandboxTests.swift` (replace stub)
+- Modify: `Casper/QA/PathSandbox.swift` (replace stub)
+- Modify: `CasperTests/PathSandboxTests.swift` (replace stub)
 
 - [ ] **Step 1: Write failing tests for PathSandbox**
 
-Replace `GhostPepperTests/PathSandboxTests.swift` with:
+Replace `CasperTests/PathSandboxTests.swift` with:
 
 ```swift
 import XCTest
-@testable import GhostPepper
+@testable import Casper
 
 final class PathSandboxTests: XCTestCase {
     private var rootDir: URL!
@@ -336,13 +336,13 @@ final class PathSandboxTests: XCTestCase {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `xcodebuild test -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -only-testing:GhostPepperTests/PathSandboxTests -quiet`
+Run: `xcodebuild test -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -only-testing:CasperTests/PathSandboxTests -quiet`
 
 Expected: compile error (`PathSandbox` and `PathSandboxError` not defined).
 
 - [ ] **Step 3: Implement PathSandbox**
 
-Replace `GhostPepper/QA/PathSandbox.swift` with:
+Replace `Casper/QA/PathSandbox.swift` with:
 
 ```swift
 import Foundation
@@ -386,14 +386,14 @@ enum PathSandbox {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `xcodebuild test -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -only-testing:GhostPepperTests/PathSandboxTests -quiet`
+Run: `xcodebuild test -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -only-testing:CasperTests/PathSandboxTests -quiet`
 
 Expected: `Test Suite 'PathSandboxTests' passed` with 6 tests passing.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/QA/PathSandbox.swift GhostPepperTests/PathSandboxTests.swift
+git add Casper/QA/PathSandbox.swift CasperTests/PathSandboxTests.swift
 git commit -m "feat(qa): add PathSandbox for meeting archive root containment"
 ```
 
@@ -402,16 +402,16 @@ git commit -m "feat(qa): add PathSandbox for meeting archive root containment"
 ## Task 3: MeetingQATools — `grep` tool
 
 **Files:**
-- Modify: `GhostPepper/QA/MeetingQATools.swift` (add grep)
-- Modify: `GhostPepperTests/MeetingQAToolsTests.swift` (replace stub)
+- Modify: `Casper/QA/MeetingQATools.swift` (add grep)
+- Modify: `CasperTests/MeetingQAToolsTests.swift` (replace stub)
 
 - [ ] **Step 1: Write failing tests for grep**
 
-Replace `GhostPepperTests/MeetingQAToolsTests.swift` with:
+Replace `CasperTests/MeetingQAToolsTests.swift` with:
 
 ```swift
 import XCTest
-@testable import GhostPepper
+@testable import Casper
 
 final class MeetingQAToolsTests: XCTestCase {
     private var rootDir: URL!
@@ -486,13 +486,13 @@ final class MeetingQAToolsTests: XCTestCase {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `xcodebuild test -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -only-testing:GhostPepperTests/MeetingQAToolsTests -quiet`
+Run: `xcodebuild test -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -only-testing:CasperTests/MeetingQAToolsTests -quiet`
 
 Expected: compile error (`MeetingQATools` not defined).
 
 - [ ] **Step 3: Implement `MeetingQATools` with `grep`**
 
-Replace `GhostPepper/QA/MeetingQATools.swift` with:
+Replace `Casper/QA/MeetingQATools.swift` with:
 
 ```swift
 import Foundation
@@ -643,14 +643,14 @@ struct MeetingQATools {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `xcodebuild test -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -only-testing:GhostPepperTests/MeetingQAToolsTests -quiet`
+Run: `xcodebuild test -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -only-testing:CasperTests/MeetingQAToolsTests -quiet`
 
 Expected: 4 tests pass.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/QA/MeetingQATools.swift GhostPepperTests/MeetingQAToolsTests.swift
+git add Casper/QA/MeetingQATools.swift CasperTests/MeetingQAToolsTests.swift
 git commit -m "feat(qa): add grep tool with rg fallback and result-cap metadata"
 ```
 
@@ -659,12 +659,12 @@ git commit -m "feat(qa): add grep tool with rg fallback and result-cap metadata"
 ## Task 4: MeetingQATools — `read_file` tool
 
 **Files:**
-- Modify: `GhostPepper/QA/MeetingQATools.swift` (add readFile method)
-- Modify: `GhostPepperTests/MeetingQAToolsTests.swift` (add readFile tests)
+- Modify: `Casper/QA/MeetingQATools.swift` (add readFile method)
+- Modify: `CasperTests/MeetingQAToolsTests.swift` (add readFile tests)
 
 - [ ] **Step 1: Append failing tests for `readFile`**
 
-Add to `GhostPepperTests/MeetingQAToolsTests.swift` inside the `MeetingQAToolsTests` class (before the closing `}`):
+Add to `CasperTests/MeetingQAToolsTests.swift` inside the `MeetingQAToolsTests` class (before the closing `}`):
 
 ```swift
     // MARK: - read_file
@@ -724,13 +724,13 @@ Add to `GhostPepperTests/MeetingQAToolsTests.swift` inside the `MeetingQAToolsTe
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `xcodebuild test -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -only-testing:GhostPepperTests/MeetingQAToolsTests -quiet`
+Run: `xcodebuild test -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -only-testing:CasperTests/MeetingQAToolsTests -quiet`
 
 Expected: compile error (`readFile` method not defined on `MeetingQATools`).
 
 - [ ] **Step 3: Implement `readFile`**
 
-Add to `GhostPepper/QA/MeetingQATools.swift` inside the `MeetingQATools` struct (before the `// MARK: - Process plumbing` line):
+Add to `Casper/QA/MeetingQATools.swift` inside the `MeetingQATools` struct (before the `// MARK: - Process plumbing` line):
 
 ```swift
     // MARK: - read_file
@@ -774,14 +774,14 @@ Add to `GhostPepper/QA/MeetingQATools.swift` inside the `MeetingQATools` struct 
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `xcodebuild test -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -only-testing:GhostPepperTests/MeetingQAToolsTests -quiet`
+Run: `xcodebuild test -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -only-testing:CasperTests/MeetingQAToolsTests -quiet`
 
 Expected: 9 tests total now passing (4 grep + 5 read_file).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/QA/MeetingQATools.swift GhostPepperTests/MeetingQAToolsTests.swift
+git add Casper/QA/MeetingQATools.swift CasperTests/MeetingQAToolsTests.swift
 git commit -m "feat(qa): add read_file tool with line numbers and pagination footer"
 ```
 
@@ -790,12 +790,12 @@ git commit -m "feat(qa): add read_file tool with line numbers and pagination foo
 ## Task 5: MeetingQATools — `list_dir` tool
 
 **Files:**
-- Modify: `GhostPepper/QA/MeetingQATools.swift` (add listDir method)
-- Modify: `GhostPepperTests/MeetingQAToolsTests.swift` (add listDir tests)
+- Modify: `Casper/QA/MeetingQATools.swift` (add listDir method)
+- Modify: `CasperTests/MeetingQAToolsTests.swift` (add listDir tests)
 
 - [ ] **Step 1: Append failing tests for `listDir`**
 
-Add to `GhostPepperTests/MeetingQAToolsTests.swift` inside the class:
+Add to `CasperTests/MeetingQAToolsTests.swift` inside the class:
 
 ```swift
     // MARK: - list_dir
@@ -846,13 +846,13 @@ Add to `GhostPepperTests/MeetingQAToolsTests.swift` inside the class:
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `xcodebuild test -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -only-testing:GhostPepperTests/MeetingQAToolsTests -quiet`
+Run: `xcodebuild test -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -only-testing:CasperTests/MeetingQAToolsTests -quiet`
 
 Expected: compile error (`listDir` not defined).
 
 - [ ] **Step 3: Implement `listDir`**
 
-Add to `GhostPepper/QA/MeetingQATools.swift` inside the struct (before `// MARK: - Process plumbing`):
+Add to `Casper/QA/MeetingQATools.swift` inside the struct (before `// MARK: - Process plumbing`):
 
 ```swift
     // MARK: - list_dir
@@ -875,14 +875,14 @@ Add to `GhostPepper/QA/MeetingQATools.swift` inside the struct (before `// MARK:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `xcodebuild test -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -only-testing:GhostPepperTests/MeetingQAToolsTests -quiet`
+Run: `xcodebuild test -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -only-testing:CasperTests/MeetingQAToolsTests -quiet`
 
 Expected: 13 tests total passing (4 grep + 5 read_file + 4 list_dir).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/QA/MeetingQATools.swift GhostPepperTests/MeetingQAToolsTests.swift
+git add Casper/QA/MeetingQATools.swift CasperTests/MeetingQAToolsTests.swift
 git commit -m "feat(qa): add list_dir tool with sorted entries and trailing-slash dir marker"
 ```
 
@@ -891,16 +891,16 @@ git commit -m "feat(qa): add list_dir tool with sorted entries and trailing-slas
 ## Task 6: MeetingQASystemPrompt — system prompt builder
 
 **Files:**
-- Modify: `GhostPepper/QA/MeetingQASystemPrompt.swift` (replace stub)
-- Modify: `GhostPepperTests/MeetingQASystemPromptTests.swift` (replace stub)
+- Modify: `Casper/QA/MeetingQASystemPrompt.swift` (replace stub)
+- Modify: `CasperTests/MeetingQASystemPromptTests.swift` (replace stub)
 
 - [ ] **Step 1: Write failing tests**
 
-Replace `GhostPepperTests/MeetingQASystemPromptTests.swift` with:
+Replace `CasperTests/MeetingQASystemPromptTests.swift` with:
 
 ```swift
 import XCTest
-@testable import GhostPepper
+@testable import Casper
 
 final class MeetingQASystemPromptTests: XCTestCase {
     func testPromptInterpolatesArchiveRoot() {
@@ -916,7 +916,7 @@ final class MeetingQASystemPromptTests: XCTestCase {
 
     func testPromptDescribesNativeFormat() {
         let prompt = MeetingQASystemPrompt.build(archiveRootPath: "/tmp/Meetings")
-        XCTAssertTrue(prompt.contains("Native Ghost Pepper"), prompt)
+        XCTAssertTrue(prompt.contains("Native Casper"), prompt)
         XCTAssertTrue(prompt.contains("**Date:**"), prompt)
         XCTAssertTrue(prompt.contains("## Notes"), prompt)
     }
@@ -947,13 +947,13 @@ final class MeetingQASystemPromptTests: XCTestCase {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `xcodebuild test -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -only-testing:GhostPepperTests/MeetingQASystemPromptTests -quiet`
+Run: `xcodebuild test -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -only-testing:CasperTests/MeetingQASystemPromptTests -quiet`
 
 Expected: compile error (`MeetingQASystemPrompt.build` not defined).
 
 - [ ] **Step 3: Implement the system prompt builder**
 
-Replace `GhostPepper/QA/MeetingQASystemPrompt.swift` with:
+Replace `Casper/QA/MeetingQASystemPrompt.swift` with:
 
 ```swift
 import Foundation
@@ -983,7 +983,7 @@ enum MeetingQASystemPrompt {
            sometimes ## Transcript with **[HH:MM] Speaker:** lines. Transcripts can be \
            4,000+ lines.
 
-        2. Native Ghost Pepper (a smaller fraction — quick notes and window snippets). \
+        2. Native Casper (a smaller fraction — quick notes and window snippets). \
            No frontmatter. Starts with an H1 title, then **Date:** line, then ## Notes \
            with free-form content. Generally short.
 
@@ -1037,14 +1037,14 @@ enum MeetingQASystemPrompt {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `xcodebuild test -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -only-testing:GhostPepperTests/MeetingQASystemPromptTests -quiet`
+Run: `xcodebuild test -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -only-testing:CasperTests/MeetingQASystemPromptTests -quiet`
 
 Expected: 7 tests pass.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/QA/MeetingQASystemPrompt.swift GhostPepperTests/MeetingQASystemPromptTests.swift
+git add Casper/QA/MeetingQASystemPrompt.swift CasperTests/MeetingQASystemPromptTests.swift
 git commit -m "feat(qa): add system prompt builder with both archive formats and v2t guidance"
 ```
 
@@ -1053,14 +1053,14 @@ git commit -m "feat(qa): add system prompt builder with both archive formats and
 ## Task 7: QAEvent and QATranscript — UI-facing event types
 
 **Files:**
-- Modify: `GhostPepper/QA/QAEvent.swift` (replace stub)
-- Modify: `GhostPepper/QA/QATranscript.swift` (replace stub)
+- Modify: `Casper/QA/QAEvent.swift` (replace stub)
+- Modify: `Casper/QA/QATranscript.swift` (replace stub)
 
 No tests in this task — these are pure data types whose behavior is exercised by the agent and UI tests.
 
 - [ ] **Step 1: Implement QAEvent.swift**
 
-Replace `GhostPepper/QA/QAEvent.swift` with:
+Replace `Casper/QA/QAEvent.swift` with:
 
 ```swift
 import Foundation
@@ -1088,7 +1088,7 @@ struct QAUsage: Equatable {
 
 - [ ] **Step 2: Implement QATranscript.swift**
 
-Replace `GhostPepper/QA/QATranscript.swift` with:
+Replace `Casper/QA/QATranscript.swift` with:
 
 ```swift
 import Foundation
@@ -1112,13 +1112,13 @@ final class QATranscript: ObservableObject {
 
 - [ ] **Step 3: Verify build is green**
 
-Run: `xcodebuild build -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -quiet`
+Run: `xcodebuild build -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -quiet`
 
 Expected: `** BUILD SUCCEEDED **`. Note: `QAUsage` is now defined in `QAEvent.swift`. The old `QAUsage` definition in `QABackendKind.swift` is still there until Task 15 — Swift will see two definitions and fail to compile if both are visible. Resolve by deleting the old definition now.
 
 - [ ] **Step 4: Remove the old QAUsage and QAStreamEvent from QABackendKind.swift**
 
-Edit `GhostPepper/QA/QABackendKind.swift`. Delete the `struct QAUsage` and `enum QAStreamEvent` definitions (lines around 41–67). Keep `enum QABackendKind` and `enum ClaudeAPIModel` for now — they'll be reshaped in Task 15.
+Edit `Casper/QA/QABackendKind.swift`. Delete the `struct QAUsage` and `enum QAStreamEvent` definitions (lines around 41–67). Keep `enum QABackendKind` and `enum ClaudeAPIModel` for now — they'll be reshaped in Task 15.
 
 After this edit, the `static func local(...)` factory on `QAUsage` is gone. The current `AppState.swift` code at line 1076 calls `QAUsage.local(...)`. We'll need to provide a free-function or static factory equivalent on the new `QAUsage`. For now, add this back to `QAEvent.swift` at the end:
 
@@ -1142,14 +1142,14 @@ This keeps the existing local-backend path compiling until Task 12 rewires `AppS
 
 - [ ] **Step 5: Verify build is green**
 
-Run: `xcodebuild build -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -quiet`
+Run: `xcodebuild build -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -quiet`
 
 Expected: `** BUILD SUCCEEDED **`.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add GhostPepper/QA/QAEvent.swift GhostPepper/QA/QATranscript.swift GhostPepper/QA/QABackendKind.swift
+git add Casper/QA/QAEvent.swift Casper/QA/QATranscript.swift Casper/QA/QABackendKind.swift
 git commit -m "feat(qa): introduce QAEvent and QATranscript; move QAUsage to QAEvent.swift"
 ```
 
@@ -1158,13 +1158,13 @@ git commit -m "feat(qa): introduce QAEvent and QATranscript; move QAUsage to QAE
 ## Task 8: LLMProvider protocol and shared types
 
 **Files:**
-- Modify: `GhostPepper/QA/LLMProvider.swift` (replace stub)
+- Modify: `Casper/QA/LLMProvider.swift` (replace stub)
 
 No new tests; the protocol is exercised by the AnthropicProvider and MeetingQAAgent tests.
 
 - [ ] **Step 1: Implement LLMProvider.swift**
 
-Replace `GhostPepper/QA/LLMProvider.swift` with:
+Replace `Casper/QA/LLMProvider.swift` with:
 
 ```swift
 import Foundation
@@ -1236,14 +1236,14 @@ enum LLMProviderKind: String, CaseIterable, Identifiable {
 
 - [ ] **Step 2: Verify build green**
 
-Run: `xcodebuild build -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -quiet`
+Run: `xcodebuild build -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -quiet`
 
 Expected: `** BUILD SUCCEEDED **`.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add GhostPepper/QA/LLMProvider.swift
+git add Casper/QA/LLMProvider.swift
 git commit -m "feat(qa): add LLMProvider protocol and provider-neutral types"
 ```
 
@@ -1254,16 +1254,16 @@ git commit -m "feat(qa): add LLMProvider protocol and provider-neutral types"
 This task isolates the trickiest part of the provider — multi-chunk `input_json_delta` accumulation — and tests it with canned SSE input. Network code comes in Task 10.
 
 **Files:**
-- Modify: `GhostPepper/QA/AnthropicProvider.swift` (add `AnthropicSSEAccumulator`)
-- Modify: `GhostPepperTests/AnthropicProviderSSETests.swift` (replace stub)
+- Modify: `Casper/QA/AnthropicProvider.swift` (add `AnthropicSSEAccumulator`)
+- Modify: `CasperTests/AnthropicProviderSSETests.swift` (replace stub)
 
 - [ ] **Step 1: Write failing tests for SSE accumulator**
 
-Replace `GhostPepperTests/AnthropicProviderSSETests.swift` with:
+Replace `CasperTests/AnthropicProviderSSETests.swift` with:
 
 ```swift
 import XCTest
-@testable import GhostPepper
+@testable import Casper
 
 final class AnthropicProviderSSETests: XCTestCase {
     func testTextDeltaEmitsImmediately() throws {
@@ -1368,13 +1368,13 @@ final class AnthropicProviderSSETests: XCTestCase {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `xcodebuild test -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -only-testing:GhostPepperTests/AnthropicProviderSSETests -quiet`
+Run: `xcodebuild test -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -only-testing:CasperTests/AnthropicProviderSSETests -quiet`
 
 Expected: compile error (`AnthropicSSEAccumulator` not defined).
 
 - [ ] **Step 3: Implement the SSE accumulator**
 
-Replace `GhostPepper/QA/AnthropicProvider.swift` with:
+Replace `Casper/QA/AnthropicProvider.swift` with:
 
 ```swift
 import Foundation
@@ -1508,14 +1508,14 @@ struct AnthropicSSEAccumulator {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `xcodebuild test -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -only-testing:GhostPepperTests/AnthropicProviderSSETests -quiet`
+Run: `xcodebuild test -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -only-testing:CasperTests/AnthropicProviderSSETests -quiet`
 
 Expected: 4 tests pass.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/QA/AnthropicProvider.swift GhostPepperTests/AnthropicProviderSSETests.swift
+git add Casper/QA/AnthropicProvider.swift CasperTests/AnthropicProviderSSETests.swift
 git commit -m "feat(qa): add AnthropicSSEAccumulator with multi-chunk input_json_delta buffering"
 ```
 
@@ -1524,13 +1524,13 @@ git commit -m "feat(qa): add AnthropicSSEAccumulator with multi-chunk input_json
 ## Task 10: AnthropicProvider — full provider implementation with HTTP/SSE
 
 **Files:**
-- Modify: `GhostPepper/QA/AnthropicProvider.swift` (add `AnthropicProvider` struct + ClaudePricing usage)
+- Modify: `Casper/QA/AnthropicProvider.swift` (add `AnthropicProvider` struct + ClaudePricing usage)
 
 No new unit tests; HTTP path is verified end-to-end by the manual verification task. The accumulator is already covered by Task 9's tests.
 
 - [ ] **Step 1: Add `AnthropicProvider` struct that implements `LLMProvider`**
 
-Append to `GhostPepper/QA/AnthropicProvider.swift`:
+Append to `Casper/QA/AnthropicProvider.swift`:
 
 ```swift
 struct AnthropicProvider: LLMProvider {
@@ -1644,14 +1644,14 @@ struct AnthropicProvider: LLMProvider {
 
 - [ ] **Step 2: Verify build green**
 
-Run: `xcodebuild build -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -quiet`
+Run: `xcodebuild build -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -quiet`
 
 Expected: `** BUILD SUCCEEDED **`. Note `ClaudeAPIModel` is still defined in `QABackendKind.swift` at this point — that's fine; it's referenced by name.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add GhostPepper/QA/AnthropicProvider.swift
+git add Casper/QA/AnthropicProvider.swift
 git commit -m "feat(qa): add AnthropicProvider implementing LLMProvider over Messages API"
 ```
 
@@ -1660,16 +1660,16 @@ git commit -m "feat(qa): add AnthropicProvider implementing LLMProvider over Mes
 ## Task 11: MeetingQAAgent — orchestrator with tool dispatch and iteration cap
 
 **Files:**
-- Modify: `GhostPepper/QA/MeetingQAAgent.swift` (replace stub)
-- Modify: `GhostPepperTests/MeetingQAAgentTests.swift` (replace stub)
+- Modify: `Casper/QA/MeetingQAAgent.swift` (replace stub)
+- Modify: `CasperTests/MeetingQAAgentTests.swift` (replace stub)
 
 - [ ] **Step 1: Write failing tests for the agent**
 
-Replace `GhostPepperTests/MeetingQAAgentTests.swift` with:
+Replace `CasperTests/MeetingQAAgentTests.swift` with:
 
 ```swift
 import XCTest
-@testable import GhostPepper
+@testable import Casper
 
 /// Mock LLMProvider that yields a programmable script of ProviderEvents.
 private final class MockProvider: LLMProvider {
@@ -1814,13 +1814,13 @@ final class MeetingQAAgentTests: XCTestCase {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `xcodebuild test -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -only-testing:GhostPepperTests/MeetingQAAgentTests -quiet`
+Run: `xcodebuild test -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -only-testing:CasperTests/MeetingQAAgentTests -quiet`
 
 Expected: compile error (`MeetingQAAgent` not defined).
 
 - [ ] **Step 3: Implement the agent**
 
-Replace `GhostPepper/QA/MeetingQAAgent.swift` with:
+Replace `Casper/QA/MeetingQAAgent.swift` with:
 
 ```swift
 import Foundation
@@ -2072,14 +2072,14 @@ final class MeetingQAAgent {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `xcodebuild test -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -only-testing:GhostPepperTests/MeetingQAAgentTests -quiet`
+Run: `xcodebuild test -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -only-testing:CasperTests/MeetingQAAgentTests -quiet`
 
 Expected: 4 tests pass.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/QA/MeetingQAAgent.swift GhostPepperTests/MeetingQAAgentTests.swift
+git add Casper/QA/MeetingQAAgent.swift CasperTests/MeetingQAAgentTests.swift
 git commit -m "feat(qa): add MeetingQAAgent orchestrator with tool dispatch and iteration cap"
 ```
 
@@ -2088,7 +2088,7 @@ git commit -m "feat(qa): add MeetingQAAgent orchestrator with tool dispatch and 
 ## Task 12: Wire AppState to use MeetingQAAgent
 
 **Files:**
-- Modify: `GhostPepper/AppState.swift` (around lines 1023–1092 — replace the `controller.onAskQuestion` closure body)
+- Modify: `Casper/AppState.swift` (around lines 1023–1092 — replace the `controller.onAskQuestion` closure body)
 
 The current closure has a `(question, context)` signature and dispatches to either local or Claude API. We need to:
 - Drop the keyword-scoring + cram path entirely (which lives in `MeetingTranscriptWindow.swift`, not here, but we no longer need the `context` arg).
@@ -2106,7 +2106,7 @@ But wait: the closure returns `AsyncThrowingStream<QAStreamEvent, Error>` and th
 
 - [ ] **Step 1: Add a temporary QAEvent → QAStreamEvent adapter**
 
-Add this private helper to `GhostPepper/AppState.swift` (anywhere in the class, e.g., right above the `controller.onAskQuestion` block):
+Add this private helper to `Casper/AppState.swift` (anywhere in the class, e.g., right above the `controller.onAskQuestion` block):
 
 ```swift
 // TEMPORARY adapter — removed in Task 13 when the UI is updated to consume QAEvent directly.
@@ -2186,24 +2186,24 @@ controller.onAskQuestion = { [weak self] question, _ in
 
 - [ ] **Step 3: Update SettingsWindow to use AnthropicProvider.keychainKey**
 
-In `GhostPepper/UI/SettingsWindow.swift`, replace every reference to `ClaudeAPIClient.keychainKey` with `AnthropicProvider.keychainKey`:
+In `Casper/UI/SettingsWindow.swift`, replace every reference to `ClaudeAPIClient.keychainKey` with `AnthropicProvider.keychainKey`:
 
 ```bash
-sed -i '' 's/ClaudeAPIClient\.keychainKey/AnthropicProvider.keychainKey/g' GhostPepper/UI/SettingsWindow.swift
+sed -i '' 's/ClaudeAPIClient\.keychainKey/AnthropicProvider.keychainKey/g' Casper/UI/SettingsWindow.swift
 ```
 
-Verify with `grep -n "ClaudeAPIClient" GhostPepper/UI/SettingsWindow.swift` — should print nothing.
+Verify with `grep -n "ClaudeAPIClient" Casper/UI/SettingsWindow.swift` — should print nothing.
 
 - [ ] **Step 4: Build and verify the existing test suite still passes**
 
-Run: `xcodebuild test -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -quiet`
+Run: `xcodebuild test -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -quiet`
 
 Expected: full test suite passes. Pre-existing tests unaffected; new tests from Tasks 2–11 pass.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add GhostPepper/AppState.swift GhostPepper/UI/SettingsWindow.swift
+git add Casper/AppState.swift Casper/UI/SettingsWindow.swift
 git commit -m "feat(qa): wire AppState.onAskQuestion to use MeetingQAAgent"
 ```
 
@@ -2212,14 +2212,14 @@ git commit -m "feat(qa): wire AppState.onAskQuestion to use MeetingQAAgent"
 ## Task 13: MeetingTranscriptWindow Q&A bar UI — status line, expandable trace, Stop button
 
 **Files:**
-- Modify: `GhostPepper/UI/MeetingTranscriptWindow.swift` (around lines 426–600 — `appQABar` area, `askAcrossMeetings`, supporting state)
-- Modify: `GhostPepper/AppState.swift` (drop the temporary adapter; change closure type)
+- Modify: `Casper/UI/MeetingTranscriptWindow.swift` (around lines 426–600 — `appQABar` area, `askAcrossMeetings`, supporting state)
+- Modify: `Casper/AppState.swift` (drop the temporary adapter; change closure type)
 
 This task changes the closure signature from `(question, context) -> Stream<QAStreamEvent>` to `(question) -> Stream<QAEvent>`, and replaces the keyword-scoring + cram code in `askAcrossMeetings()` with direct rendering of `QAEvent`s.
 
 - [ ] **Step 1: Update the closure type in `MeetingTranscriptDisplayState` and `MeetingTranscriptWindowController`**
 
-In `GhostPepper/UI/MeetingTranscriptWindow.swift`:
+In `Casper/UI/MeetingTranscriptWindow.swift`:
 
 Find the two places where the closure is declared (currently around lines 24 and 177):
 ```swift
@@ -2421,7 +2421,7 @@ Button(action: {
 
 - [ ] **Step 7: Drop the temporary adapter and rewire AppState**
 
-In `GhostPepper/AppState.swift`:
+In `Casper/AppState.swift`:
 - Delete the `adaptAgentStream(_:)` helper added in Task 12.
 - Change the `controller.onAskQuestion` closure: drop the second `_` argument (signature is now `(question) -> AsyncThrowingStream<QAEvent, Error>`); the `AsyncThrowingStream` returned should yield `QAEvent`s directly (not `QAStreamEvent`).
 
@@ -2470,14 +2470,14 @@ controller.onAskQuestion = { [weak self] question in
 
 - [ ] **Step 8: Build and run all tests**
 
-Run: `xcodebuild test -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -quiet`
+Run: `xcodebuild test -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -quiet`
 
 Expected: full test suite passes.
 
 - [ ] **Step 9: Commit**
 
 ```bash
-git add GhostPepper/UI/MeetingTranscriptWindow.swift GhostPepper/AppState.swift
+git add Casper/UI/MeetingTranscriptWindow.swift Casper/AppState.swift
 git commit -m "feat(qa): replace cross-meeting Q&A UI with status line + expandable trace + Stop"
 ```
 
@@ -2486,7 +2486,7 @@ git commit -m "feat(qa): replace cross-meeting Q&A UI with status line + expanda
 ## Task 14: SettingsWindow — replace backend picker with provider picker, drop local row
 
 **Files:**
-- Modify: `GhostPepper/UI/SettingsWindow.swift` (around lines 1818–1865 — `crossMeetingQACard`)
+- Modify: `Casper/UI/SettingsWindow.swift` (around lines 1818–1865 — `crossMeetingQACard`)
 
 - [ ] **Step 1: Update `crossMeetingQACard`**
 
@@ -2556,7 +2556,7 @@ private var crossMeetingQACard: some View {
 
 - [ ] **Step 2: Force the backend default to `.claudeAPI` for existing installs**
 
-In `GhostPepper/AppState.swift`, the `meetingQABackend` `@AppStorage` default is already `claudeAPI` (per current code), so existing installs that have `local` saved will keep using `local`. Override on app launch to fix this — add this to `AppState.init` (or wherever first-launch migrations live; if there's no such hook, add it at the top of `setupMeetingTranscriptController`):
+In `Casper/AppState.swift`, the `meetingQABackend` `@AppStorage` default is already `claudeAPI` (per current code), so existing installs that have `local` saved will keep using `local`. Override on app launch to fix this — add this to `AppState.init` (or wherever first-launch migrations live; if there's no such hook, add it at the top of `setupMeetingTranscriptController`):
 
 ```swift
 // Migration: agentic Q&A doesn't support local backend. Force Claude API.
@@ -2567,14 +2567,14 @@ if meetingQABackend == QABackendKind.local.rawValue {
 
 - [ ] **Step 3: Build and run all tests**
 
-Run: `xcodebuild test -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -quiet`
+Run: `xcodebuild test -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -quiet`
 
 Expected: full test suite passes.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add GhostPepper/UI/SettingsWindow.swift GhostPepper/AppState.swift
+git add Casper/UI/SettingsWindow.swift Casper/AppState.swift
 git commit -m "feat(qa): provider-picker Settings UI; force-migrate local backend to claudeAPI"
 ```
 
@@ -2583,23 +2583,23 @@ git commit -m "feat(qa): provider-picker Settings UI; force-migrate local backen
 ## Task 15: Cleanup — delete ClaudeAPIClient.swift, drop QABackendKind.local, finalize types
 
 **Files:**
-- Delete: `GhostPepper/QA/ClaudeAPIClient.swift`
-- Modify: `GhostPepper/QA/QABackendKind.swift` → rename to `LLMProviderKind.swift` content; remove `.local` and old types
-- Modify: `GhostPepper/AppState.swift` (drop `.local` switch arm, drop `meetingQAModelKind` storage if unused)
-- Modify: `GhostPepper.xcodeproj/project.pbxproj` (remove `ClaudeAPIClient.swift`, rename `QABackendKind.swift` → `LLMProviderKind.swift`)
+- Delete: `Casper/QA/ClaudeAPIClient.swift`
+- Modify: `Casper/QA/QABackendKind.swift` → rename to `LLMProviderKind.swift` content; remove `.local` and old types
+- Modify: `Casper/AppState.swift` (drop `.local` switch arm, drop `meetingQAModelKind` storage if unused)
+- Modify: `Casper.xcodeproj/project.pbxproj` (remove `ClaudeAPIClient.swift`, rename `QABackendKind.swift` → `LLMProviderKind.swift`)
 
 - [ ] **Step 1: Verify nothing references `ClaudeAPIClient` anywhere except Task-12-replaced lines**
 
 ```bash
-grep -rn "ClaudeAPIClient" GhostPepper GhostPepperTests
+grep -rn "ClaudeAPIClient" Casper CasperTests
 ```
 
-Expected: only references inside `GhostPepper/QA/ClaudeAPIClient.swift` itself. If anything else references it, fix that first.
+Expected: only references inside `Casper/QA/ClaudeAPIClient.swift` itself. If anything else references it, fix that first.
 
 - [ ] **Step 2: Delete the file from disk**
 
 ```bash
-rm GhostPepper/QA/ClaudeAPIClient.swift
+rm Casper/QA/ClaudeAPIClient.swift
 ```
 
 - [ ] **Step 3: Reshape `QABackendKind.swift` → `QABackendKind`-shaped types removed**
@@ -2611,7 +2611,7 @@ We need to:
 - Drop `QABackendKind` entirely (the agent doesn't switch on backend; the new `LLMProviderKind` enum lives in `LLMProvider.swift` with only `.anthropic`).
 - Drop the `QAStreamEvent` type completely (the closure now yields `QAEvent`).
 
-Replace `GhostPepper/QA/QABackendKind.swift` content with **only**:
+Replace `Casper/QA/QABackendKind.swift` content with **only**:
 
 ```swift
 import Foundation
@@ -2644,13 +2644,13 @@ enum ClaudeAPIModel: String, CaseIterable, Identifiable {
 - [ ] **Step 4: Rename the file to `ClaudeAPIModel.swift`**
 
 ```bash
-git mv GhostPepper/QA/QABackendKind.swift GhostPepper/QA/ClaudeAPIModel.swift
+git mv Casper/QA/QABackendKind.swift Casper/QA/ClaudeAPIModel.swift
 ```
 
 - [ ] **Step 5: Drop `QABackendKind` references in `AppState.swift`**
 
 ```bash
-grep -n "QABackendKind\|meetingQABackend\|meetingQAModelKind" GhostPepper/AppState.swift
+grep -n "QABackendKind\|meetingQABackend\|meetingQAModelKind" Casper/AppState.swift
 ```
 
 For each match:
@@ -2701,10 +2701,10 @@ controller.onAskQuestion = { [weak self] question in
 ruby <<'RUBY'
 require 'xcodeproj'
 
-project = Xcodeproj::Project.open('GhostPepper.xcodeproj')
+project = Xcodeproj::Project.open('Casper.xcodeproj')
 
-main_target = project.targets.find { |t| t.name == 'GhostPepper' }
-abort 'GhostPepper target not found' unless main_target
+main_target = project.targets.find { |t| t.name == 'Casper' }
+abort 'Casper target not found' unless main_target
 
 # Remove ClaudeAPIClient.swift entirely.
 removed = []
@@ -2732,14 +2732,14 @@ RUBY
 
 - [ ] **Step 7: Build and run all tests**
 
-Run: `xcodebuild test -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation -quiet`
+Run: `xcodebuild test -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation -quiet`
 
 Expected: full test suite passes. Any reference to dropped types (e.g., `QABackendKind`, `QAStreamEvent`) surfaces as a compile error and must be fixed inline.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add -A GhostPepper GhostPepperTests GhostPepper.xcodeproj/project.pbxproj
+git add -A Casper CasperTests Casper.xcodeproj/project.pbxproj
 git commit -m "refactor(qa): remove ClaudeAPIClient and QABackendKind; agentic flow only"
 ```
 
@@ -2752,14 +2752,14 @@ git commit -m "refactor(qa): remove ClaudeAPIClient and QABackendKind; agentic f
 - [ ] **Step 1: Build and install the debug build**
 
 ```bash
-xcodebuild build -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/derived -skipMacroValidation -quiet
-cp -R build/derived/Build/Products/Debug/GhostPepper.app /Applications/
-open /Applications/GhostPepper.app
+xcodebuild build -project Casper.xcodeproj -scheme Casper -derivedDataPath build/derived -skipMacroValidation -quiet
+cp -R build/derived/Build/Products/Debug/Casper.app /Applications/
+open /Applications/Casper.app
 ```
 
 - [ ] **Step 2: Configure the meeting archive**
 
-In Settings → Meeting Transcript → Save directory, choose `/Users/matthewhartman/Projects/granolatest/Ghost Pepper Meetings/`.
+In Settings → Meeting Transcript → Save directory, choose `/Users/matthewhartman/Projects/granolatest/Casper Meetings/`.
 
 In Settings → Meeting Transcript → Cross-Meeting Q&A, confirm Provider is "Anthropic", Model is "Claude Sonnet 4.6", and the API key is saved.
 

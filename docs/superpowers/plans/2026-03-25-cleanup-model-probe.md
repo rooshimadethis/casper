@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a local CLI probe that loads Ghost Pepper's real cleanup models and shows prompt, raw output, sanitized output, and final cleaned output for exact inputs.
+**Goal:** Build a local CLI probe that loads Casper's real cleanup models and shows prompt, raw output, sanitized output, and final cleaned output for exact inputs.
 
 **Architecture:** Add a small executable target that reuses the app's cleanup pipeline through a thin shared probe runner instead of duplicating model and prompt logic. Keep app behavior unchanged while exposing one-shot and interactive command paths for debugging Qwen failures.
 
-**Tech Stack:** Swift, XcodeGen project.yml, GhostPepper cleanup code, obra/LLM.swift
+**Tech Stack:** Swift, XcodeGen project.yml, Casper cleanup code, obra/LLM.swift
 
 ---
 
@@ -15,10 +15,10 @@
 ### Task 1: Extract a reusable cleanup probe runner
 
 **Files:**
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepper/Cleanup/TextCleaner.swift`
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepper/Cleanup/TextCleanupManager.swift`
-- Create: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepper/Cleanup/CleanupModelProbeRunner.swift`
-- Test: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepperTests/CleanupModelProbeRunnerTests.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/Casper/Cleanup/TextCleaner.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/Casper/Cleanup/TextCleanupManager.swift`
+- Create: `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/Casper/Cleanup/CleanupModelProbeRunner.swift`
+- Test: `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/CasperTests/CleanupModelProbeRunnerTests.swift`
 
 - [ ] **Step 1: Write the failing tests for stage capture**
 
@@ -36,7 +36,7 @@ Include a case where raw output is reasoning-only so the sanitized output become
 Run:
 
 ```sh
-xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/cleanup-probe-tests CODE_SIGNING_ALLOWED=NO -skipMacroValidation test -only-testing:GhostPepperTests/CleanupModelProbeRunnerTests
+xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/cleanup-probe-tests CODE_SIGNING_ALLOWED=NO -skipMacroValidation test -only-testing:CasperTests/CleanupModelProbeRunnerTests
 ```
 
 Expected: FAIL because the runner type does not exist yet.
@@ -59,7 +59,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```sh
-git add GhostPepper/Cleanup/TextCleaner.swift GhostPepper/Cleanup/TextCleanupManager.swift GhostPepper/Cleanup/CleanupModelProbeRunner.swift GhostPepperTests/CleanupModelProbeRunnerTests.swift
+git add Casper/Cleanup/TextCleaner.swift Casper/Cleanup/TextCleanupManager.swift Casper/Cleanup/CleanupModelProbeRunner.swift CasperTests/CleanupModelProbeRunnerTests.swift
 git commit -m "Add shared cleanup model probe runner"
 ```
 
@@ -68,9 +68,9 @@ git commit -m "Add shared cleanup model probe runner"
 ### Task 2: Add the executable target and one-shot command mode
 
 **Files:**
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/project.yml`
-- Create: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/CleanupModelProbe/main.swift`
-- Test: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepperTests/CleanupModelProbeRunnerTests.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/project.yml`
+- Create: `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/CleanupModelProbe/main.swift`
+- Test: `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/CasperTests/CleanupModelProbeRunnerTests.swift`
 
 - [ ] **Step 1: Write the failing tests for argument parsing and transcript formatting**
 
@@ -84,7 +84,7 @@ Add tests for:
 Run:
 
 ```sh
-xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/cleanup-probe-tests CODE_SIGNING_ALLOWED=NO -skipMacroValidation test -only-testing:GhostPepperTests/CleanupModelProbeRunnerTests
+xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/cleanup-probe-tests CODE_SIGNING_ALLOWED=NO -skipMacroValidation test -only-testing:CasperTests/CleanupModelProbeRunnerTests
 ```
 
 Expected: FAIL because probe CLI parsing/formatting helpers do not exist yet.
@@ -106,8 +106,8 @@ Print a readable transcript for one-shot runs.
 Run:
 
 ```sh
-xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/cleanup-probe-tests CODE_SIGNING_ALLOWED=NO -skipMacroValidation test -only-testing:GhostPepperTests/CleanupModelProbeRunnerTests
-xcodebuild -project GhostPepper.xcodeproj -scheme CleanupModelProbe -derivedDataPath build/cleanup-probe-cli CODE_SIGNING_ALLOWED=NO -skipMacroValidation build
+xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/cleanup-probe-tests CODE_SIGNING_ALLOWED=NO -skipMacroValidation test -only-testing:CasperTests/CleanupModelProbeRunnerTests
+xcodebuild -project Casper.xcodeproj -scheme CleanupModelProbe -derivedDataPath build/cleanup-probe-cli CODE_SIGNING_ALLOWED=NO -skipMacroValidation build
 ```
 
 Expected: PASS and `** BUILD SUCCEEDED **`
@@ -115,7 +115,7 @@ Expected: PASS and `** BUILD SUCCEEDED **`
 - [ ] **Step 5: Commit**
 
 ```sh
-git add project.yml CleanupModelProbe/main.swift GhostPepperTests/CleanupModelProbeRunnerTests.swift
+git add project.yml CleanupModelProbe/main.swift CasperTests/CleanupModelProbeRunnerTests.swift
 git commit -m "Add cleanup model probe CLI"
 ```
 
@@ -124,8 +124,8 @@ git commit -m "Add cleanup model probe CLI"
 ### Task 3: Add interactive REPL mode and verify against Qwen fast
 
 **Files:**
-- Modify: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/CleanupModelProbe/main.swift`
-- Test: `/Users/jesse/.config/superpowers/worktrees/ghost-pepper/codex-qwen35-integration/GhostPepperTests/CleanupModelProbeRunnerTests.swift`
+- Modify: `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/CleanupModelProbe/main.swift`
+- Test: `/Users/jesse/.config/superpowers/worktrees/casper/codex-qwen35-integration/CasperTests/CleanupModelProbeRunnerTests.swift`
 
 - [ ] **Step 1: Write the failing tests for interactive mode boundaries**
 
@@ -139,7 +139,7 @@ Cover:
 Run:
 
 ```sh
-xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/cleanup-probe-tests CODE_SIGNING_ALLOWED=NO -skipMacroValidation test -only-testing:GhostPepperTests/CleanupModelProbeRunnerTests
+xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/cleanup-probe-tests CODE_SIGNING_ALLOWED=NO -skipMacroValidation test -only-testing:CasperTests/CleanupModelProbeRunnerTests
 ```
 
 Expected: FAIL because interactive mode is not implemented yet.
@@ -157,8 +157,8 @@ Add interactive mode that:
 Run:
 
 ```sh
-xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -derivedDataPath build/cleanup-probe-tests CODE_SIGNING_ALLOWED=NO -skipMacroValidation test
-xcodebuild -project GhostPepper.xcodeproj -scheme CleanupModelProbe -derivedDataPath build/cleanup-probe-cli CODE_SIGNING_ALLOWED=NO -skipMacroValidation build
+xcodebuild -project Casper.xcodeproj -scheme Casper -derivedDataPath build/cleanup-probe-tests CODE_SIGNING_ALLOWED=NO -skipMacroValidation test
+xcodebuild -project Casper.xcodeproj -scheme CleanupModelProbe -derivedDataPath build/cleanup-probe-cli CODE_SIGNING_ALLOWED=NO -skipMacroValidation build
 ./build/cleanup-probe-cli/Build/Products/Debug/CleanupModelProbe --model fast --input "Okay, it's running now." --thinking none
 ./build/cleanup-probe-cli/Build/Products/Debug/CleanupModelProbe --model fast --input "Okay, it's running now." --thinking suppressed
 ```
@@ -172,6 +172,6 @@ Expected:
 - [ ] **Step 5: Commit**
 
 ```sh
-git add CleanupModelProbe/main.swift GhostPepperTests/CleanupModelProbeRunnerTests.swift
+git add CleanupModelProbe/main.swift CasperTests/CleanupModelProbeRunnerTests.swift
 git commit -m "Add interactive cleanup model probe mode"
 ```

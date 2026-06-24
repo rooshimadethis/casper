@@ -1,6 +1,6 @@
-name: GhostPepper
+name: Casper
 options:
-  bundleIdPrefix: com.github.matthartman
+  bundleIdPrefix: com.rooshi
   deploymentTarget:
     macOS: "14.0"
   xcodeVersion: "16.0"
@@ -8,10 +8,10 @@ options:
 packages:
   WhisperKit:
     url: https://github.com/argmaxinc/WhisperKit.git
-    from: "0.16.0"
+    version: "0.18.0"
   FluidAudio:
     url: https://github.com/FluidInference/FluidAudio.git
-    from: "0.13.6"
+    version: "0.13.6"
   LLM.swift:
     url: https://github.com/obra/LLM.swift.git
     branch: main
@@ -20,20 +20,20 @@ packages:
     from: "2.6.0"
 
 targets:
-  GhostPepper:
+  Casper:
     type: application
     platform: macOS
     configFiles:
       Debug: Config/Signing.xcconfig
       Release: Config/Signing.xcconfig
     sources:
-      - GhostPepper
+      - Casper
     settings:
       base:
-        INFOPLIST_FILE: GhostPepper/Info.plist
-        CODE_SIGN_ENTITLEMENTS: GhostPepper/GhostPepper.entitlements
+        INFOPLIST_FILE: Casper/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Casper/Casper.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        PRODUCT_BUNDLE_IDENTIFIER: com.github.matthartman.ghostpepper
+        PRODUCT_BUNDLE_IDENTIFIER: com.rooshi.casper
         ENABLE_APP_SANDBOX: NO
         CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION: YES
         ENABLE_HARDENED_RUNTIME: NO
@@ -44,20 +44,20 @@ targets:
         product: LLM
       - package: Sparkle
     entitlements:
-      path: GhostPepper/GhostPepper.entitlements
+      path: Casper/Casper.entitlements
       properties:
         com.apple.security.device.audio-input: true
 
-  GhostPepperTests:
+  CasperTests:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - GhostPepperTests
+      - CasperTests
     dependencies:
-      - target: GhostPepper
+      - target: Casper
     settings:
       base:
-        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/GhostPepper.app/Contents/MacOS/GhostPepper"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Casper.app/Contents/MacOS/Casper"
         BUNDLE_LOADER: "$(TEST_HOST)"
         GENERATE_INFOPLIST_FILE: YES
 
@@ -72,7 +72,7 @@ targets:
         product: LLM
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.github.matthartman.ghostpepper.cleanup-model-probe
+        PRODUCT_BUNDLE_IDENTIFIER: com.rooshi.casper.cleanup-model-probe
         GENERATE_INFOPLIST_FILE: YES
         LD_RUNPATH_SEARCH_PATHS:
           - "$(inherited)"

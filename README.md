@@ -1,18 +1,18 @@
 <div align="center">
 
-<img src="./app-icon.png" width="80" alt="Ghost Pepper">
+<img src="./app-icon.png" width="80" alt="Casper">
 
-# Ghost Pepper
+# Casper
 
 **100% private** on-device voice models for speech-to-text and meeting transcription on macOS. No cloud APIs, no data leaves your machine.
 
-<a href="https://github.com/matthartman/ghost-pepper/releases/latest/download/GhostPepper.dmg">
+<a href="https://github.com/rooshimadethis/casper/releases/latest/download/Casper.dmg">
   <img src="https://img.shields.io/badge/Download_for_Mac-FF6600?style=for-the-badge&logo=apple&logoColor=white" alt="Download for Mac" height="40">
 </a>
 
 macOS 14.0+ · Apple Silicon (M1+) · Free & open source
 
-[![GitHub stars](https://img.shields.io/github/stars/matthartman/ghost-pepper?style=social)](https://github.com/matthartman/ghost-pepper)
+[![GitHub stars](https://img.shields.io/github/stars/rooshimadethis/casper?style=social)](https://github.com/rooshimadethis/casper)
 &nbsp;
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 &nbsp;
@@ -33,7 +33,7 @@ macOS 14.0+ · Apple Silicon (M1+) · Free & open source
 
 ## How it works
 
-Ghost Pepper uses open-source models that run entirely on your Mac. Models download automatically and are cached locally.
+Casper uses open-source models that run entirely on your Mac. Models download automatically and are cached locally.
 
 ### Speech models
 
@@ -58,16 +58,16 @@ Speech models powered by [WhisperKit](https://github.com/argmaxinc/WhisperKit). 
 ## Getting started
 
 **Download the app:**
-1. Download [GhostPepper.dmg](https://github.com/matthartman/ghost-pepper/releases/latest/download/GhostPepper.dmg)
-2. Open the DMG, drag Ghost Pepper to Applications
+1. Download [Casper.dmg](https://github.com/rooshimadethis/casper/releases/latest/download/Casper.dmg)
+2. Open the DMG, drag Casper to Applications
 3. Grant Microphone and Accessibility permissions when prompted
 4. Hold Control and speak
 
-> **"Apple could not verify" warning?** On macOS Sequoia, you may see a Gatekeeper warning the first time you open the app. Go to **System Settings > Privacy & Security**, scroll down, and click **Open Anyway** next to the Ghost Pepper message. Click **Confirm** in the popup. You only need to do this once.
+> **"Apple could not verify" warning?** On macOS Sequoia, you may see a Gatekeeper warning the first time you open the app. Go to **System Settings > Privacy & Security**, scroll down, and click **Open Anyway** next to the Casper message. Click **Confirm** in the popup. You only need to do this once.
 
 **Build from source:**
 1. Clone the repo
-2. Open `GhostPepper.xcodeproj` in Xcode
+2. Open `Casper.xcodeproj` in Xcode
 3. Build and run (Cmd+R)
 
 ## Permissions
@@ -109,17 +109,17 @@ Built with [WhisperKit](https://github.com/argmaxinc/WhisperKit), [LLM.swift](ht
 
 MIT
 
-## Why "Ghost Pepper"?
+## Why "Casper"?
 
 All models run locally, no private data leaves your computer. And it's spicy to offer something for free that other apps have raised $80M to build.
 
 ## Enterprise / managed devices
 
-Ghost Pepper requires Accessibility permission, which normally needs admin access to grant. On managed devices, IT admins can pre-approve this via an MDM profile (Jamf, Kandji, Mosaic, etc.) using a Privacy Preferences Policy Control (PPPC) payload:
+Casper requires Accessibility permission, which normally needs admin access to grant. On managed devices, IT admins can pre-approve this via an MDM profile (Jamf, Kandji, Mosaic, etc.) using a Privacy Preferences Policy Control (PPPC) payload:
 
 | Field | Value |
 |---|---|
-| Bundle ID | `com.github.matthartman.ghostpepper` |
+| Bundle ID | `com.rooshi.casper` |
 | Team ID | `BBVMGXR9AY` |
 | Permission | Accessibility (`com.apple.security.accessibility`) |
 

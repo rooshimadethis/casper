@@ -79,7 +79,7 @@ enum QAStreamEvent {
 }
 ```
 
-New `GhostPepper/QA/ClaudePricing.swift` with hardcoded rates (per 1M tokens):
+New `Casper/QA/ClaudePricing.swift` with hardcoded rates (per 1M tokens):
 
 | Model | Input | Output | Cache write | Cache read |
 |---|---|---|---|---|
@@ -114,14 +114,14 @@ Pricing constants are hardcoded; a comment in `ClaudePricing.swift` notes they s
 
 | File | Change |
 |---|---|
-| `GhostPepper/QA/QABackendKind.swift` | Add `QAStreamEvent`, `QAUsage` |
-| `GhostPepper/QA/ClaudeAPIClient.swift` | Add `askStream`; SSE parser; usage extraction |
-| `GhostPepper/QA/ClaudePricing.swift` (new) | Pricing rates + cost estimator |
-| `GhostPepper/AppState.swift` | Flip defaults; rewire controller to stream; open-settings on missing key |
-| `GhostPepper/UI/SettingsWindow.swift` | `show(appState:section:)`; NotificationCenter listener for section selection |
-| `GhostPepper/UI/MeetingTranscriptWindow.swift` | Change `onAskQuestion` signature; consume stream; render usage footer; fix fallback message |
-| `GhostPepper/Cleanup/TextCleanupManager.swift` | Drop or repoint `static var qa` |
-| `GhostPepper.xcodeproj/project.pbxproj` | Register `ClaudePricing.swift` |
+| `Casper/QA/QABackendKind.swift` | Add `QAStreamEvent`, `QAUsage` |
+| `Casper/QA/ClaudeAPIClient.swift` | Add `askStream`; SSE parser; usage extraction |
+| `Casper/QA/ClaudePricing.swift` (new) | Pricing rates + cost estimator |
+| `Casper/AppState.swift` | Flip defaults; rewire controller to stream; open-settings on missing key |
+| `Casper/UI/SettingsWindow.swift` | `show(appState:section:)`; NotificationCenter listener for section selection |
+| `Casper/UI/MeetingTranscriptWindow.swift` | Change `onAskQuestion` signature; consume stream; render usage footer; fix fallback message |
+| `Casper/Cleanup/TextCleanupManager.swift` | Drop or repoint `static var qa` |
+| `Casper.xcodeproj/project.pbxproj` | Register `ClaudePricing.swift` |
 
 ## Out of scope
 

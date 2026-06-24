@@ -1,1 +1,1 @@
-../../GhostPepper/Debug/DebugLogStore.swift
+../../Casper/Debug/DebugLogStore.swift

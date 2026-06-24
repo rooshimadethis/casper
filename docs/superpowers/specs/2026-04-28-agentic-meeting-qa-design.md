@@ -35,7 +35,7 @@ These were explicit user decisions in the brainstorming session and the source h
 6. **Folder root = existing meetings save dir.** Reuse `MeetingTranscriptSettings.effectiveSaveDirectory()` as the agent's archive root. No separate Q&A-folder config.
 7. **Iteration cap = 15.** Enough headroom for multi-hop questions; small enough to bound cost and runaway loops.
 8. **Tool execution UX = collapsed status line + expandable trace.** One status line above the answer ("Reading 2025-01-29/dana-matt.md..."), with a disclosure triangle for the full event log.
-9. **Two file formats coexist in the archive.** Verified by inspection (2026-04-28): of 776 .md files, 711 are Granola-imported with YAML frontmatter and 65 are native Ghost Pepper notes (no frontmatter, just H1 + `**Date:**` + `## Notes`). The system prompt must describe both or the agent will misread the 8% of files in the second format.
+9. **Two file formats coexist in the archive.** Verified by inspection (2026-04-28): of 776 .md files, 711 are Granola-imported with YAML frontmatter and 65 are native Casper notes (no frontmatter, just H1 + `**Date:**` + `## Notes`). The system prompt must describe both or the agent will misread the 8% of files in the second format.
 10. **Per-tool timeout = 30s.** Hard cap on each tool execution. If a `Process` (grep) or file read hangs, terminate, return `is_error` to the model, let it retry or give up.
 11. **`grep` invocation safety.** Always via `Process()` with `arguments: [...]` — never via `bash -c` or string interpolation. The pattern is one argv element. No injection surface.
 
@@ -95,7 +95,7 @@ These were explicit user decisions in the brainstorming session and the source h
 
 ## Components
 
-### New files (all under `GhostPepper/QA/`)
+### New files (all under `Casper/QA/`)
 
 | File | Purpose | Approx LOC |
 |---|---|---|
@@ -115,7 +115,7 @@ These were explicit user decisions in the brainstorming session and the source h
 | `AppState.swift` | Drop the keyword-scoring loop. Wire `MeetingQAAgent` instantiation: build the agent with the configured provider + meetings folder root, expose a single `func askMeetingQA(_ question: String) -> AsyncThrowingStream<QAEvent>`. |
 | `MeetingTranscriptWindow.swift` | Rewrite `askAcrossMeetings()` — no more file scoring or context cramming. Just call `appState.askMeetingQA(question)` and render events. Add the status-line + expandable-trace UI. Replace `qaSourceFile` with `qaTranscript: QATranscript`. |
 | `SettingsWindow.swift` | Replace "Backend: Local / Claude API" picker with "Provider: Anthropic" (single option for now — the dropdown is the seam for future providers). Keep the Claude model picker (Opus / Sonnet / Haiku) and the API key field. Remove the local-Q&A model row. |
-| `GhostPepper.xcodeproj/project.pbxproj` | Register the new Swift files (`LLMProvider.swift`, `AnthropicProvider.swift`, `MeetingQAAgent.swift`, `MeetingQATools.swift`, `PathSandbox.swift`, `QAEvent.swift`, `QATranscript.swift`, `MeetingQASystemPrompt.swift`). Remove `ClaudeAPIClient.swift`. Rename `QABackendKind.swift` → `LLMProviderKind.swift`. Xcode projects don't auto-discover Swift files — this is required for the build to see the new code. |
+| `Casper.xcodeproj/project.pbxproj` | Register the new Swift files (`LLMProvider.swift`, `AnthropicProvider.swift`, `MeetingQAAgent.swift`, `MeetingQATools.swift`, `PathSandbox.swift`, `QAEvent.swift`, `QATranscript.swift`, `MeetingQASystemPrompt.swift`). Remove `ClaudeAPIClient.swift`. Rename `QABackendKind.swift` → `LLMProviderKind.swift`. Xcode projects don't auto-discover Swift files — this is required for the build to see the new code. |
 
 ### Deleted files
 
@@ -287,7 +287,7 @@ files per meeting. Two file formats coexist:
    sometimes `## Transcript` with **[HH:MM] Speaker:** lines. Transcripts can be
    4,000+ lines.
 
-2. **Native Ghost Pepper** (a smaller fraction — quick notes and window snippets).
+2. **Native Casper** (a smaller fraction — quick notes and window snippets).
    No frontmatter. Starts with an H1 title, then `**Date:**` line, then `## Notes`
    with free-form content. Generally short.
 
@@ -492,7 +492,7 @@ The "Provider" dropdown exists even with one option so the seam is visible to th
 
 ## Verification
 
-The system ships when all three of these queries (real content from the user's archive at `/Users/matthewhartman/Projects/granolatest/Ghost Pepper Meetings/`) return correct, cited answers end-to-end via the Q&A bar:
+The system ships when all three of these queries (real content from the user's archive at `/Users/matthewhartman/Projects/granolatest/Casper Meetings/`) return correct, cited answers end-to-end via the Q&A bar:
 
 ### Test 1 — Timeline
 

@@ -15,10 +15,10 @@
 ### Task 1: Add the failing store tests
 
 **Files:**
-- Create: `GhostPepperTests/RecognizedVoiceStoreTests.swift`
-- Create: `GhostPepperTests/TranscriptionLabSpeakerProfileStoreTests.swift`
-- Test: `GhostPepperTests/RecognizedVoiceStoreTests.swift`
-- Test: `GhostPepperTests/TranscriptionLabSpeakerProfileStoreTests.swift`
+- Create: `CasperTests/RecognizedVoiceStoreTests.swift`
+- Create: `CasperTests/TranscriptionLabSpeakerProfileStoreTests.swift`
+- Test: `CasperTests/RecognizedVoiceStoreTests.swift`
+- Test: `CasperTests/TranscriptionLabSpeakerProfileStoreTests.swift`
 
 - [ ] **Step 1: Write the failing tests**
 - [ ] **Step 2: Run the new store tests and verify they fail for missing types**
@@ -29,9 +29,9 @@
 ### Task 2: Add the failing matching tests
 
 **Files:**
-- Create: `GhostPepper/SpeakerIdentity/SpeakerIdentityMatcher.swift`
-- Create: `GhostPepperTests/SpeakerIdentityMatcherTests.swift`
-- Test: `GhostPepperTests/SpeakerIdentityMatcherTests.swift`
+- Create: `Casper/SpeakerIdentity/SpeakerIdentityMatcher.swift`
+- Create: `CasperTests/SpeakerIdentityMatcherTests.swift`
+- Test: `CasperTests/SpeakerIdentityMatcherTests.swift`
 
 - [ ] **Step 1: Write tests for auto-match, auto-create, and explicit global update behavior**
 - [ ] **Step 2: Run the matcher tests and verify they fail**
@@ -44,8 +44,8 @@
 ### Task 3: Add the failing controller tests
 
 **Files:**
-- Modify: `GhostPepper/Lab/TranscriptionLabController.swift`
-- Modify: `GhostPepperTests/TranscriptionLabControllerTests.swift`
+- Modify: `Casper/Lab/TranscriptionLabController.swift`
+- Modify: `CasperTests/TranscriptionLabControllerTests.swift`
 
 - [ ] **Step 1: Add tests for resolved speaker names, local rename state, and promote-global affordances**
 - [ ] **Step 2: Run the controller tests and verify they fail**
@@ -56,8 +56,8 @@
 ### Task 4: Add the failing app-state tests
 
 **Files:**
-- Modify: `GhostPepper/AppState.swift`
-- Modify: `GhostPepperTests/GhostPepperTests.swift`
+- Modify: `Casper/AppState.swift`
+- Modify: `CasperTests/CasperTests.swift`
 
 - [ ] **Step 1: Add tests proving lab reruns create or match recognized voices and snapshot lab speaker profiles**
 - [ ] **Step 2: Run the focused app-state tests and verify they fail**
@@ -70,9 +70,9 @@
 ### Task 5: Add the failing settings and timeline tests where practical
 
 **Files:**
-- Modify: `GhostPepper/UI/SettingsWindow.swift`
-- Modify: `GhostPepperTests/TranscriptionLabControllerTests.swift`
-- Test: `GhostPepperTests/MeetingTranscriptWindowPresentationTests.swift`
+- Modify: `Casper/UI/SettingsWindow.swift`
+- Modify: `CasperTests/TranscriptionLabControllerTests.swift`
+- Test: `CasperTests/MeetingTranscriptWindowPresentationTests.swift`
 
 - [ ] **Step 1: Add view-model-level tests for timeline label inputs and recognized-voice section data**
 - [ ] **Step 2: Run the focused tests and verify they fail**
@@ -86,24 +86,24 @@
 ### Task 6: Verify the whole slice
 
 **Files:**
-- Modify: `GhostPepper.xcodeproj` (only if required by compiler errors)
+- Modify: `Casper.xcodeproj` (only if required by compiler errors)
 
 - [ ] **Step 1: Run the focused test suites**
 
 ```bash
-xcodebuild test -project GhostPepper.xcodeproj -scheme GhostPepper -destination 'platform=macOS' -skipMacroValidation CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' -only-testing:GhostPepperTests/RecognizedVoiceStoreTests -only-testing:GhostPepperTests/TranscriptionLabSpeakerProfileStoreTests -only-testing:GhostPepperTests/SpeakerIdentityMatcherTests -only-testing:GhostPepperTests/TranscriptionLabControllerTests -only-testing:GhostPepperTests/GhostPepperTests
+xcodebuild test -project Casper.xcodeproj -scheme Casper -destination 'platform=macOS' -skipMacroValidation CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' -only-testing:CasperTests/RecognizedVoiceStoreTests -only-testing:CasperTests/TranscriptionLabSpeakerProfileStoreTests -only-testing:CasperTests/SpeakerIdentityMatcherTests -only-testing:CasperTests/TranscriptionLabControllerTests -only-testing:CasperTests/CasperTests
 ```
 
 - [ ] **Step 2: Run a release build**
 
 ```bash
-xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -configuration Release -destination 'platform=macOS,arch=arm64' -skipMacroValidation DEVELOPMENT_TEAM=87WJ58S66M CODE_SIGN_IDENTITY='Apple Development' build
+xcodebuild -project Casper.xcodeproj -scheme Casper -configuration Release -destination 'platform=macOS,arch=arm64' -skipMacroValidation DEVELOPMENT_TEAM=87WJ58S66M CODE_SIGN_IDENTITY='Apple Development' build
 ```
 
-- [ ] **Step 3: Copy the built app into `/Applications/GhostPepper.app`**
+- [ ] **Step 3: Copy the built app into `/Applications/Casper.app`**
 
 ```bash
-ditto build/Build/Products/Release/GhostPepper.app /Applications/GhostPepper.app
+ditto build/Build/Products/Release/Casper.app /Applications/Casper.app
 ```
 
 - [ ] **Step 4: Confirm the installed app is signed and reflects the fresh build**

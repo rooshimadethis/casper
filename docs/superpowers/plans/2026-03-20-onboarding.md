@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a first-run onboarding wizard that walks users through permissions, model download, and a live try-it step before they use GhostPepper.
+**Goal:** Build a first-run onboarding wizard that walks users through permissions, model download, and a live try-it step before they use Casper.
 
-**Architecture:** Single new file `OnboardingWindow.swift` contains the window controller and all 4 step views. `GhostPepperApp.swift` is modified to check `@AppStorage("onboardingCompleted")` and show onboarding before initializing AppState. The onboarding view creates its own HotkeyMonitor and AudioRecorder instances for the try-it step, keeping it decoupled from AppState.
+**Architecture:** Single new file `OnboardingWindow.swift` contains the window controller and all 4 step views. `CasperApp.swift` is modified to check `@AppStorage("onboardingCompleted")` and show onboarding before initializing AppState. The onboarding view creates its own HotkeyMonitor and AudioRecorder instances for the try-it step, keeping it decoupled from AppState.
 
 **Tech Stack:** SwiftUI views hosted in NSWindow, existing PermissionChecker/ModelManager/HotkeyMonitor/AudioRecorder/WhisperTranscriber classes.
 
@@ -15,12 +15,12 @@
 ### Task 1: Create OnboardingWindowController
 
 **Files:**
-- Create: `GhostPepper/UI/OnboardingWindow.swift`
+- Create: `Casper/UI/OnboardingWindow.swift`
 
 - [ ] **Step 1: Create the window controller class**
 
 ```swift
-// GhostPepper/UI/OnboardingWindow.swift
+// Casper/UI/OnboardingWindow.swift
 import SwiftUI
 import AppKit
 import AVFoundation
@@ -42,7 +42,7 @@ class OnboardingWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "Ghost Pepper"
+        window.title = "Casper"
         window.contentView = NSHostingView(rootView: onboardingView)
         window.center()
         window.isReleasedWhenClosed = false
@@ -94,14 +94,14 @@ struct OnboardingView: View {
 
 - [ ] **Step 3: Verify the file compiles**
 
-Run: `xcodegen generate && xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -configuration Debug build -skipMacroValidation 2>&1 | grep -E "error:|BUILD"`
+Run: `xcodegen generate && xcodebuild -project Casper.xcodeproj -scheme Casper -configuration Debug build -skipMacroValidation 2>&1 | grep -E "error:|BUILD"`
 
 Note: this will fail until steps are defined — that's expected. Just verify no syntax errors in the controller/view scaffold.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add GhostPepper/UI/OnboardingWindow.swift
+git add Casper/UI/OnboardingWindow.swift
 git commit -m "feat: scaffold onboarding window controller and view"
 ```
 
@@ -110,7 +110,7 @@ git commit -m "feat: scaffold onboarding window controller and view"
 ### Task 2: Implement WelcomeStep (Step 1)
 
 **Files:**
-- Modify: `GhostPepper/UI/OnboardingWindow.swift`
+- Modify: `Casper/UI/OnboardingWindow.swift`
 
 - [ ] **Step 1: Add WelcomeStep view**
 
@@ -129,7 +129,7 @@ struct WelcomeStep: View {
                 .frame(width: 128, height: 128)
                 .cornerRadius(24)
 
-            Text("Ghost Pepper")
+            Text("Casper")
                 .font(.system(size: 28, weight: .bold))
 
             Text("Hold-to-talk speech-to-text\nfor your Mac")
@@ -171,14 +171,14 @@ struct WelcomeStep: View {
 
 - [ ] **Step 2: Verify it compiles**
 
-Run: `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -configuration Debug build -skipMacroValidation 2>&1 | grep -E "error:|BUILD"`
+Run: `xcodebuild -project Casper.xcodeproj -scheme Casper -configuration Debug build -skipMacroValidation 2>&1 | grep -E "error:|BUILD"`
 
 Note: The `Image("AppIcon")` may need adjustment — asset catalog app icons are accessed differently. If it doesn't resolve, use `NSImage(named: NSImage.applicationIconName)` wrapped in an `Image(nsImage:)` instead.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add GhostPepper/UI/OnboardingWindow.swift
+git add Casper/UI/OnboardingWindow.swift
 git commit -m "feat: add welcome step with branding and privacy message"
 ```
 
@@ -187,7 +187,7 @@ git commit -m "feat: add welcome step with branding and privacy message"
 ### Task 3: Implement SetupStep (Step 2)
 
 **Files:**
-- Modify: `GhostPepper/UI/OnboardingWindow.swift`
+- Modify: `Casper/UI/OnboardingWindow.swift`
 
 - [ ] **Step 1: Add SetupStep view**
 
@@ -399,12 +399,12 @@ struct SetupRow<Actions: View>: View {
 
 - [ ] **Step 3: Verify it compiles**
 
-Run: `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -configuration Debug build -skipMacroValidation 2>&1 | grep -E "error:|BUILD"`
+Run: `xcodebuild -project Casper.xcodeproj -scheme Casper -configuration Debug build -skipMacroValidation 2>&1 | grep -E "error:|BUILD"`
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add GhostPepper/UI/OnboardingWindow.swift
+git add Casper/UI/OnboardingWindow.swift
 git commit -m "feat: add setup step with permissions and model download"
 ```
 
@@ -413,7 +413,7 @@ git commit -m "feat: add setup step with permissions and model download"
 ### Task 4: Implement TryItStep (Step 3)
 
 **Files:**
-- Modify: `GhostPepper/UI/OnboardingWindow.swift`
+- Modify: `Casper/UI/OnboardingWindow.swift`
 
 - [ ] **Step 1: Add TryItStep view**
 
@@ -642,12 +642,12 @@ struct KeyCap: View {
 
 - [ ] **Step 3: Verify it compiles**
 
-Run: `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -configuration Debug build -skipMacroValidation 2>&1 | grep -E "error:|BUILD"`
+Run: `xcodebuild -project Casper.xcodeproj -scheme Casper -configuration Debug build -skipMacroValidation 2>&1 | grep -E "error:|BUILD"`
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add GhostPepper/UI/OnboardingWindow.swift
+git add Casper/UI/OnboardingWindow.swift
 git commit -m "feat: add try-it step with live recording and transcription"
 ```
 
@@ -656,7 +656,7 @@ git commit -m "feat: add try-it step with live recording and transcription"
 ### Task 5: Implement DoneStep (Step 4)
 
 **Files:**
-- Modify: `GhostPepper/UI/OnboardingWindow.swift`
+- Modify: `Casper/UI/OnboardingWindow.swift`
 
 - [ ] **Step 1: Add DoneStep view**
 
@@ -675,7 +675,7 @@ struct DoneStep: View {
             Text("You're All Set!")
                 .font(.system(size: 28, weight: .bold))
 
-            Text("Ghost Pepper lives in your menu bar")
+            Text("Casper lives in your menu bar")
                 .font(.callout)
                 .foregroundStyle(.secondary)
 
@@ -715,7 +715,7 @@ struct DoneStep: View {
             Spacer()
 
             Button(action: onComplete) {
-                Text("Start Using Ghost Pepper")
+                Text("Start Using Casper")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
@@ -746,25 +746,25 @@ struct BulletPoint: View {
 
 - [ ] **Step 2: Verify it compiles**
 
-Run: `xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -configuration Debug build -skipMacroValidation 2>&1 | grep -E "error:|BUILD"`
+Run: `xcodebuild -project Casper.xcodeproj -scheme Casper -configuration Debug build -skipMacroValidation 2>&1 | grep -E "error:|BUILD"`
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add GhostPepper/UI/OnboardingWindow.swift
+git add Casper/UI/OnboardingWindow.swift
 git commit -m "feat: add done step with menu bar guide"
 ```
 
 ---
 
-### Task 6: Wire onboarding into GhostPepperApp
+### Task 6: Wire onboarding into CasperApp
 
 **Files:**
-- Modify: `GhostPepper/GhostPepperApp.swift`
+- Modify: `Casper/CasperApp.swift`
 
 - [ ] **Step 1: Add onboarding check to app entry point**
 
-Modify `GhostPepperApp.swift` to check `onboardingCompleted` and show the onboarding window if false. Key changes:
+Modify `CasperApp.swift` to check `onboardingCompleted` and show the onboarding window if false. Key changes:
 
 1. Add `@AppStorage("onboardingCompleted") private var onboardingCompleted = false`
 2. Add `private let onboardingController = OnboardingWindowController()`
@@ -806,14 +806,14 @@ private let onboardingController = OnboardingWindowController()
 
 - [ ] **Step 2: Verify it compiles and builds**
 
-Run: `xcodegen generate && xcodebuild -project GhostPepper.xcodeproj -scheme GhostPepper -configuration Debug build -skipMacroValidation 2>&1 | grep -E "error:|BUILD"`
+Run: `xcodegen generate && xcodebuild -project Casper.xcodeproj -scheme Casper -configuration Debug build -skipMacroValidation 2>&1 | grep -E "error:|BUILD"`
 
 Expected: BUILD SUCCEEDED
 
 - [ ] **Step 3: Manual test — reset onboarding and launch**
 
 ```bash
-defaults delete com.github.matthartman.ghostpepper onboardingCompleted 2>/dev/null
+defaults delete com.rooshi.casper onboardingCompleted 2>/dev/null
 ```
 
 Then build and run. The onboarding window should appear. Walk through all 4 steps. After completing, quit and relaunch — the onboarding should NOT appear again.
@@ -821,7 +821,7 @@ Then build and run. The onboarding window should appear. Walk through all 4 step
 - [ ] **Step 4: Commit**
 
 ```bash
-git add GhostPepper/GhostPepperApp.swift GhostPepper/UI/OnboardingWindow.swift
+git add Casper/CasperApp.swift Casper/UI/OnboardingWindow.swift
 git commit -m "feat: wire onboarding into app launch flow"
 ```
 
@@ -830,18 +830,18 @@ git commit -m "feat: wire onboarding into app launch flow"
 ### Task 7: Polish and edge case handling
 
 **Files:**
-- Modify: `GhostPepper/UI/OnboardingWindow.swift`
+- Modify: `Casper/UI/OnboardingWindow.swift`
 
 - [ ] **Step 1: Test edge cases**
 
-1. Reset onboarding: `defaults delete com.github.matthartman.ghostpepper onboardingCompleted`
+1. Reset onboarding: `defaults delete com.rooshi.casper onboardingCompleted`
 2. Launch app — verify onboarding shows
 3. Grant mic on step 2 — verify checkmark appears
 4. Grant accessibility on step 2 — verify polling detects it
 5. Wait for model download — verify spinner then checkmark
 6. Test try-it step — hold Control, speak, verify text appears
 7. Verify step 4 shows menu bar info
-8. Click "Start Using Ghost Pepper" — verify window closes and app initializes normally
+8. Click "Start Using Casper" — verify window closes and app initializes normally
 9. Relaunch — verify onboarding does NOT show
 
 - [ ] **Step 2: Test skip flow**

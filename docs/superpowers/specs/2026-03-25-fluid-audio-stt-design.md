@@ -1,10 +1,10 @@
 # FluidAudio STT Backend Design
 
-**Goal:** Add a second local speech-to-text backend so GhostPepper can offer Whisper and Parakeet-family transcription models from one model picker without exposing backend details in the UI.
+**Goal:** Add a second local speech-to-text backend so Casper can offer Whisper and Parakeet-family transcription models from one model picker without exposing backend details in the UI.
 
 ## Current State
 
-GhostPepper is currently Whisper-first:
+Casper is currently Whisper-first:
 
 - `AppState` owns a concrete `WhisperTranscriber`
 - `ModelManager` assumes every speech model is a WhisperKit model

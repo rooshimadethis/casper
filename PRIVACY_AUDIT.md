@@ -1,12 +1,12 @@
 # Privacy Audit
 
-Ghost Pepper claims to be 100% local by default. This file is both the audit prompt and the record of the most recent verification.
+Casper claims to be 100% local by default. This file is both the audit prompt and the record of the most recent verification.
 
 ## How to verify
 
 Paste the following prompt into Claude Code (or any AI assistant with codebase access) from the repo root:
 
-> Review the Ghost Pepper codebase and confirm that all default features run 100% locally with no network calls. Specifically verify:
+> Review the Casper codebase and confirm that all default features run 100% locally with no network calls. Specifically verify:
 >
 > 1. **Speech-to-text** — transcription runs entirely on-device (WhisperKit, FluidAudio, Qwen3-ASR). No audio is sent to any server.
 > 2. **Text cleanup** — the local Qwen LLM cleans up transcriptions on-device. No text is sent to any API.
@@ -38,7 +38,7 @@ Paste the following prompt into Claude Code (or any AI assistant with codebase a
 | 4 | Meeting transcription & storage | `MeetingSession.swift`, `MeetingTranscript.swift`, `MeetingMarkdownWriter.swift`, `MeetingHistory.swift`, `MeetingTranscriptSettings.swift` | :white_check_mark: Pass — all local file I/O. Markdown written to user-chosen directory. |
 | 5 | OCR & screen capture | `Input/WindowCaptureService.swift`, Vision framework usage | :white_check_mark: Pass — Apple Vision framework, on-device only. |
 | 6 | File storage | `MeetingMarkdownWriter.swift`, `MeetingHistory.swift` | :white_check_mark: Pass — local filesystem only. No iCloud, CloudKit, or remote sync. |
-| 7 | No third-party tracking SDKs | Entire `GhostPepper/` directory | :white_check_mark: Pass — no Firebase, Mixpanel, Sentry, Amplitude, PostHog, Datadog, or Segment SDKs found. Local-only usage counters (UserDefaults) power the in-app Usage report panel. |
+| 7 | No third-party tracking SDKs | Entire `Casper/` directory | :white_check_mark: Pass — no Firebase, Mixpanel, Sentry, Amplitude, PostHog, Datadog, or Segment SDKs found. Local-only usage counters (UserDefaults) power the in-app Usage report panel. |
 
 ### Cloud-connected features (all opt-in)
 

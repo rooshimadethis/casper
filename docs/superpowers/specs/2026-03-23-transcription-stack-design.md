@@ -6,9 +6,9 @@ Add first-class configurable recording chords, cleanup backend/model selection, 
 
 ## Current Constraints
 
-- The app currently hardcodes a Control-only hold-to-talk path in `GhostPepper/Input/HotkeyMonitor.swift`.
-- The settings UI in `GhostPepper/UI/SettingsWindow.swift` exposes microphone, cleanup enablement, and prompt editing, but not shortcut or backend selection.
-- Cleanup currently uses local GGUF models through `LLM.swift` in `GhostPepper/Cleanup/TextCleanupManager.swift` and `GhostPepper/Cleanup/TextCleaner.swift`.
+- The app currently hardcodes a Control-only hold-to-talk path in `Casper/Input/HotkeyMonitor.swift`.
+- The settings UI in `Casper/UI/SettingsWindow.swift` exposes microphone, cleanup enablement, and prompt editing, but not shortcut or backend selection.
+- Cleanup currently uses local GGUF models through `LLM.swift` in `Casper/Cleanup/TextCleanupManager.swift` and `Casper/Cleanup/TextCleaner.swift`.
 - The project currently targets macOS 14.0 in `project.yml`.
 - Apple Foundation Models are available on macOS 26.0+ and require runtime availability checks.
 - OCR will require Screen Recording permission.

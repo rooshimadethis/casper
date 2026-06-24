@@ -2,7 +2,7 @@
 
 ## Goal
 
-Add a small local command-line probe for Ghost Pepper's cleanup models so Bot can reproduce and inspect failures like the Qwen 3 fast-model reasoning leak with exact inputs.
+Add a small local command-line probe for Casper's cleanup models so Bot can reproduce and inspect failures like the Qwen 3 fast-model reasoning leak with exact inputs.
 
 The probe must use the real app cleanup stack rather than a parallel test-only implementation. It should make it easy to compare prompt construction, raw model output, sanitized output, and final cleaned output for the existing fast and full cleanup models.
 
@@ -11,7 +11,7 @@ The probe must use the real app cleanup stack rather than a parallel test-only i
 In scope:
 
 - A command-line target in this repo for probing cleanup models
-- Loading the existing local cleanup models already used by Ghost Pepper
+- Loading the existing local cleanup models already used by Casper
 - One-shot invocation for reproducible runs
 - Interactive REPL mode for repeated experiments against a loaded model
 - Visibility into each stage of cleanup processing
@@ -25,7 +25,7 @@ Out of scope:
 
 ## Approaches Considered
 
-### 1. CLI target inside Ghost Pepper
+### 1. CLI target inside Casper
 
 Add a small executable target that links against the app's cleanup code.
 
@@ -76,7 +76,7 @@ Rejected for now. A CLI is the right first tool.
 
 Add a new executable target, `CleanupModelProbe`.
 
-It should live in this repo and build with the existing project so it can reuse Ghost Pepper cleanup code directly.
+It should live in this repo and build with the existing project so it can reuse Casper cleanup code directly.
 
 ### Runtime model selection
 

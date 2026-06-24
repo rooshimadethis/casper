@@ -20,7 +20,7 @@ This slice is intentionally limited to the transcription lab and global settings
   - a speaker-tagged transcript
   - a color timeline in Settings
 - The current app only exposes anonymous session-local speaker IDs such as `Speaker 0`.
-- Ghost Pepper already depends on `FluidAudio`, and that package exposes:
+- Casper already depends on `FluidAudio`, and that package exposes:
   - speaker embedding extraction through `DiarizerManager.extractSpeakerEmbedding(from:)`
   - cosine-distance speaker matching helpers
   - speaker enrollment APIs for future extensions

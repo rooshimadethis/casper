@@ -2,14 +2,14 @@
 
 ## Overview
 
-First-run onboarding wizard for GhostPepper. Shows once on first launch, walks the user through permissions, model download, and a live "try it" step. Persists completion to UserDefaults so it never shows again.
+First-run onboarding wizard for Casper. Shows once on first launch, walks the user through permissions, model download, and a live "try it" step. Persists completion to UserDefaults so it never shows again.
 
 ## Flow
 
 ### Step 1: Welcome
 
 - App icon (from asset catalog) displayed prominently for branding
-- "Ghost Pepper" title + "Hold-to-talk speech-to-text for your Mac" tagline
+- "Casper" title + "Hold-to-talk speech-to-text for your Mac" tagline
 - Privacy callout: "100% Private — Everything runs locally on your Mac. No cloud, no accounts, no data ever leaves your machine."
 - "Get Started" button advances to step 2
 
@@ -43,21 +43,21 @@ Three items, each with status indicator:
 - "You're All Set!"
 - Menu bar mockup showing where the ghost pepper icon lives
 - List of what's available in the menu bar: switch mic, toggle cleanup, edit prompt, check for updates
-- "Start Using Ghost Pepper" button closes the onboarding window and marks onboarding complete
+- "Start Using Casper" button closes the onboarding window and marks onboarding complete
 
 ## Technical Design
 
 ### New Files
 
-- `GhostPepper/UI/OnboardingWindow.swift` — SwiftUI view for the onboarding wizard, all 4 steps in a single view with step state management. Also contains an `OnboardingWindowController` (NSWindowController subclass) for presenting the window, following the pattern used in `PromptEditorWindow.swift`.
+- `Casper/UI/OnboardingWindow.swift` — SwiftUI view for the onboarding wizard, all 4 steps in a single view with step state management. Also contains an `OnboardingWindowController` (NSWindowController subclass) for presenting the window, following the pattern used in `PromptEditorWindow.swift`.
 
 ### Modified Files
 
-- `GhostPepper/GhostPepperApp.swift` — check `@AppStorage("onboardingCompleted")` on launch; if false, show onboarding window and defer `appState.initialize()` until onboarding completes
+- `Casper/CasperApp.swift` — check `@AppStorage("onboardingCompleted")` on launch; if false, show onboarding window and defer `appState.initialize()` until onboarding completes
 
 ### State Management
 
-- `@AppStorage("onboardingCompleted")` Bool, default false — set to true when user clicks "Start Using Ghost Pepper" in step 4
+- `@AppStorage("onboardingCompleted")` Bool, default false — set to true when user clicks "Start Using Casper" in step 4
 - Step state is local to the onboarding view (`@State private var currentStep: Int`)
 - Permission states polled/observed within the onboarding view
 - Model download state observed from existing `ModelManager` (shared instance from `AppState`)
