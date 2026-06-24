@@ -76,4 +76,143 @@ final class TelemetryCollectorTests: XCTestCase {
         }
         XCTAssertTrue(appActivatedExists, "Should have logged an appActivated event")
     }
+
+    @MainActor
+    func testTypingSessionDebouncingAndAccumulation() throws {
+        let keyEvent = NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            characters: "a",
+            charactersIgnoringModifiers: "a",
+            isARepeat: false,
+            keyCode: 0
+        )!
+
+        // Simulate multiple key presses
+        collector.handleKeyPress(keyEvent)
+        collector.handleKeyPress(keyEvent)
+        collector.handleKeyPress(keyEvent)
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone.current
+        let dateString = formatter.string(from: Date())
+
+        // Verify that NO typing session is written to disk immediately (debounced)
+        var events = try storage.loadEvents(forDateString: dateString)
+        let hasTypingSession = events.contains { event in
+            if case .typingSession = event { return true }
+            return false
+        }
+        XCTAssertFalse(hasTypingSession, "Typing session should not be written to disk immediately due to debouncing")
+
+        // Force a flush
+        collector.flushActiveTypingSession()
+
+        // Verify that exactly ONE typing session with a characterCount of 3 was logged
+        events = try storage.loadEvents(forDateString: dateString)
+        let typingEvents = events.compactMap { event -> (String, Int, Double)? in
+            if case .typingSession(let app, let count, let duration) = event {
+                return (app, count, duration)
+            }
+            return nil
+        }
+
+        XCTAssertEqual(typingEvents.count, 1, "Should have exactly one typing session logged")
+        XCTAssertEqual(typingEvents.first?.1, 3, "Character count should be 3")
+        XCTAssertFalse(typingEvents.first?.0.isEmpty ?? true, "App name should not be empty")
+    }
+
+    @MainActor
+    func testTypingSessionFlushesOnAppSwitch() throws {
+        let keyEvent = NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            characters: "b",
+            charactersIgnoringModifiers: "b",
+            isARepeat: false,
+            keyCode: 0
+        )!
+
+        collector.handleKeyPress(keyEvent)
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone.current
+        let dateString = formatter.string(from: Date())
+
+        // Calling pollWorkspaceState triggers a simulated app switch (since lastBundleID is initially empty)
+        collector.pollWorkspaceState()
+
+        let events = try storage.loadEvents(forDateString: dateString)
+        let typingEvents = events.compactMap { event -> Int? in
+            if case .typingSession(_, let count, _) = event {
+                return count
+            }
+            return nil
+        }
+
+        XCTAssertEqual(typingEvents.count, 1, "App switch should trigger automatic flush")
+        XCTAssertEqual(typingEvents.first, 1, "Character count should be 1")
+    }
+
+    @MainActor
+    func testTypingSessionFlushesOnMouseClick() throws {
+        let keyEvent = NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            characters: "c",
+            charactersIgnoringModifiers: "c",
+            isARepeat: false,
+            keyCode: 0
+        )!
+
+        collector.handleKeyPress(keyEvent)
+
+        let clickEvent = NSEvent.mouseEvent(
+            with: .leftMouseDown,
+            location: .zero,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            eventNumber: 0,
+            clickCount: 1,
+            pressure: 1.0
+        )!
+
+        // Simulate click
+        collector.handleMouseClick(clickEvent)
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone.current
+        let dateString = formatter.string(from: Date())
+
+        let events = try storage.loadEvents(forDateString: dateString)
+        let typingEvents = events.compactMap { event -> Int? in
+            if case .typingSession(_, let count, _) = event {
+                return count
+            }
+            return nil
+        }
+
+        XCTAssertEqual(typingEvents.count, 1, "Mouse click should trigger automatic flush")
+        XCTAssertEqual(typingEvents.first, 1, "Character count should be 1")
+    }
 }

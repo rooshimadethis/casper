@@ -26,6 +26,15 @@ final class TelemetryCollector: ObservableObject {
     private var stalledAppName: String?
     private var stallStartTime: Date?
 
+    // Typing tracking state
+    private var activeTypingAppName = ""
+    private var activeTypingStartTime: Date?
+    private var activeTypingLastTime: Date?
+    private var activeTypingCharCount = 0
+    private var typingDebounceTimer: Timer?
+    private var keyboardMonitor: Any?
+    private var localKeyboardMonitor: Any?
+
     init(
         storage: TelemetryStorage,
         powerMonitor: any TelemetryPowerMonitoring,
@@ -53,6 +62,21 @@ final class TelemetryCollector: ObservableObject {
                 self?.handleMouseClick(event)
             }
         }
+
+        // Global keyboard observer (requires Accessibility or Input Monitoring permissions)
+        keyboardMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
+            Task { @MainActor in
+                self?.handleKeyPress(event)
+            }
+        }
+
+        // Local keyboard observer (captures when Casper window is active)
+        localKeyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
+            Task { @MainActor in
+                self?.handleKeyPress(event)
+            }
+            return event
+        }
         
         // Record starting state
         pollWorkspaceState()
@@ -67,10 +91,21 @@ final class TelemetryCollector: ObservableObject {
             NSEvent.removeMonitor(monitor)
             clickMonitor = nil
         }
+
+        if let monitor = keyboardMonitor {
+            NSEvent.removeMonitor(monitor)
+            keyboardMonitor = nil
+        }
+        if let monitor = localKeyboardMonitor {
+            NSEvent.removeMonitor(monitor)
+            localKeyboardMonitor = nil
+        }
+        flushActiveTypingSession()
     }
 
     /// Public endpoint for shell integrations to forward executed command logs.
     func logCommandExecuted(command: String, exitCode: Int, output: String?) {
+        flushActiveTypingSession()
         let event = DesktopUserEvent.commandExecuted(command: command, exitCode: exitCode, output: output)
         try? storage.appendEvent(event)
         recordUserInteraction()
@@ -92,6 +127,7 @@ final class TelemetryCollector: ObservableObject {
 
         // 1. Detect App Activation or Window Title Changes
         if bundleID != lastBundleID {
+            flushActiveTypingSession()
             // Log Hesitation if user was looking at last focus and paused
             triggerHesitationCheckIfNeeded(now: now)
             
@@ -110,6 +146,7 @@ final class TelemetryCollector: ObservableObject {
             handleStallStatus(for: frontmost, appName: appName, now: now)
             
         } else if activeTitle != lastWindowTitle {
+            flushActiveTypingSession()
             // Log Window Title Change
             let event = DesktopUserEvent.windowTitleChanged(appName: appName, windowTitle: activeTitle)
             try? storage.appendEvent(event)
@@ -124,6 +161,7 @@ final class TelemetryCollector: ObservableObject {
         // 3. Clipboard copy monitoring
         let pasteboard = NSPasteboard.general
         if pasteboard.changeCount != lastChangeCount {
+            flushActiveTypingSession()
             lastChangeCount = pasteboard.changeCount
             if let text = pasteboard.string(forType: .string) {
                 let event = DesktopUserEvent.textCopied(text: text)
@@ -145,7 +183,8 @@ final class TelemetryCollector: ObservableObject {
         }
     }
 
-    private func handleMouseClick(_ event: NSEvent) {
+    func handleMouseClick(_ event: NSEvent) {
+        flushActiveTypingSession()
         recordUserInteraction()
         
         let screenLocation = NSEvent.mouseLocation
@@ -244,5 +283,71 @@ final class TelemetryCollector: ObservableObject {
             }
         }
         return nil
+    }
+
+    // MARK: - Typing Session Management
+
+    func handleKeyPress(_ event: NSEvent) {
+        guard let characters = event.characters, !characters.isEmpty else {
+            return
+        }
+
+        guard let frontmost = NSWorkspace.shared.frontmostApplication else {
+            return
+        }
+        let appName = frontmost.localizedName ?? "Unknown"
+
+        let now = Date()
+
+        if !activeTypingAppName.isEmpty && appName != activeTypingAppName {
+            flushActiveTypingSession()
+        }
+
+        if activeTypingAppName.isEmpty {
+            activeTypingAppName = appName
+            activeTypingStartTime = now
+            activeTypingCharCount = 0
+        }
+
+        activeTypingCharCount += 1
+        activeTypingLastTime = now
+        recordUserInteraction()
+
+        typingDebounceTimer?.invalidate()
+        typingDebounceTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                self?.flushActiveTypingSession()
+            }
+        }
+    }
+
+    func flushActiveTypingSession() {
+        typingDebounceTimer?.invalidate()
+        typingDebounceTimer = nil
+
+        guard !activeTypingAppName.isEmpty,
+              let startTime = activeTypingStartTime,
+              let lastTime = activeTypingLastTime,
+              activeTypingCharCount > 0 else {
+            activeTypingAppName = ""
+            activeTypingStartTime = nil
+            activeTypingLastTime = nil
+            activeTypingCharCount = 0
+            return
+        }
+
+        let duration = lastTime.timeIntervalSince(startTime)
+        let event = DesktopUserEvent.typingSession(
+            appName: activeTypingAppName,
+            characterCount: activeTypingCharCount,
+            durationSeconds: duration
+        )
+
+        try? storage.appendEvent(event)
+
+        activeTypingAppName = ""
+        activeTypingStartTime = nil
+        activeTypingLastTime = nil
+        activeTypingCharCount = 0
     }
 }

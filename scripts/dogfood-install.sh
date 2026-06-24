@@ -99,17 +99,17 @@ resolve_install_path() {
     return 0
   fi
 
-  if [ -d "$HOME_APP_PATH" ]; then
-    echo "$HOME_APP_PATH"
-    return 0
-  fi
-
   if [ -d "$DEFAULT_APP_PATH" ]; then
     echo "$DEFAULT_APP_PATH"
     return 0
   fi
 
-  echo "$HOME_APP_PATH"
+  if [ -d "$HOME_APP_PATH" ]; then
+    echo "$HOME_APP_PATH"
+    return 0
+  fi
+
+  echo "$DEFAULT_APP_PATH"
 }
 
 APP_INSTALL_PATH="$(resolve_install_path)"

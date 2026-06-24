@@ -11,6 +11,7 @@ enum DesktopUserEvent: Sendable, Codable {
     case mouseClicked(appName: String, elementClicked: String, x: Double, y: Double)
     case appStalled(appName: String, durationSeconds: Double)
     case userHesitated(appName: String, durationSeconds: Double)
+    case typingSession(appName: String, characterCount: Int, durationSeconds: Double)
 }
 
 /// Represents the accumulated real-time state of the user's workspace.
@@ -76,7 +77,7 @@ final class DesktopAgentBridge: ObservableObject {
             context.lastCommandOutput = output
         case .customInput(let prompt):
             context.activeGoal = prompt
-        case .mouseClicked, .appStalled, .userHesitated:
+        case .mouseClicked, .appStalled, .userHesitated, .typingSession:
             break
         }
 
@@ -100,7 +101,7 @@ final class DesktopAgentBridge: ObservableObject {
             // Evaluate if switching to developer/productivity tools
             let lowerTitle = context.activeWindowTitle.lowercased()
             return lowerTitle.contains("error") || lowerTitle.contains("issue") || lowerTitle.contains("pr")
-        case .screenOcrCaptured, .mouseClicked, .appStalled, .userHesitated:
+        case .screenOcrCaptured, .mouseClicked, .appStalled, .userHesitated, .typingSession:
             return false // Periodical/user clicks shouldn't auto-evaluate unless requested
         }
     }
