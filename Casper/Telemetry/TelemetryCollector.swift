@@ -208,14 +208,9 @@ final class TelemetryCollector: ObservableObject {
             let role = (roleValue as? String) ?? "UnknownRole"
             let label = title.isEmpty ? role : "\(role): \(title)"
             
-            let roundedX = (Double(screenLocation.x) * 10).rounded() / 10.0
-            let roundedY = (Double(screenLocation.y) * 10).rounded() / 10.0
-            
             let clickEvent = DesktopUserEvent.mouseClicked(
                 appName: lastAppName,
-                elementClicked: label,
-                x: roundedX,
-                y: roundedY
+                elementClicked: label
             )
             try? storage.appendEvent(clickEvent)
         }

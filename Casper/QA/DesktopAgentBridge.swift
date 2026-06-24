@@ -8,7 +8,7 @@ enum DesktopUserEvent: Sendable, Codable {
     case screenOcrCaptured(text: String)
     case commandExecuted(command: String, exitCode: Int, output: String?)
     case customInput(prompt: String)
-    case mouseClicked(appName: String, elementClicked: String, x: Double, y: Double)
+    case mouseClicked(appName: String, elementClicked: String)
     case appStalled(appName: String, durationSeconds: Double)
     case userHesitated(appName: String, durationSeconds: Double)
     case typingSession(appName: String, typedText: String, durationSeconds: Double)

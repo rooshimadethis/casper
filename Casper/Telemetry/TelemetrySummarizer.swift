@@ -279,8 +279,8 @@ final class TelemetrySummarizer: @unchecked Sendable {
                 output += "\(prefix)\(timestamp) Executed terminal command: `\(command)` | Exit Code: \(exitCode) | Output: \(truncatedOut)\n"
             case .customInput(let prompt):
                 output += "\(prefix)\(timestamp) Custom prompt input: \"\(prompt)\"\n"
-            case .mouseClicked(let app, let element, let x, let y):
-                output += "\(prefix)\(timestamp) Clicked UI element \"\(element)\" in app \(app) at coordinate (\(x), \(y))\n"
+            case .mouseClicked(let app, let element):
+                output += "\(prefix)\(timestamp) Clicked UI element \"\(element)\" in app \(app)\n"
             case .appStalled(let app, let duration):
                 output += "\(prefix)\(timestamp) App stalled: \(app) was unresponsive for \(String(format: "%.1f", duration))s\n"
             case .userHesitated(let app, let duration):
