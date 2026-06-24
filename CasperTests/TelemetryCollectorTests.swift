@@ -114,17 +114,17 @@ final class TelemetryCollectorTests: XCTestCase {
         // Force a flush
         collector.flushActiveTypingSession()
 
-        // Verify that exactly ONE typing session with a characterCount of 3 was logged
+        // Verify that exactly ONE typing session with a typedText of "aaa" was logged
         events = try storage.loadEvents(forDateString: dateString)
-        let typingEvents = events.compactMap { event -> (String, Int, Double)? in
-            if case .typingSession(let app, let count, let duration) = event {
-                return (app, count, duration)
+        let typingEvents = events.compactMap { event -> (String, String, Double)? in
+            if case .typingSession(let app, let text, let duration) = event {
+                return (app, text, duration)
             }
             return nil
         }
 
         XCTAssertEqual(typingEvents.count, 1, "Should have exactly one typing session logged")
-        XCTAssertEqual(typingEvents.first?.1, 3, "Character count should be 3")
+        XCTAssertEqual(typingEvents.first?.1, "aaa", "Typed text should be 'aaa'")
         XCTAssertFalse(typingEvents.first?.0.isEmpty ?? true, "App name should not be empty")
     }
 
@@ -155,15 +155,15 @@ final class TelemetryCollectorTests: XCTestCase {
         collector.pollWorkspaceState()
 
         let events = try storage.loadEvents(forDateString: dateString)
-        let typingEvents = events.compactMap { event -> Int? in
-            if case .typingSession(_, let count, _) = event {
-                return count
+        let typingEvents = events.compactMap { event -> String? in
+            if case .typingSession(_, let text, _) = event {
+                return text
             }
             return nil
         }
 
         XCTAssertEqual(typingEvents.count, 1, "App switch should trigger automatic flush")
-        XCTAssertEqual(typingEvents.first, 1, "Character count should be 1")
+        XCTAssertEqual(typingEvents.first, "b", "Typed text should be 'b'")
     }
 
     @MainActor
@@ -205,14 +205,64 @@ final class TelemetryCollectorTests: XCTestCase {
         let dateString = formatter.string(from: Date())
 
         let events = try storage.loadEvents(forDateString: dateString)
-        let typingEvents = events.compactMap { event -> Int? in
-            if case .typingSession(_, let count, _) = event {
-                return count
+        let typingEvents = events.compactMap { event -> String? in
+            if case .typingSession(_, let text, _) = event {
+                return text
             }
             return nil
         }
 
         XCTAssertEqual(typingEvents.count, 1, "Mouse click should trigger automatic flush")
-        XCTAssertEqual(typingEvents.first, 1, "Character count should be 1")
+        XCTAssertEqual(typingEvents.first, "c", "Typed text should be 'c'")
+     }
+
+    @MainActor
+    func testTypingSessionCapturesModifiersAndSpecialKeys() throws {
+        let cmdAEvent = NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: [.command],
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            characters: "a",
+            charactersIgnoringModifiers: "a",
+            isARepeat: false,
+            keyCode: 0
+        )!
+
+        let enterEvent = NSEvent.keyEvent(
+            with: .keyDown,
+            location: .zero,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            characters: "\r",
+            charactersIgnoringModifiers: "\r",
+            isARepeat: false,
+            keyCode: 36
+        )!
+
+        collector.handleKeyPress(cmdAEvent)
+        collector.handleKeyPress(enterEvent)
+        collector.flushActiveTypingSession()
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone.current
+        let dateString = formatter.string(from: Date())
+
+        let events = try storage.loadEvents(forDateString: dateString)
+        let typingEvents = events.compactMap { event -> String? in
+            if case .typingSession(_, let text, _) = event {
+                return text
+            }
+            return nil
+        }
+
+        XCTAssertEqual(typingEvents.count, 1)
+        XCTAssertEqual(typingEvents.first, "<Cmd+a><Enter>", "Modifiers and special keycodes should be formatted cleanly")
     }
 }

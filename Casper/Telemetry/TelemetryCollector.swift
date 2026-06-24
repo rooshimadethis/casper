@@ -30,7 +30,7 @@ final class TelemetryCollector: ObservableObject {
     private var activeTypingAppName = ""
     private var activeTypingStartTime: Date?
     private var activeTypingLastTime: Date?
-    private var activeTypingCharCount = 0
+    private var activeTypingText = ""
     private var typingDebounceTimer: Timer?
     private var keyboardMonitor: Any?
     private var localKeyboardMonitor: Any?
@@ -208,11 +208,14 @@ final class TelemetryCollector: ObservableObject {
             let role = (roleValue as? String) ?? "UnknownRole"
             let label = title.isEmpty ? role : "\(role): \(title)"
             
+            let roundedX = (Double(screenLocation.x) * 10).rounded() / 10.0
+            let roundedY = (Double(screenLocation.y) * 10).rounded() / 10.0
+            
             let clickEvent = DesktopUserEvent.mouseClicked(
                 appName: lastAppName,
                 elementClicked: label,
-                x: Double(screenLocation.x),
-                y: Double(screenLocation.y)
+                x: roundedX,
+                y: roundedY
             )
             try? storage.appendEvent(clickEvent)
         }
@@ -234,8 +237,9 @@ final class TelemetryCollector: ObservableObject {
             }
         } else {
             if let stalledApp = stalledAppName, let start = stallStartTime {
-                let duration = now.timeIntervalSince(start)
-                if duration >= 2.0 {
+                let rawDuration = now.timeIntervalSince(start)
+                if rawDuration >= 2.0 {
+                    let duration = (rawDuration * 10).rounded() / 10.0
                     let event = DesktopUserEvent.appStalled(appName: stalledApp, durationSeconds: duration)
                     try? storage.appendEvent(event)
                 }
@@ -249,7 +253,8 @@ final class TelemetryCollector: ObservableObject {
         if !didLogHesitationForCurrentFocus {
             let elapsedSinceInteraction = now.timeIntervalSince(lastEventTime)
             if elapsedSinceInteraction >= 3.0 && elapsedSinceInteraction <= 8.0 {
-                let event = DesktopUserEvent.userHesitated(appName: lastAppName, durationSeconds: elapsedSinceInteraction)
+                let roundedElapsed = (elapsedSinceInteraction * 10).rounded() / 10.0
+                let event = DesktopUserEvent.userHesitated(appName: lastAppName, durationSeconds: roundedElapsed)
                 try? storage.appendEvent(event)
                 didLogHesitationForCurrentFocus = true
             }
@@ -306,10 +311,57 @@ final class TelemetryCollector: ObservableObject {
         if activeTypingAppName.isEmpty {
             activeTypingAppName = appName
             activeTypingStartTime = now
-            activeTypingCharCount = 0
+            activeTypingText = ""
         }
 
-        activeTypingCharCount += 1
+        var representation = characters
+        
+        switch event.keyCode {
+        case 36:
+            representation = "<Enter>"
+        case 48:
+            representation = "<Tab>"
+        case 51:
+            representation = "<Backspace>"
+        case 53:
+            representation = "<Esc>"
+        case 117:
+            representation = "<Delete>"
+        default:
+            if characters == "\r" || characters == "\n" {
+                representation = "<Enter>"
+            } else if characters == "\u{0009}" {
+                representation = "<Tab>"
+            } else if characters == "\u{001B}" {
+                representation = "<Esc>"
+            } else if characters == "\u{007F}" || characters == "\u{0008}" {
+                representation = "<Backspace>"
+            }
+        }
+
+        var modifierStr = ""
+        let flags = event.modifierFlags
+        let hasCmd = flags.contains(.command)
+        let hasCtrl = flags.contains(.control)
+        let hasOpt = flags.contains(.option)
+        let hasShift = flags.contains(.shift)
+
+        if hasCmd { modifierStr += "Cmd+" }
+        if hasCtrl { modifierStr += "Ctrl+" }
+        if hasOpt { modifierStr += "Opt+" }
+        if hasShift {
+            let isLetter = characters.count == 1 && characters.first?.isLetter == true
+            let hasOtherModifiers = hasCmd || hasCtrl || hasOpt
+            if !isLetter || hasOtherModifiers {
+                modifierStr += "Shift+"
+            }
+        }
+
+        if !modifierStr.isEmpty {
+            representation = "<\(modifierStr)\(representation)>"
+        }
+
+        activeTypingText += representation
         activeTypingLastTime = now
         recordUserInteraction()
 
@@ -328,18 +380,19 @@ final class TelemetryCollector: ObservableObject {
         guard !activeTypingAppName.isEmpty,
               let startTime = activeTypingStartTime,
               let lastTime = activeTypingLastTime,
-              activeTypingCharCount > 0 else {
+              !activeTypingText.isEmpty else {
             activeTypingAppName = ""
             activeTypingStartTime = nil
             activeTypingLastTime = nil
-            activeTypingCharCount = 0
+            activeTypingText = ""
             return
         }
 
-        let duration = lastTime.timeIntervalSince(startTime)
+        let rawDuration = lastTime.timeIntervalSince(startTime)
+        let duration = (rawDuration * 10).rounded() / 10.0
         let event = DesktopUserEvent.typingSession(
             appName: activeTypingAppName,
-            characterCount: activeTypingCharCount,
+            typedText: activeTypingText,
             durationSeconds: duration
         )
 
@@ -348,6 +401,6 @@ final class TelemetryCollector: ObservableObject {
         activeTypingAppName = ""
         activeTypingStartTime = nil
         activeTypingLastTime = nil
-        activeTypingCharCount = 0
+        activeTypingText = ""
     }
 }

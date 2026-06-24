@@ -285,8 +285,9 @@ final class TelemetrySummarizer: @unchecked Sendable {
                 output += "\(prefix)\(timestamp) App stalled: \(app) was unresponsive for \(String(format: "%.1f", duration))s\n"
             case .userHesitated(let app, let duration):
                 output += "\(prefix)\(timestamp) User paused/hesitated on app: \(app) for \(String(format: "%.1f", duration))s\n"
-            case .typingSession(let app, let chars, let duration):
-                output += "\(prefix)\(timestamp) Typed \(chars) characters in \(app) over \(String(format: "%.1f", duration))s\n"
+            case .typingSession(let app, let text, let duration):
+                let truncated = text.count > 100 ? text.prefix(100) + "..." : text
+                output += "\(prefix)\(timestamp) Typed \"\(truncated)\" in \(app) over \(String(format: "%.1f", duration))s\n"
             }
         }
         return output
