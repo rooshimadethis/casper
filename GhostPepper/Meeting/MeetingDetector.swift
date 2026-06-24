@@ -59,8 +59,6 @@ final class MeetingDetector {
     }
 
     private static let videoSiteRules: [VideoSiteRule] = [
-        VideoSiteRule(urlPattern: "- youtube", siteName: "YouTube", playingPrefix: nil),
-        VideoSiteRule(urlPattern: "youtube.com", siteName: "YouTube", playingPrefix: nil),
         VideoSiteRule(urlPattern: "loom.com", siteName: "Loom", playingPrefix: nil),
         VideoSiteRule(urlPattern: "- vimeo", siteName: "Vimeo", playingPrefix: nil),
         VideoSiteRule(urlPattern: "vimeo.com", siteName: "Vimeo", playingPrefix: nil),

@@ -53,14 +53,12 @@ struct GhostPepperApp: App {
                 if onboardingCompleted {
                     Task {
                         await appState.initialize()
-                        appState.showMeetingTranscriptWindow()
                     }
                 } else {
                     onboardingController.show(appState: appState) {
                         onboardingCompleted = true
                         Task {
                             await appState.initialize()
-                            appState.showMeetingTranscriptWindow()
                         }
                     }
                 }

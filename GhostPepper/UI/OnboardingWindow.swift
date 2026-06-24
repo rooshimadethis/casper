@@ -99,6 +99,7 @@ class OnboardingWindowController {
     func dismiss() {
         window?.close()
         window = nil
+        NSApp.setActivationPolicy(.accessory)
     }
 }
 
