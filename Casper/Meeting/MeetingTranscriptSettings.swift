@@ -4,10 +4,10 @@ import Foundation
 enum MeetingTranscriptSettings {
     private static let saveDirectoryKey = "meetingTranscriptSaveDirectory"
 
-    /// Returns the default save directory: ~/Documents/Casper Meetings/
+    /// Returns the default save directory: ~/Library/Application Support/Casper/Meetings/
     static func defaultSaveDirectory() -> URL {
-        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        return documents.appendingPathComponent("Casper Meetings")
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        return appSupport.appendingPathComponent("Casper/Meetings")
     }
 
     /// Load the user-chosen save directory, or nil to use the default.

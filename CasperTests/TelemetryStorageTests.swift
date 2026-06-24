@@ -112,4 +112,55 @@ final class TelemetryStorageTests: XCTestCase {
             )
         }
     }
+
+    func testRollActiveLogCreatesNewTimestampedFile() throws {
+        let baseTime = Date(timeIntervalSince1970: 1_719_225_600)
+        let event1 = DesktopUserEvent.textCopied(text: "First event")
+        let event2 = DesktopUserEvent.textCopied(text: "Second event")
+
+        try storage.appendEvent(event1, recordedAt: baseTime)
+        
+        // Roll the log
+        storage.rollActiveLog()
+        
+        // Append another event, which should go to a new timestamped file (time + 1s to ensure distinct timestamp)
+        try storage.appendEvent(event2, recordedAt: baseTime.addingTimeInterval(1))
+
+        let remainingFiles = try FileManager.default.contentsOfDirectory(at: tempDirectory, includingPropertiesForKeys: nil)
+        let logFiles = remainingFiles.filter { $0.lastPathComponent.hasPrefix("telemetry_events_") && $0.lastPathComponent.hasSuffix(".jsonl") }
+        
+        XCTAssertEqual(logFiles.count, 2)
+    }
+
+    func testLoadEventRecordsWithDatePrefix() throws {
+        let baseTime = Date(timeIntervalSince1970: 1_719_225_600)
+        let event1 = DesktopUserEvent.textCopied(text: "Event one")
+        let event2 = DesktopUserEvent.textCopied(text: "Event two")
+
+        try storage.appendEvent(event1, recordedAt: baseTime)
+        storage.rollActiveLog()
+        try storage.appendEvent(event2, recordedAt: baseTime.addingTimeInterval(5))
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone.current
+        let dateString = formatter.string(from: baseTime)
+
+        // Querying using the date prefix YYYY-MM-DD should merge events across both files
+        let records = try storage.loadEventRecords(forDateString: dateString)
+        XCTAssertEqual(records.count, 2)
+        
+        if case .textCopied(let text1) = records[0].event {
+            XCTAssertEqual(text1, "Event one")
+        } else {
+            XCTFail("First event is not textCopied")
+        }
+
+        if case .textCopied(let text2) = records[1].event {
+            XCTAssertEqual(text2, "Event two")
+        } else {
+            XCTFail("Second event is not textCopied")
+        }
+    }
 }

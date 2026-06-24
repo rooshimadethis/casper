@@ -83,6 +83,8 @@ final class TelemetrySummarizer: @unchecked Sendable {
     // MARK: - Core Processing Logic
 
     private func processRawLogs() async {
+        storage.rollActiveLog()
+        
         let fileManager = FileManager.default
         let storageDir = storage.storageDirectory
         
