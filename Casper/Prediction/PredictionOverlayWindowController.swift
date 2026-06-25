@@ -12,14 +12,16 @@ final class PredictionOverlayWindowController: NSObject {
 
     var debugLogger: ((DebugLogCategory, String) -> Void)?
 
-    private let predictor: RuntimePredictor
+    private let predictor: any PredictionProviding
+    private let executor: any ActionExecuting
 
     var isVisible: Bool {
         panel?.isVisible ?? false
     }
 
-    init(predictor: RuntimePredictor) {
+    init(predictor: any PredictionProviding, executor: any ActionExecuting) {
         self.predictor = predictor
+        self.executor = executor
         super.init()
         subscribe()
     }
@@ -45,7 +47,7 @@ final class PredictionOverlayWindowController: NSObject {
     }
 
     private func subscribe() {
-        predictor.$topPredictions
+        predictor.predictionsPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] predictions in
                 guard let self else { return }
@@ -159,23 +161,15 @@ final class PredictionOverlayWindowController: NSObject {
 
     private func handleAction(_ prediction: Prediction) {
         debugLogger?(.prediction, "Action triggered: \(prediction.token)")
-        if prediction.token.hasPrefix("a:") {
-            let bundleID = prediction.suggestedContent
-            if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
-                NSWorkspace.shared.open(appURL)
-                debugLogger?(.prediction, "Launched app: \(bundleID)")
-            } else {
-                debugLogger?(.prediction, "Failed to find app for bundle: \(bundleID)")
-            }
-        }
-        predictor.currentPrediction = nil
+        Task { await executor.execute(prediction) }
+        predictor.consumePrediction()
         currentPredictions = []
         hidePanel()
     }
 
     private func handleDismiss() {
         debugLogger?(.prediction, "Overlay dismissed by user")
-        predictor.currentPrediction = nil
+        predictor.consumePrediction()
         currentPredictions = []
         hidePanel()
     }

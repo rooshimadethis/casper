@@ -127,7 +127,8 @@ class AppState: ObservableObject {
     let telemetrySummarizer: TelemetrySummarizer
     let telemetryReportWriter: TelemetryReportWriter
     let predictionTrainer: PredictionTrainer
-    let runtimePredictor: RuntimePredictor
+    let predictor: any PredictionProviding
+    let executor: any ActionExecuting
     let predictionOverlayController: PredictionOverlayWindowController
     let usageStats = UsageStatsStore()
     let frontmostWindowOCRService: FrontmostWindowOCRService
@@ -267,14 +268,16 @@ class AppState: ObservableObject {
             return PpmTrie()
         }()
         let predictor = RuntimePredictor(trie: predictionTrie)
-        self.runtimePredictor = predictor
+        self.predictor = predictor
+        let executor = DefaultActionExecutor()
+        self.executor = executor
         collector.onEvent = { [weak predictor] event in
             predictor?.ingest(event: event)
         }
         self.predictionTrainer = PredictionTrainer(storage: storage, trie: predictionTrie, powerMonitor: powerMonitor)
         self.telemetrySummarizer = TelemetrySummarizer(storage: storage, powerMonitor: powerMonitor, cleanupManager: self.textCleanupManager, predictionTrainer: self.predictionTrainer)
         self.telemetryReportWriter = TelemetryReportWriter(storage: storage, powerMonitor: powerMonitor, cleanupManager: self.textCleanupManager)
-        self.predictionOverlayController = PredictionOverlayWindowController(predictor: predictor)
+        self.predictionOverlayController = PredictionOverlayWindowController(predictor: predictor, executor: executor)
         self.frontmostWindowOCRService = frontmostWindowOCRService
         self.recordingOCRPrefetch = RecordingOCRPrefetch { [frontmostWindowOCRService] customWords in
             await frontmostWindowOCRService.captureContext(customWords: customWords)
@@ -460,7 +463,8 @@ class AppState: ObservableObject {
         self.modelManager.debugLogger = componentDebugLogger
         self.telemetryCollector.debugLogger = componentDebugLogger
         self.predictionTrainer.debugLogger = componentDebugLogger
-        self.runtimePredictor.debugLogger = componentDebugLogger
+        self.predictor.debugLogger = componentDebugLogger
+        self.executor.debugLogger = componentDebugLogger
         self.predictionOverlayController.debugLogger = componentDebugLogger
     }
 
@@ -576,8 +580,7 @@ class AppState: ObservableObject {
         // Start meeting detection if enabled
         setupMeetingDetector()
 
-        let trieNodeCount = runtimePredictor.trie.nodeCount()
-        debugLogStore.record(category: .prediction, message: "Prediction system initialized (trie nodes: \(trieNodeCount), threshold: \(runtimePredictor.confidenceThreshold))")
+        debugLogStore.record(category: .prediction, message: "Prediction system initialized (\(predictor.predictionStateDump))")
     }
 
     func relaunchApp() {
@@ -1931,9 +1934,7 @@ class AppState: ObservableObject {
         telemetryCollector.stop()
         telemetrySummarizer.stop()
         telemetryReportWriter.stop()
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let trieURL = appSupport.appendingPathComponent("Casper/prediction/ppm_trie.json")
-        try? runtimePredictor.trie.save(to: trieURL)
+        try? predictor.savePredictionState()
         if let session = activeMeetingSession {
             Task { await session.stop() }
         }

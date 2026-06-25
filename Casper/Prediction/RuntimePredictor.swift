@@ -1,23 +1,24 @@
 import Foundation
 import Combine
 
-struct Prediction: Sendable, Equatable {
-    let token: String
-    let confidence: Double
-    let displayTitle: String
-    let displayDescription: String
-    let suggestedContent: String
-}
-
-final class RuntimePredictor: ObservableObject {
-    @Published var currentPrediction: Prediction?
-    @Published var topPredictions: [Prediction] = []
+final class RuntimePredictor: PredictionProviding {
+    private(set) var currentPrediction: Prediction?
+    private(set) var topPredictions: [Prediction] = []
 
     var debugLogger: ((DebugLogCategory, String) -> Void)?
 
-    let trie: PpmTrie
-    let confidenceThreshold: Double
-    let microStore: MicroStore
+    private let microStore: MicroStore
+    private let trie: PpmTrie
+    private let confidenceThreshold: Double
+    private let predictionsSubject = CurrentValueSubject<[Prediction], Never>([])
+
+    var predictionsPublisher: AnyPublisher<[Prediction], Never> {
+        predictionsSubject.eraseToAnyPublisher()
+    }
+
+    var predictionStateDump: String {
+        "trie_nodes: \(trie.nodeCount()), threshold: \(confidenceThreshold)"
+    }
 
     private var slidingWindow: [String] = []
     private var bundleIDToAppName: [String: String] = [:]
@@ -29,6 +30,19 @@ final class RuntimePredictor: ObservableObject {
         self.trie = trie
         self.confidenceThreshold = confidenceThreshold
         self.microStore = microStore
+    }
+
+    func consumePrediction() {
+        currentPrediction = nil
+        topPredictions = []
+        predictionsSubject.send([])
+        lastEmittedPrediction = nil
+    }
+
+    func savePredictionState() throws {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let trieURL = appSupport.appendingPathComponent("Casper/prediction/ppm_trie.json")
+        try trie.save(to: trieURL)
     }
 
     func ingest(event: DesktopUserEvent) {
@@ -65,6 +79,7 @@ final class RuntimePredictor: ObservableObject {
             }
         }
         topPredictions = built
+        predictionsSubject.send(built)
 
         guard let top = built.first, top.confidence >= confidenceThreshold else {
             if currentPrediction != nil {
