@@ -1,15 +1,13 @@
 import SwiftUI
 
 struct PredictionOverlayView: View {
-    let predictions: [Prediction]
-    let chain: ActionChainPrediction?
-    let onAction: (Prediction) -> Void
+    let chains: [ActionChainPrediction]
     let onDismiss: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("Top Predictions")
+                Text("Top Chains")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.primary)
                 Spacer()
@@ -24,19 +22,12 @@ struct PredictionOverlayView: View {
 
             Divider()
 
-            if let chain, !chain.steps.isEmpty {
-                ChainPreviewView(chain: chain)
-                Divider()
-            }
-
-            ForEach(Array(predictions.enumerated()), id: \.offset) { index, prediction in
-                PredictionRowView(
-                    prediction: prediction,
-                    rank: index + 1,
-                    onAction: { onAction(prediction) }
-                )
-                if index < predictions.count - 1 {
-                    Divider().padding(.leading, 14)
+            if !chains.isEmpty {
+                ForEach(Array(chains.prefix(3).enumerated()), id: \.offset) { index, chain in
+                    ChainPreviewView(chain: chain)
+                    if index < min(chains.count, 3) - 1 {
+                        Divider().padding(.leading, 14)
+                    }
                 }
             }
         }
@@ -91,47 +82,6 @@ private struct ChainPreviewView: View {
     }
 }
 
-private struct PredictionRowView: View {
-    let prediction: Prediction
-    let rank: Int
-    let onAction: () -> Void
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Text("\(rank).")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.secondary)
-                .frame(width: 16, alignment: .trailing)
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(prediction.displayTitle)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.primary)
-                    .lineLimit(1)
-
-                HStack(spacing: 6) {
-                    ConfidenceBarView(confidence: prediction.confidence)
-                        .frame(width: 60, height: 6)
-                    Text("\(Int(prediction.confidence * 100))%")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                        .monospacedDigit()
-                }
-            }
-
-            Spacer()
-
-            if rank == 1 {
-                Button("Go", action: onAction)
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 6)
-    }
-}
-
 private extension PredictedActionStep {
     var displayText: String {
         switch self {
@@ -150,28 +100,6 @@ private extension PredictedActionStep {
         let cleaned = text.replacingOccurrences(of: "\n", with: " ")
         if cleaned.count <= 42 { return cleaned }
         return String(cleaned.prefix(39)) + "..."
-    }
-}
-
-private struct ConfidenceBarView: View {
-    let confidence: Double
-
-    var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(.quaternary)
-                Capsule()
-                    .fill(confidenceColor)
-                    .frame(width: geo.size.width * confidence)
-            }
-        }
-    }
-
-    private var confidenceColor: Color {
-        if confidence >= 0.7 { return .green }
-        if confidence >= 0.5 { return .orange }
-        return .secondary
     }
 }
 

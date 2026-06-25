@@ -134,6 +134,11 @@ final class RuntimePredictor: PredictionProviding {
             return
         }
 
+        guard Self.shouldAdvanceRuntimeContext(for: event) else {
+            debugLogger?(.prediction, "Ingest: ignored noisy runtime token=\(token)")
+            return
+        }
+
         slidingWindow.append(token)
         if slidingWindow.count > PpmTrie.maxDepth {
             slidingWindow = Array(slidingWindow.suffix(PpmTrie.maxDepth))
@@ -152,7 +157,7 @@ final class RuntimePredictor: PredictionProviding {
                 discardedTokens.append(pred.token)
             }
         }
-        built = rankedPredictions(built).prefix(5).map { $0 }
+        built = rankedPredictions(built).prefix(3).map { $0 }
         topPredictions = built
         predictionsSubject.send(built)
 
@@ -177,6 +182,23 @@ final class RuntimePredictor: PredictionProviding {
         debugLogger?(.prediction, "Prediction emitted: \(top.displayTitle) (\(Int(top.confidence * 100))%)")
         currentPrediction = top
         lastEmittedPrediction = top
+    }
+
+    private static func shouldAdvanceRuntimeContext(for event: DesktopUserEvent) -> Bool {
+        guard case .mouseClicked(_, let elementClicked, _, let selectedText) = event else {
+            return true
+        }
+
+        if let selectedText, !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return true
+        }
+
+        return clickHasConcreteLocation(elementClicked)
+    }
+
+    private static func clickHasConcreteLocation(_ elementDescription: String) -> Bool {
+        let details = ["Title:", "Description:", "Value:", "Placeholder:", "ID:"]
+        return details.contains { elementDescription.localizedCaseInsensitiveContains($0) }
     }
 
     private func updateContext(from event: DesktopUserEvent) {

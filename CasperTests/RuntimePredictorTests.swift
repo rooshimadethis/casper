@@ -255,6 +255,37 @@ final class RuntimePredictorTests: XCTestCase {
         XCTAssertNil(predictor.currentPrediction)
     }
 
+    func testBareClickDoesNotAdvanceRuntimePredictionContext() {
+        let trie = PpmTrie()
+        trie.insert(tokens: ["a:com.xcode", "k:Ghostty:terminal"])
+        trie.insert(tokens: ["m:Finder:AXButton", "a:com.bad"])
+
+        let microStore = MicroStore()
+        microStore.record(value: "git status", forContext: "a:com.xcode → k:Ghostty:terminal", weight: 1)
+        let predictor = RuntimePredictor(trie: trie, confidenceThreshold: 0.0, microStore: microStore)
+
+        predictor.ingest(event: .appActivated(appName: "Xcode", bundleID: "com.xcode", windowTitle: ""))
+        predictor.ingest(event: .mouseClicked(appName: "Finder", elementClicked: "AXButton", clickCount: 1, selectedText: nil))
+
+        XCTAssertEqual(predictor.topPredictions.first?.token, "k:Ghostty:terminal")
+        XCTAssertEqual(predictor.topPredictions.first?.suggestedContent, "git status")
+    }
+
+    func testLabeledClickAdvancesRuntimePredictionContext() {
+        let trie = PpmTrie()
+        trie.insert(tokens: [
+            "a:com.xcode",
+            "m:Finder:AXButton",
+            "a:com.after",
+        ])
+        let predictor = RuntimePredictor(trie: trie, confidenceThreshold: 0.0)
+
+        predictor.ingest(event: .appActivated(appName: "Xcode", bundleID: "com.xcode", windowTitle: ""))
+        predictor.ingest(event: .mouseClicked(appName: "Finder", elementClicked: "AXButton (Title: Continue)", clickCount: 1, selectedText: nil))
+
+        XCTAssertEqual(predictor.topPredictions.first?.token, "a:com.after")
+    }
+
     // MARK: - Action Chain Tests
 
     func testPredictActionChainsRollsForwardFromCurrentContext() {
