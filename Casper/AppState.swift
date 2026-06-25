@@ -270,7 +270,14 @@ class AppState: ObservableObject {
             return PpmTrie()
         }()
         self.predictionTrie = predictionTrie
-        let predictionMicroStore = MicroStore()
+        let predictionMicroStore: MicroStore = {
+            let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            let microStoreURL = appSupport.appendingPathComponent("Casper/prediction/micro_store.json")
+            if let loaded = try? MicroStore.load(from: microStoreURL) {
+                return loaded
+            }
+            return MicroStore()
+        }()
         self.predictionMicroStore = predictionMicroStore
         let predictor = RuntimePredictor(trie: predictionTrie, microStore: predictionMicroStore)
         self.predictor = predictor
@@ -586,6 +593,7 @@ class AppState: ObservableObject {
         setupMeetingDetector()
 
         debugLogStore.record(category: .prediction, message: "Prediction system initialized (\(predictor.predictionStateDump))")
+        predictionOverlayController.show()
     }
 
     func relaunchApp() {
@@ -609,7 +617,7 @@ class AppState: ObservableObject {
 
     func retrainPredictionModel() {
         debugLogStore.record(category: .prediction, message: "Retrain triggered from menu bar")
-        predictionTrainer.train(force: true)
+        predictionTrainer.train(force: true, rebuild: true)
     }
 
     func togglePredictionOverlay() {

@@ -195,6 +195,32 @@ final class RuntimePredictorTests: XCTestCase {
         XCTAssertEqual(predictor.currentPrediction?.suggestedContent, "vim")
     }
 
+    func testKTokenUsesSuffixMicroLookup() {
+        let trie = PpmTrie()
+        trie.insert(tokens: ["a:com.xcode", "a:com.ghostty", "k:Ghostty:terminal"])
+        let microStore = MicroStore()
+        microStore.record(value: "git push", forContext: "a:com.ghostty → k:Ghostty:terminal", weight: 1)
+        let predictor = RuntimePredictor(trie: trie, confidenceThreshold: 0.0, microStore: microStore)
+
+        predictor.ingest(event: .appActivated(appName: "Xcode", bundleID: "com.xcode", windowTitle: ""))
+        predictor.ingest(event: .appActivated(appName: "Ghostty", bundleID: "com.ghostty", windowTitle: ""))
+
+        XCTAssertEqual(predictor.currentPrediction?.suggestedContent, "git push")
+        XCTAssertEqual(predictor.currentPrediction?.displayDescription, "1 times before")
+    }
+
+    func testGenericKTokenStillRequiresMoreThanOneMicroHit() {
+        let trie = PpmTrie()
+        trie.insert(tokens: ["k:Slack:text_field", "k:Slack:text_field"])
+        let microStore = MicroStore()
+        microStore.record(value: "one-off message", forContext: "k:Slack:text_field → k:Slack:text_field", weight: 1)
+        let predictor = RuntimePredictor(trie: trie, confidenceThreshold: 0.0, microStore: microStore)
+
+        predictor.ingest(event: .typingSession(appName: "Slack", targetElement: "AXTextArea", typedText: "hello", durationSeconds: 1.0))
+
+        XCTAssertNil(predictor.currentPrediction)
+    }
+
     // MARK: - Action Chain Tests
 
     func testPredictActionChainsRollsForwardFromCurrentContext() {

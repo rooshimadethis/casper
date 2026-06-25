@@ -186,10 +186,16 @@ final class RuntimePredictor: PredictionProviding {
 
     private func microValue(for token: String, context: [String]) -> (value: String, count: Int)? {
         guard token.hasPrefix("k:") || token.hasPrefix("m:") else { return nil }
-        let contextHash = (context + [token]).joined(separator: " → ")
-        let results = microStore.predict(for: contextHash)
-        guard let top = results.first, top.count >= 3 else { return nil }
+        let results = microStore.predict(forContext: context, targetToken: token)
+        guard let top = results.first, top.count >= microCountThreshold(for: token) else { return nil }
         return top
+    }
+
+    private func microCountThreshold(for token: String) -> Int {
+        if token.hasPrefix("k:") {
+            return token.contains(":terminal") || token.contains(":search") ? 1 : 2
+        }
+        return 3
     }
 
     private func actionStep(for prediction: Prediction) -> PredictedActionStep? {

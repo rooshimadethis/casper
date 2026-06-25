@@ -10,6 +10,9 @@ final class PredictionDebugWindowController: NSObject, NSWindowDelegate {
         if let window = window {
             self.trie = trie
             self.microStore = microStore
+            window.contentViewController = NSHostingController(
+                rootView: PredictionDebugView(trie: trie, microStore: microStore)
+            )
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
@@ -72,7 +75,9 @@ private struct PredictionDebugView: View {
             switch selectedTab {
             case .trie:
                 if let snapshot = trieSnapshot {
-                    TrieTabView(snapshot: snapshot)
+                    TrieTabView(snapshot: snapshot) {
+                        trieSnapshot = trie.snapshot()
+                    }
                 } else {
                     ProgressView("Loading trie...")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -94,6 +99,7 @@ private struct PredictionDebugView: View {
 
 private struct TrieTabView: View {
     let snapshot: TrieNodeSnapshot
+    let onRefresh: () -> Void
 
     @State private var searchText = ""
 
@@ -124,6 +130,14 @@ private struct TrieTabView: View {
                 Text("\(snapshot.children.count) top paths · \(totalLeafCount) nodes")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                Button {
+                    refreshSnapshot()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.borderless)
+                .help("Refresh trie snapshot")
             }
             .padding(.horizontal)
 
@@ -146,6 +160,10 @@ private struct TrieTabView: View {
             }
         }
         .padding(.vertical)
+    }
+
+    private func refreshSnapshot() {
+        onRefresh()
     }
 
     private func countLeaves(_ node: TrieNodeSnapshot) -> Int {
@@ -290,6 +308,14 @@ private struct MicroTabView: View {
                 Text("\(entries.count) contexts")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                Button {
+                    refreshEntries()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.borderless)
+                .help("Refresh micro store")
             }
             .padding(.horizontal)
 
@@ -311,8 +337,12 @@ private struct MicroTabView: View {
         }
         .padding(.vertical)
         .onAppear {
-            entries = microStore.allEntries
+            refreshEntries()
         }
+    }
+
+    private func refreshEntries() {
+        entries = microStore.allEntries
     }
 }
 

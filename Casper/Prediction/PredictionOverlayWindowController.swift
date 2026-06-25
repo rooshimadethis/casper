@@ -183,7 +183,7 @@ final class PredictionOverlayWindowController: NSObject {
         let panelHeight = panel.frame.height
 
         let x = visible.midX - panelWidth / 2
-        let y = visible.minY + 40
+        let y = visible.maxY - panelHeight - 10
 
         panel.setFrameOrigin(NSPoint(x: x, y: y))
     }

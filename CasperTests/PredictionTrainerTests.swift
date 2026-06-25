@@ -128,6 +128,47 @@ final class PredictionTrainerTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: triePath.path))
     }
 
+    func testRebuildIgnoresProgressAndReplacesExistingTrie() throws {
+        let eventsDir = tempDirectory.appendingPathComponent("events", isDirectory: true)
+        try FileManager.default.createDirectory(at: eventsDir, withIntermediateDirectories: true)
+        let dateString = TelemetryStorageDateHelper.dateString(for: Date())
+        let eventFile = eventsDir.appendingPathComponent("telemetry_events_\(dateString).jsonl")
+
+        try writeRecords([
+            .init(recordedAt: Date(), event: .appActivated(appName: "A", bundleID: "com.a", windowTitle: "")),
+            .init(recordedAt: Date(), event: .appActivated(appName: "B", bundleID: "com.b", windowTitle: "")),
+            .init(recordedAt: Date(), event: .appActivated(appName: "A", bundleID: "com.a", windowTitle: "")),
+            .init(recordedAt: Date(), event: .appActivated(appName: "B", bundleID: "com.b", windowTitle: "")),
+        ], to: eventFile)
+
+        let monitor = MockPowerMonitor(idle: true, acPower: true)
+        let predDir = tempDirectory.appendingPathComponent("prediction")
+        let trainer = PredictionTrainer(
+            storage: storage,
+            trie: trie,
+            powerMonitor: monitor,
+            predictionDirectory: predDir
+        )
+
+        trainer.train(force: true)
+        waitForTrainingTick()
+        XCTAssertEqual(trie.predict(context: ["a:com.a"]).first?.token, "a:com.b")
+
+        try writeRecords([
+            .init(recordedAt: Date(), event: .appActivated(appName: "A", bundleID: "com.a", windowTitle: "")),
+            .init(recordedAt: Date(), event: .appActivated(appName: "C", bundleID: "com.c", windowTitle: "")),
+            .init(recordedAt: Date(), event: .appActivated(appName: "A", bundleID: "com.a", windowTitle: "")),
+            .init(recordedAt: Date(), event: .appActivated(appName: "C", bundleID: "com.c", windowTitle: "")),
+        ], to: eventFile)
+
+        trainer.train(force: true, rebuild: true)
+        waitForTrainingTick()
+
+        let predictions = trie.predict(context: ["a:com.a"])
+        XCTAssertEqual(predictions.first?.token, "a:com.c")
+        XCTAssertFalse(predictions.contains { $0.token == "a:com.b" })
+    }
+
     func testForceBypassesIdleGate() {
         let monitor = MockPowerMonitor(idle: false, acPower: false)
         let trainer = PredictionTrainer(storage: storage, trie: trie, powerMonitor: monitor,
@@ -237,7 +278,7 @@ final class PredictionTrainerTests: XCTestCase {
         let contextHash = "a:com.google.Chrome → m:Chrome:AXButton"
         let predictions = microStore.predict(for: contextHash)
         XCTAssertFalse(predictions.isEmpty)
-        XCTAssertEqual(predictions.first?.value, "AXButton (Title: Reload)")
+        XCTAssertEqual(predictions.first?.value, "Reload")
     }
 
     func testMicroValuesRespectCountFloor() throws {
@@ -432,6 +473,27 @@ final class PredictionTrainerTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: microStorePath.path))
         let loaded = try MicroStore.load(from: microStorePath)
         XCTAssertTrue(loaded.store.isEmpty)
+    }
+}
+
+private extension PredictionTrainerTests {
+    func waitForTrainingTick() {
+        let expectation = XCTestExpectation()
+        DispatchQueue.global().asyncAfter(deadline: .now() + 1.0) {
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 2.0)
+    }
+
+    func writeRecords(_ records: [TelemetryEventRecord], to url: URL) throws {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        var data = Data()
+        for record in records {
+            data.append(try encoder.encode(record))
+            data.append("\n".data(using: .utf8)!)
+        }
+        try data.write(to: url)
     }
 }
 

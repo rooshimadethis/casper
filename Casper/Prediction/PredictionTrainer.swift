@@ -33,12 +33,16 @@ final class PredictionTrainer: @unchecked Sendable {
     }
 
     func train(force: Bool = false) {
+        train(force: force, rebuild: false)
+    }
+
+    func train(force: Bool = false, rebuild: Bool) {
         guard processTask == nil else {
             debugLogger?(.prediction, "Training skipped: already in progress")
             return
         }
 
-        debugLogger?(.prediction, "Training started (forced: \(force))")
+        debugLogger?(.prediction, "Training started (forced: \(force), rebuild: \(rebuild))")
 
         processTask = Task(priority: .background) {
             defer {
@@ -51,12 +55,15 @@ final class PredictionTrainer: @unchecked Sendable {
                 return
             }
 
-            await processAllEvents()
+            await processAllEvents(rebuild: rebuild)
         }
     }
 
-    private func processAllEvents() async {
-        if let loaded = try? MicroStore.load(from: microStoreURL) {
+    private func processAllEvents(rebuild: Bool) async {
+        if rebuild {
+            trie.reset()
+            microStore.reset()
+        } else if let loaded = try? MicroStore.load(from: microStoreURL) {
             microStore.store = loaded.store
         }
 
@@ -76,7 +83,7 @@ final class PredictionTrainer: @unchecked Sendable {
 
             debugLogger?(.prediction, "Training: processing \(logFiles.count) telemetry files")
 
-            var progress = loadProgress()
+            var progress = rebuild ? TrainingProgress() : loadProgress()
 
             for fileURL in logFiles {
                 if Task.isCancelled {
@@ -164,11 +171,14 @@ final class PredictionTrainer: @unchecked Sendable {
 
                 switch record.event {
                 case .typingSession(_, _, let typedText, _):
-                    if !isKeyboardShortcut(typedText) {
-                        microStore.record(value: typedText, forContext: contextHash, weight: Int(weight))
+                    if !isKeyboardShortcut(typedText),
+                       let normalizedText = MicroValueNormalizer.normalizeTypedText(typedText, token: token) {
+                        microStore.record(value: normalizedText, forContext: contextHash, weight: Int(weight))
                     }
                 case .mouseClicked(_, let elementClicked, _, let selectedText):
-                    microStore.record(value: elementClicked, forContext: contextHash, weight: Int(weight))
+                    if let normalizedTarget = MicroValueNormalizer.normalizeClickTarget(elementClicked) {
+                        microStore.record(value: normalizedTarget, forContext: contextHash, weight: Int(weight))
+                    }
                     if let selectedText, !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         microStore.record(value: selectedText, forContext: contextHash, weight: Int(weight))
                     }

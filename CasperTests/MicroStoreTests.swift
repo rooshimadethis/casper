@@ -3,6 +3,30 @@ import XCTest
 
 final class MicroStoreTests: XCTestCase {
 
+    func testNormalizeTerminalCommandKeepsCommandAndSubcommand() {
+        XCTAssertEqual(
+            MicroValueNormalizer.normalizeTypedText("git push origin main", token: "k:Ghostty:terminal"),
+            "git push"
+        )
+    }
+
+    func testNormalizeTypedTextRejectsLongMultilineProseOutsideTerminal() {
+        XCTAssertNil(
+            MicroValueNormalizer.normalizeTypedText("hello\nthis is a longer note", token: "k:Slack:text_field")
+        )
+    }
+
+    func testNormalizeClickTargetExtractsTitle() {
+        XCTAssertEqual(
+            MicroValueNormalizer.normalizeClickTarget("AXButton (Title: Reload)"),
+            "Reload"
+        )
+    }
+
+    func testNormalizeClickTargetRejectsStructuralRoleWithoutLabel() {
+        XCTAssertNil(MicroValueNormalizer.normalizeClickTarget("AXScrollArea"))
+    }
+
     func testRecordAndRetrieve() {
         let store = MicroStore()
         store.record(value: "killall Finder", forContext: "ctx")
@@ -92,5 +116,32 @@ final class MicroStoreTests: XCTestCase {
         let result = store.predict(for: "ctx")
         let totalCount = result.reduce(0) { $0 + $1.count }
         XCTAssertEqual(totalCount, iterations)
+    }
+
+    func testPredictForContextSuffixFallsBackToShorterContext() {
+        let store = MicroStore()
+        store.record(value: "git push", forContext: "a:Ghostty → k:Ghostty:terminal", weight: 2)
+
+        let result = store.predict(forContext: [
+            "a:Xcode",
+            "t:Xcode",
+            "a:Ghostty",
+        ], targetToken: "k:Ghostty:terminal")
+
+        XCTAssertEqual(result.first?.value, "git push")
+        XCTAssertEqual(result.first?.count, 2)
+    }
+
+    func testPredictForContextSuffixPrefersMostSpecificMatch() {
+        let store = MicroStore()
+        store.record(value: "fallback", forContext: "a:Ghostty → k:Ghostty:terminal", weight: 10)
+        store.record(value: "specific", forContext: "a:Xcode → a:Ghostty → k:Ghostty:terminal", weight: 1)
+
+        let result = store.predict(forContext: [
+            "a:Xcode",
+            "a:Ghostty",
+        ], targetToken: "k:Ghostty:terminal")
+
+        XCTAssertEqual(result.first?.value, "specific")
     }
 }

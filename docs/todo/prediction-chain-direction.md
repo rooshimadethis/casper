@@ -209,6 +209,27 @@ The immediate next action is primary. The rest of the chain is preview/context.
 4. Add a small internal `PredictedActionStep` abstraction before extending the UI.
 5. Add a chain rollout method beside the existing single-step predictor instead of replacing it immediately.
 
+## Experiment Learnings
+
+Recent telemetry analysis suggests the trie is healthier than the suggestion surface:
+
+- The trie predicts a diverse mix of `m:`, `a:`, `k:`, `t:`, `h:`, `c:`, and `s:` tokens.
+- Most non-`a:` tokens get discarded because `buildPrediction` only maps a few token types to useful suggestions.
+- `t:`, `h:`, `s:`, and `x:` should usually be treated as context/bridge tokens during chain rollout, not directly surfaced as user-facing actions.
+- The MicroStore is the current bottleneck: exact full-context hashes are too sparse, and the observed store only had a few dozen context keys.
+- `k:` and `m:` predictions need suffix fallback, similar in spirit to PPM backoff, so exact six-token context matches are not required.
+- Click micro values must be normalized before storage. Structural values like `AXScrollArea`, `AXGroup`, and unlabeled `AXImage` should be rejected or replaced with title/description/value text when available.
+- Typed text should be normalized by domain. Terminal commands can often be reduced to command/subcommand forms; long prose and code edits should usually be rejected.
+- A single `count >= 3` micro threshold is too blunt. Terminal/search typed text can tolerate lower thresholds than generic text fields or click targets.
+
+## Next Implementation Priorities
+
+1. Add suffix-based MicroStore lookup for `k:` and `m:` predictions.
+2. Normalize micro values before storing them during training.
+3. Use action-specific micro thresholds rather than one hard threshold.
+4. Keep `t:`, `h:`, `s:`, and `x:` as chain context tokens until there is a concrete executable action for them.
+5. Use the chain rollout path to bridge through non-action tokens instead of forcing every predicted token to become a UI suggestion.
+
 ## Core Principle
 
 The trie should answer:
@@ -222,4 +243,3 @@ The product should answer:
 ```text
 What is the user trying to finish, and what chain gets them there?
 ```
-

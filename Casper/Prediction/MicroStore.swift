@@ -26,12 +26,38 @@ final class MicroStore: Codable {
         }
     }
 
+    func reset() {
+        lock.withLock {
+            store = [:]
+        }
+    }
+
     func predict(for contextHash: String) -> [(value: String, count: Int)] {
         lock.withLock {
             guard let entries = store[contextHash] else { return [] }
             return entries
                 .map { ($0.key, $0.value) }
                 .sorted { $0.1 > $1.1 }
+        }
+    }
+
+    func predict(forContext context: [String], targetToken: String) -> [(value: String, count: Int)] {
+        lock.withLock {
+            let maxDepth = min(context.count, PpmTrie.maxDepth)
+            for depth in stride(from: maxDepth, through: 0, by: -1) {
+                let keyTokens: [String]
+                if depth == 0 {
+                    keyTokens = [targetToken]
+                } else {
+                    keyTokens = Array(context.suffix(depth)) + [targetToken]
+                }
+                let contextHash = keyTokens.joined(separator: " → ")
+                guard let entries = store[contextHash] else { continue }
+                return entries
+                    .map { ($0.key, $0.value) }
+                    .sorted { $0.1 > $1.1 }
+            }
+            return []
         }
     }
 

@@ -55,6 +55,12 @@ final class PpmTrie: Codable {
         }
     }
 
+    func reset() {
+        lock.withLock {
+            root = PpmTrieNode()
+        }
+    }
+
     func predict(context: [String]) -> [(token: String, confidence: Double)] {
         lock.withLock {
             guard !context.isEmpty else {
