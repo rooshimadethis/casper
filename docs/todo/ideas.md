@@ -12,7 +12,7 @@ current:
 
  predictor:
  - dynamic context to real time llm based on some of the user events for context/speed
- - llm for coming up with the action to run
+ - llm for coming up with the action to run based on the calculated model + common user interactions
  - mcp
  - keyboard shortcut to run action
 

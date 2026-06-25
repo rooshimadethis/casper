@@ -186,7 +186,7 @@ final class PredictionTrainerTests: XCTestCase {
         }
         wait(for: [expectation], timeout: 2.0)
 
-        let contextHash = "a:com.mitchellh.ghostty → k:Ghostty"
+        let contextHash = "a:com.mitchellh.ghostty → k:Ghostty:unknown"
         let predictions = microStore.predict(for: contextHash)
         XCTAssertFalse(predictions.isEmpty)
         XCTAssertEqual(predictions.first?.value, "killall Finder")
@@ -314,11 +314,11 @@ final class PredictionTrainerTests: XCTestCase {
         }
         wait(for: [expectation], timeout: 2.0)
 
-        // Context hash: "a:com.mitchellh.ghostty → k:Ghostty"
+        // Context hash: "a:com.mitchellh.ghostty → k:Ghostty:unknown"
         // Yesterday's entry: count += 1 (from weight 1.0)
         // Today's entry: count += 2 (from weight 2.0)
         // Total: 3, which survives prune(floor: 3)
-        let contextHash = "a:com.mitchellh.ghostty → k:Ghostty"
+        let contextHash = "a:com.mitchellh.ghostty → k:Ghostty:unknown"
         let predictions = microStore.predict(for: contextHash)
         XCTAssertEqual(predictions.first?.value, "killall Finder")
         XCTAssertEqual(predictions.first?.count, 3)
@@ -371,7 +371,7 @@ final class PredictionTrainerTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: microStorePath.path))
 
         let loaded = try MicroStore.load(from: microStorePath)
-        let contextHash = "a:com.mitchellh.ghostty → k:Ghostty"
+        let contextHash = "a:com.mitchellh.ghostty → k:Ghostty:unknown"
         let predictions = loaded.predict(for: contextHash)
         XCTAssertEqual(predictions.first?.value, "killall Finder")
     }

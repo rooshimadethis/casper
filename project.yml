@@ -36,6 +36,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.rooshi.casper
         ENABLE_APP_SANDBOX: NO
         CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION: YES
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: BBVMGXR9AY
         ENABLE_HARDENED_RUNTIME: NO
     dependencies:
       - package: WhisperKit

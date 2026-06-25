@@ -76,7 +76,7 @@ final class RuntimePredictorTests: XCTestCase {
 
     func testPastePredictionForCopyToken() {
         let trie = PpmTrie()
-        trie.insert(tokens: ["c:Xcode:git commit", "a:com.xcode"])
+        trie.insert(tokens: ["c:Xcode", "a:com.xcode"])
         let predictor = RuntimePredictor(trie: trie, confidenceThreshold: 0.3)
 
         predictor.ingest(event: .textCopied(text: "git commit -m \"wip\""))
@@ -98,9 +98,9 @@ final class RuntimePredictorTests: XCTestCase {
 
     func testKTokenWithMicroHit() {
         let trie = PpmTrie()
-        trie.insert(tokens: ["k:Ghostty", "k:Ghostty"])
+        trie.insert(tokens: ["k:Ghostty:unknown", "k:Ghostty:unknown"])
         let microStore = MicroStore()
-        microStore.record(value: "killall Finder", forContext: "k:Ghostty → k:Ghostty", weight: 5)
+        microStore.record(value: "killall Finder", forContext: "k:Ghostty:unknown → k:Ghostty:unknown", weight: 5)
         let predictor = RuntimePredictor(trie: trie, confidenceThreshold: 0.0, microStore: microStore)
 
         predictor.ingest(event: .typingSession(appName: "Ghostty", targetElement: nil, typedText: "killall Finder", durationSeconds: 2.0))
@@ -125,7 +125,7 @@ final class RuntimePredictorTests: XCTestCase {
 
     func testKTokenWithoutMicroReturnsNil() {
         let trie = PpmTrie()
-        trie.insert(tokens: ["k:Ghostty", "k:Ghostty"])
+        trie.insert(tokens: ["k:Ghostty:unknown", "k:Ghostty:unknown"])
         let predictor = RuntimePredictor(trie: trie, confidenceThreshold: 0.0)
 
         predictor.ingest(event: .typingSession(appName: "Ghostty", targetElement: nil, typedText: "anything", durationSeconds: 1.0))
@@ -158,9 +158,9 @@ final class RuntimePredictorTests: XCTestCase {
 
     func testMicroValueBelowCountFloor() {
         let trie = PpmTrie()
-        trie.insert(tokens: ["k:Ghostty", "k:Ghostty"])
+        trie.insert(tokens: ["k:Ghostty:unknown", "k:Ghostty:unknown"])
         let microStore = MicroStore()
-        microStore.record(value: "ls", forContext: "k:Ghostty → k:Ghostty", weight: 2)
+        microStore.record(value: "ls", forContext: "k:Ghostty:unknown → k:Ghostty:unknown", weight: 2)
         let predictor = RuntimePredictor(trie: trie, confidenceThreshold: 0.0, microStore: microStore)
 
         predictor.ingest(event: .typingSession(appName: "Ghostty", targetElement: nil, typedText: "ls", durationSeconds: 1.0))
@@ -170,9 +170,9 @@ final class RuntimePredictorTests: XCTestCase {
 
     func testMicroLookupUsesFullSlidingWindowContext() {
         let trie = PpmTrie()
-        trie.insert(tokens: ["a:com.ghostty", "k:Ghostty", "k:Ghostty"])
+        trie.insert(tokens: ["a:com.ghostty", "k:Ghostty:unknown", "k:Ghostty:unknown"])
         let microStore = MicroStore()
-        microStore.record(value: "vim", forContext: "a:com.ghostty → k:Ghostty → k:Ghostty", weight: 5)
+        microStore.record(value: "vim", forContext: "a:com.ghostty → k:Ghostty:unknown → k:Ghostty:unknown", weight: 5)
         let predictor = RuntimePredictor(trie: trie, confidenceThreshold: 0.0, microStore: microStore)
 
         predictor.ingest(event: .appActivated(appName: "Ghostty", bundleID: "com.ghostty", windowTitle: ""))
@@ -184,14 +184,62 @@ final class RuntimePredictorTests: XCTestCase {
 
     func testMicroEntryCountInfluencesOrdering() {
         let trie = PpmTrie()
-        trie.insert(tokens: ["k:Ghostty", "k:Ghostty"])
+        trie.insert(tokens: ["k:Ghostty:unknown", "k:Ghostty:unknown"])
         let microStore = MicroStore()
-        microStore.record(value: "ls", forContext: "k:Ghostty → k:Ghostty", weight: 3)
-        microStore.record(value: "vim", forContext: "k:Ghostty → k:Ghostty", weight: 5)
+        microStore.record(value: "ls", forContext: "k:Ghostty:unknown → k:Ghostty:unknown", weight: 3)
+        microStore.record(value: "vim", forContext: "k:Ghostty:unknown → k:Ghostty:unknown", weight: 5)
         let predictor = RuntimePredictor(trie: trie, confidenceThreshold: 0.0, microStore: microStore)
 
         predictor.ingest(event: .typingSession(appName: "Ghostty", targetElement: nil, typedText: "vim", durationSeconds: 1.0))
 
         XCTAssertEqual(predictor.currentPrediction?.suggestedContent, "vim")
+    }
+
+    // MARK: - Action Chain Tests
+
+    func testPredictActionChainsRollsForwardFromCurrentContext() {
+        let trie = PpmTrie()
+        trie.insert(tokens: [
+            "a:com.apple.dt.Xcode",
+            "a:com.mitchellh.ghostty",
+            "k:Ghostty:unknown",
+            "a:com.tinyspeck.slackmacgap",
+        ])
+
+        let microStore = MicroStore()
+        microStore.record(
+            value: "git push",
+            forContext: "a:com.apple.dt.Xcode → a:com.mitchellh.ghostty → k:Ghostty:unknown",
+            weight: 3
+        )
+
+        let predictor = RuntimePredictor(trie: trie, confidenceThreshold: 0.0, microStore: microStore)
+        predictor.ingest(event: .appActivated(appName: "Xcode", bundleID: "com.apple.dt.Xcode", windowTitle: ""))
+
+        let chains = predictor.predictActionChains(maxSteps: 3, beamWidth: 1)
+
+        XCTAssertEqual(chains.first?.steps, [
+            .activateApp(bundleID: "com.mitchellh.ghostty", appName: "com.mitchellh.ghostty"),
+            .typeText(text: "git push", appName: "Ghostty"),
+            .activateApp(bundleID: "com.tinyspeck.slackmacgap", appName: "com.tinyspeck.slackmacgap"),
+        ])
+    }
+
+    func testPredictActionChainsRollsThroughNonActionTokens() {
+        let trie = PpmTrie()
+        trie.insert(tokens: [
+            "a:com.apple.dt.Xcode",
+            "t:Xcode",
+            "a:com.mitchellh.ghostty",
+        ])
+        let predictor = RuntimePredictor(trie: trie, confidenceThreshold: 0.0)
+
+        predictor.ingest(event: .appActivated(appName: "Xcode", bundleID: "com.apple.dt.Xcode", windowTitle: ""))
+
+        let chains = predictor.predictActionChains(maxSteps: 2, beamWidth: 1)
+
+        XCTAssertEqual(chains.first?.steps, [
+            .activateApp(bundleID: "com.mitchellh.ghostty", appName: "com.mitchellh.ghostty"),
+        ])
     }
 }

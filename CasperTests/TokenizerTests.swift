@@ -12,30 +12,48 @@ final class TokenizerTests: XCTestCase {
         XCTAssertEqual(Tokenizer.tokenize(event), "a:com.apple.dt.Xcode")
     }
 
-    func testShortTextCopyTokenizes() {
+    func testTextCopyTokenizesToAppOnly() {
         let event = DesktopUserEvent.textCopied(text: "git commit -m \"fix\"")
-        XCTAssertEqual(Tokenizer.tokenize(event, activeAppName: "Xcode"), "c:Xcode:git commit -m \"fix\"")
+        XCTAssertEqual(Tokenizer.tokenize(event, activeAppName: "Xcode"), "c:Xcode")
     }
 
-    func testTextCopyOver80CharsReturnsNil() {
-        let longText = String(repeating: "a", count: 100)
+    func testTextCopyAnyLengthStillTokenizes() {
+        let longText = String(repeating: "a", count: 1000)
         let event = DesktopUserEvent.textCopied(text: longText)
-        XCTAssertNil(Tokenizer.tokenize(event))
+        XCTAssertEqual(Tokenizer.tokenize(event, activeAppName: "Xcode"), "c:Xcode")
     }
 
-    func testTextCopyLongTextIsTruncatedTo40Chars() {
-        let text60 = String(repeating: "b", count: 60)
-        let event = DesktopUserEvent.textCopied(text: text60)
-        let result = Tokenizer.tokenize(event, activeAppName: "Xcode")
-        XCTAssertEqual(result, "c:Xcode:" + String(repeating: "b", count: 40))
+    func testTextCopyWithNoAppNameDefaultsToUnknown() {
+        let event = DesktopUserEvent.textCopied(text: "hello")
+        XCTAssertEqual(Tokenizer.tokenize(event), "c:unknown")
     }
 
-    func testMouseClickExtractsRoleOnly() {
+    func testMouseClickWithoutSelectionProducesMToken() {
         let event = DesktopUserEvent.mouseClicked(
             appName: "Safari",
             elementClicked: "AXButton (Title: Reload)",
             clickCount: 1,
             selectedText: nil
+        )
+        XCTAssertEqual(Tokenizer.tokenize(event), "m:Safari:AXButton")
+    }
+
+    func testMouseClickWithSelectionProducesSToken() {
+        let event = DesktopUserEvent.mouseClicked(
+            appName: "Safari",
+            elementClicked: "AXButton (Title: Reload)",
+            clickCount: 1,
+            selectedText: "selected text"
+        )
+        XCTAssertEqual(Tokenizer.tokenize(event), "s:Safari:AXButton")
+    }
+
+    func testMouseClickWithEmptySelectionProducesMToken() {
+        let event = DesktopUserEvent.mouseClicked(
+            appName: "Safari",
+            elementClicked: "AXButton (Title: Reload)",
+            clickCount: 1,
+            selectedText: "   "
         )
         XCTAssertEqual(Tokenizer.tokenize(event), "m:Safari:AXButton")
     }
@@ -50,14 +68,44 @@ final class TokenizerTests: XCTestCase {
         XCTAssertEqual(Tokenizer.tokenize(event), "m:Finder:AXUnknown")
     }
 
-    func testTypingSessionTokenizes() {
+    func testMouseClickWithNoParentheses() {
+        let event = DesktopUserEvent.mouseClicked(
+            appName: "Terminal",
+            elementClicked: "AXUnknown",
+            clickCount: 1,
+            selectedText: nil
+        )
+        XCTAssertEqual(Tokenizer.tokenize(event), "m:Terminal:AXUnknown")
+    }
+
+    func testTypingInTerminalTokenizesWithElementType() {
         let event = DesktopUserEvent.typingSession(
             appName: "Ghostty",
-            targetElement: nil,
+            targetElement: "AXTextField (Description: Terminal 12, zsh)",
             typedText: "ls -la",
             durationSeconds: 2.0
         )
-        XCTAssertEqual(Tokenizer.tokenize(event), "k:Ghostty")
+        XCTAssertEqual(Tokenizer.tokenize(event), "k:Ghostty:terminal")
+    }
+
+    func testTypingWithNilTargetDefaultsToUnknown() {
+        let event = DesktopUserEvent.typingSession(
+            appName: "Ghostty",
+            targetElement: nil,
+            typedText: "ls",
+            durationSeconds: 2.0
+        )
+        XCTAssertEqual(Tokenizer.tokenize(event), "k:Ghostty:unknown")
+    }
+
+    func testTypingInSourceControlTokenizes() {
+        let event = DesktopUserEvent.typingSession(
+            appName: "Antigravity IDE",
+            targetElement: "AXTextArea (Description: Message (⌘Enter to commit))",
+            typedText: "fix bug",
+            durationSeconds: 3.0
+        )
+        XCTAssertEqual(Tokenizer.tokenize(event), "k:Antigravity IDE:source_control")
     }
 
     func testWindowTitleChangeTokenizes() {
@@ -101,28 +149,6 @@ final class TokenizerTests: XCTestCase {
     func testScreenOcrCapturedReturnsNil() {
         let event = DesktopUserEvent.screenOcrCaptured(text: "some text")
         XCTAssertNil(Tokenizer.tokenize(event))
-    }
-
-    func testMouseClickWithNoParentheses() {
-        let event = DesktopUserEvent.mouseClicked(
-            appName: "Terminal",
-            elementClicked: "AXUnknown",
-            clickCount: 1,
-            selectedText: nil
-        )
-        XCTAssertEqual(Tokenizer.tokenize(event), "m:Terminal:AXUnknown")
-    }
-
-    func testTextCopyWithNoAppNameDefaultsToUnknown() {
-        let event = DesktopUserEvent.textCopied(text: "hello")
-        XCTAssertEqual(Tokenizer.tokenize(event), "c:unknown:hello")
-    }
-
-    func testTextCopyTruncatedWithWhitespace() {
-        let event = DesktopUserEvent.textCopied(text: "  " + String(repeating: "x", count: 50) + "  ")
-        let result = Tokenizer.tokenize(event, activeAppName: "Notes")
-        XCTAssertEqual(result?.count, "c:Notes:".count + 40)
-        XCTAssertTrue(result?.hasPrefix("c:Notes:") ?? false)
     }
 
     func testUserHesitatedUnder3sReturnsNil() {

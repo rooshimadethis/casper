@@ -45,6 +45,70 @@ final class RuntimePredictor: PredictionProviding {
         try trie.save(to: trieURL)
     }
 
+    func predictActionChains(maxSteps: Int = 4, beamWidth: Int = 3) -> [ActionChainPrediction] {
+        guard maxSteps > 0, beamWidth > 0, !slidingWindow.isEmpty else { return [] }
+
+        struct Candidate {
+            let context: [String]
+            let confidence: Double
+            let steps: [PredictedActionStep]
+        }
+
+        var candidates = [Candidate(context: slidingWindow, confidence: 1.0, steps: [])]
+        var completed: [ActionChainPrediction] = []
+
+        for _ in 0..<maxSteps {
+            var expanded: [Candidate] = []
+
+            for candidate in candidates {
+                for rawPrediction in trie.predict(context: candidate.context).prefix(beamWidth) {
+                    let combinedConfidence = candidate.confidence * rawPrediction.confidence
+                    guard combinedConfidence >= confidenceThreshold else { continue }
+
+                    let nextContext = Self.advanceContext(candidate.context, with: rawPrediction.token)
+                    guard let prediction = buildPrediction(
+                        from: rawPrediction.token,
+                        confidence: combinedConfidence,
+                        context: candidate.context
+                    ), let step = actionStep(for: prediction) else {
+                        expanded.append(Candidate(
+                            context: nextContext,
+                            confidence: combinedConfidence,
+                            steps: candidate.steps
+                        ))
+                        continue
+                    }
+
+                    let nextSteps = candidate.steps + [step]
+                    expanded.append(Candidate(
+                        context: nextContext,
+                        confidence: combinedConfidence,
+                        steps: nextSteps
+                    ))
+                    completed.append(ActionChainPrediction(confidence: combinedConfidence, steps: nextSteps))
+                }
+            }
+
+            candidates = expanded
+                .sorted { $0.confidence > $1.confidence }
+                .prefix(beamWidth)
+                .map { $0 }
+
+            if candidates.isEmpty { break }
+        }
+
+        return completed
+            .filter { !$0.steps.isEmpty }
+            .sorted {
+                if $0.steps.count != $1.steps.count {
+                    return $0.steps.count > $1.steps.count
+                }
+                return $0.confidence > $1.confidence
+            }
+            .prefix(beamWidth)
+            .map { $0 }
+    }
+
     func ingest(event: DesktopUserEvent) {
         updateContext(from: event)
 
@@ -64,17 +128,7 @@ final class RuntimePredictor: PredictionProviding {
 
         var built: [Prediction] = []
         for pred in rawPredictions.prefix(5) {
-            var microValue: String?
-            var microCount = 0
-            if pred.token.hasPrefix("k:") || pred.token.hasPrefix("m:") {
-                let contextHash = (slidingWindow + [pred.token]).joined(separator: " → ")
-                let results = microStore.predict(for: contextHash)
-                if let top = results.first, top.count >= 3 {
-                    microValue = top.value
-                    microCount = top.count
-                }
-            }
-            if let p = buildPrediction(from: pred.token, confidence: pred.confidence, microValue: microValue, microCount: microCount) {
+            if let p = buildPrediction(from: pred.token, confidence: pred.confidence, context: slidingWindow) {
                 built.append(p)
             }
         }
@@ -119,10 +173,60 @@ final class RuntimePredictor: PredictionProviding {
         }
     }
 
+    private static func advanceContext(_ context: [String], with token: String) -> [String] {
+        let next = context + [token]
+        guard next.count > PpmTrie.maxDepth else { return next }
+        return Array(next.suffix(PpmTrie.maxDepth))
+    }
+
+    private func buildPrediction(from token: String, confidence: Double, context: [String]) -> Prediction? {
+        let micro = microValue(for: token, context: context)
+        return buildPrediction(from: token, confidence: confidence, microValue: micro?.value, microCount: micro?.count ?? 0)
+    }
+
+    private func microValue(for token: String, context: [String]) -> (value: String, count: Int)? {
+        guard token.hasPrefix("k:") || token.hasPrefix("m:") else { return nil }
+        let contextHash = (context + [token]).joined(separator: " → ")
+        let results = microStore.predict(for: contextHash)
+        guard let top = results.first, top.count >= 3 else { return nil }
+        return top
+    }
+
+    private func actionStep(for prediction: Prediction) -> PredictedActionStep? {
+        if prediction.token.hasPrefix("a:") {
+            let bundleID = String(prediction.token.dropFirst(2))
+            let appName = bundleIDToAppName[bundleID] ?? bundleID
+            return .activateApp(bundleID: bundleID, appName: appName)
+        }
+
+        if prediction.token.hasPrefix("c:") {
+            let appName = String(prediction.token.dropFirst(2))
+            guard !prediction.suggestedContent.isEmpty else { return nil }
+            return .pasteText(text: prediction.suggestedContent, appName: appName)
+        }
+
+        if prediction.token.hasPrefix("k:") {
+            let appName = predictionAppName(from: prediction.token)
+            return .typeText(text: prediction.suggestedContent, appName: appName)
+        }
+
+        if prediction.token.hasPrefix("m:") {
+            let appName = predictionAppName(from: prediction.token)
+            return .clickElement(description: prediction.suggestedContent, appName: appName)
+        }
+
+        return nil
+    }
+
+    private func predictionAppName(from token: String) -> String {
+        let rest = String(token.dropFirst(2))
+        return rest.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init) ?? rest
+    }
+
     private func buildPrediction(from token: String, confidence: Double, microValue: String? = nil, microCount: Int = 0) -> Prediction? {
         if token.hasPrefix("k:") {
             guard let microValue else { return nil }
-            let appName = String(token.dropFirst(2))
+            let appName = predictionAppName(from: token)
             return Prediction(
                 token: token,
                 confidence: confidence,
@@ -134,8 +238,7 @@ final class RuntimePredictor: PredictionProviding {
 
         if token.hasPrefix("m:") {
             guard let microValue else { return nil }
-            let parts = token.dropFirst(2).split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
-            let appName = parts.first.map(String.init) ?? ""
+            let appName = predictionAppName(from: token)
             return Prediction(
                 token: token,
                 confidence: confidence,
@@ -158,10 +261,8 @@ final class RuntimePredictor: PredictionProviding {
         }
 
         if token.hasPrefix("c:") {
-            let parts = token.dropFirst(2).split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
-            let appName = parts.first.map(String.init) ?? ""
-            let truncatedText = parts.count > 1 ? String(parts[1]) : ""
-            let displayText = truncatedText.isEmpty ? "" : " \"\(truncatedText)\""
+            let appName = String(token.dropFirst(2))
+            let displayText = lastCopiedText.isEmpty ? "" : " \"\(lastCopiedText.prefix(60))\""
             return Prediction(
                 token: token,
                 confidence: confidence,

@@ -164,9 +164,14 @@ final class PredictionTrainer: @unchecked Sendable {
 
                 switch record.event {
                 case .typingSession(_, _, let typedText, _):
-                    microStore.record(value: typedText, forContext: contextHash, weight: Int(weight))
-                case .mouseClicked(_, let elementClicked, _, _):
+                    if !isKeyboardShortcut(typedText) {
+                        microStore.record(value: typedText, forContext: contextHash, weight: Int(weight))
+                    }
+                case .mouseClicked(_, let elementClicked, _, let selectedText):
                     microStore.record(value: elementClicked, forContext: contextHash, weight: Int(weight))
+                    if let selectedText, !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        microStore.record(value: selectedText, forContext: contextHash, weight: Int(weight))
+                    }
                 default:
                     break
                 }
@@ -187,6 +192,11 @@ final class PredictionTrainer: @unchecked Sendable {
         }
 
         return updatedProgress
+    }
+
+    private func isKeyboardShortcut(_ text: String) -> Bool {
+        text.hasPrefix("<Cmd") || text.hasPrefix("<Ctrl") || text.hasPrefix("<Opt")
+            || text.hasPrefix("<Shift") || text.hasPrefix("<Fn")
     }
 
     private func timeDecayWeight(for date: Date) -> Double {
