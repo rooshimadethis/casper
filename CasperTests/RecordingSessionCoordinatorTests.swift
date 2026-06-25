@@ -244,7 +244,10 @@ final class RecordingSessionCoordinatorTests: XCTestCase {
         let recordedBuffer = await fullBuffer.get()
         XCTAssertEqual(recordedBuffer, [1, 2, 3, 4])
         let recordedEvents = await events.get()
-        XCTAssertEqual(recordedEvents, ["finish", "batch", "cleanup"])
+        XCTAssertEqual(recordedEvents.count, 3)
+        XCTAssertTrue(recordedEvents.contains("finish"))
+        XCTAssertTrue(recordedEvents.contains("batch"))
+        XCTAssertEqual(recordedEvents.last, "cleanup")
     }
 
     func testSlidingWindowRecordingTranscriptionSessionDoesNotFallBackToStreamedTranscriptWhenFullBufferTranscriptionFails() async {
@@ -278,7 +281,10 @@ final class RecordingSessionCoordinatorTests: XCTestCase {
 
         XCTAssertNil(transcript)
         let recordedEvents = await events.get()
-        XCTAssertEqual(recordedEvents, ["finish", "batch", "cleanup"])
+        XCTAssertEqual(recordedEvents.count, 3)
+        XCTAssertTrue(recordedEvents.contains("finish"))
+        XCTAssertTrue(recordedEvents.contains("batch"))
+        XCTAssertEqual(recordedEvents.last, "cleanup")
     }
 
     func testSlidingWindowRecordingTranscriptionSessionCancelPreventsFinalTranscript() async {

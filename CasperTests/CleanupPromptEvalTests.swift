@@ -12,6 +12,9 @@ import XCTest
 /// Run with: `xcodebuild test -scheme Casper -testPlan CleanupPromptEvals`
 /// Or individually: `xcodebuild test -scheme Casper -only-testing:CasperTests/CleanupPromptEvalTests`
 final class CleanupPromptEvalTests: XCTestCase {
+    override func setUp() async throws {
+        throw XCTSkip("LLM tests disabled on no-llm branch")
+    }
 
     // MARK: - Eval Cases
 

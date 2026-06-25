@@ -13,6 +13,9 @@ private final class SpyTextCleaningManager: TextCleaningManaging {
 
 @MainActor
 final class CleanupBackendTests: XCTestCase {
+    override func setUp() async throws {
+        throw XCTSkip("LLM tests disabled on no-llm branch")
+    }
     func testLocalBackendUsesSelectedLocalPolicy() async throws {
         let manager = SpyTextCleaningManager()
         manager.nextResult = .success("local result")

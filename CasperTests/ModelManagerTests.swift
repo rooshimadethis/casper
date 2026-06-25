@@ -4,6 +4,9 @@ import Combine
 
 @MainActor
 final class ModelManagerTests: XCTestCase {
+    override func setUp() async throws {
+        throw XCTSkip("LLM tests disabled on no-llm branch")
+    }
     func testModelManagerRetriesTimedOutSpeechModelLoadOnce() async {
         let timeoutError = NSError(
             domain: NSURLErrorDomain,

@@ -126,6 +126,9 @@ class AppState: ObservableObject {
     let telemetryCollector: TelemetryCollector
     let telemetrySummarizer: TelemetrySummarizer
     let telemetryReportWriter: TelemetryReportWriter
+    let predictionTrainer: PredictionTrainer
+    let runtimePredictor: RuntimePredictor
+    let predictionOverlayController: PredictionOverlayWindowController
     let usageStats = UsageStatsStore()
     let frontmostWindowOCRService: FrontmostWindowOCRService
     let cleanupPromptBuilder: CleanupPromptBuilder
@@ -253,9 +256,25 @@ class AppState: ObservableObject {
         let powerMonitor = TelemetryPowerMonitor()
         self.telemetryStorage = storage
         self.telemetryPowerMonitor = powerMonitor
-        self.telemetryCollector = TelemetryCollector(storage: storage, powerMonitor: powerMonitor, ocrService: frontmostWindowOCRService)
-        self.telemetrySummarizer = TelemetrySummarizer(storage: storage, powerMonitor: powerMonitor, cleanupManager: self.textCleanupManager)
+        let collector = TelemetryCollector(storage: storage, powerMonitor: powerMonitor, ocrService: frontmostWindowOCRService)
+        self.telemetryCollector = collector
+        let predictionTrie: PpmTrie = {
+            let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            let trieURL = appSupport.appendingPathComponent("Casper/prediction/ppm_trie.json")
+            if let loaded = try? PpmTrie.load(from: trieURL) {
+                return loaded
+            }
+            return PpmTrie()
+        }()
+        let predictor = RuntimePredictor(trie: predictionTrie)
+        self.runtimePredictor = predictor
+        collector.onEvent = { [weak predictor] event in
+            predictor?.ingest(event: event)
+        }
+        self.predictionTrainer = PredictionTrainer(storage: storage, trie: predictionTrie, powerMonitor: powerMonitor)
+        self.telemetrySummarizer = TelemetrySummarizer(storage: storage, powerMonitor: powerMonitor, cleanupManager: self.textCleanupManager, predictionTrainer: self.predictionTrainer)
         self.telemetryReportWriter = TelemetryReportWriter(storage: storage, powerMonitor: powerMonitor, cleanupManager: self.textCleanupManager)
+        self.predictionOverlayController = PredictionOverlayWindowController(predictor: predictor)
         self.frontmostWindowOCRService = frontmostWindowOCRService
         self.recordingOCRPrefetch = RecordingOCRPrefetch { [frontmostWindowOCRService] customWords in
             await frontmostWindowOCRService.captureContext(customWords: customWords)
@@ -439,6 +458,10 @@ class AppState: ObservableObject {
         self.textCleaner.sensitiveDebugLogger = sensitiveComponentDebugLogger
         self.postPasteLearningCoordinator.debugLogger = componentDebugLogger
         self.modelManager.debugLogger = componentDebugLogger
+        self.telemetryCollector.debugLogger = componentDebugLogger
+        self.predictionTrainer.debugLogger = componentDebugLogger
+        self.runtimePredictor.debugLogger = componentDebugLogger
+        self.predictionOverlayController.debugLogger = componentDebugLogger
     }
 
     func initialize(skipPermissionPrompts: Bool = false) async {
@@ -524,6 +547,11 @@ class AppState: ObservableObject {
         audioRecorder.prewarm()
         FocusedElementLocator.startPasteTargetTracking()
 
+        // Start passive telemetry early — it doesn't depend on model loading
+        telemetryCollector.start()
+        telemetrySummarizer.start()
+        telemetryReportWriter.start()
+
         status = .loading
         let showOverlay = UserDefaults.standard.bool(forKey: "onboardingCompleted")
         if showOverlay {
@@ -548,10 +576,8 @@ class AppState: ObservableObject {
         // Start meeting detection if enabled
         setupMeetingDetector()
 
-        // Start passive telemetry
-        telemetryCollector.start()
-        telemetrySummarizer.start()
-        telemetryReportWriter.start()
+        let trieNodeCount = runtimePredictor.trie.nodeCount()
+        debugLogStore.record(category: .prediction, message: "Prediction system initialized (trie nodes: \(trieNodeCount), threshold: \(runtimePredictor.confidenceThreshold))")
     }
 
     func relaunchApp() {
@@ -571,6 +597,19 @@ class AppState: ObservableObject {
             force: true,
             dateString: Self.currentTelemetryDateString()
         )
+    }
+
+    func retrainPredictionModel() {
+        debugLogStore.record(category: .prediction, message: "Retrain triggered from menu bar")
+        predictionTrainer.train(force: true)
+    }
+
+    func togglePredictionOverlay() {
+        if predictionOverlayController.isVisible {
+            predictionOverlayController.hide()
+        } else {
+            predictionOverlayController.show()
+        }
     }
 
     func openTelemetryEventLogDirectory() {
@@ -1892,6 +1931,9 @@ class AppState: ObservableObject {
         telemetryCollector.stop()
         telemetrySummarizer.stop()
         telemetryReportWriter.stop()
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let trieURL = appSupport.appendingPathComponent("Casper/prediction/ppm_trie.json")
+        try? runtimePredictor.trie.save(to: trieURL)
         if let session = activeMeetingSession {
             Task { await session.stop() }
         }

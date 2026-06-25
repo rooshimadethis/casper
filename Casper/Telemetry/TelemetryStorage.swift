@@ -109,7 +109,7 @@ final class TelemetryStorage: @unchecked Sendable {
 
         // Otherwise support date prefix (e.g. YYYY-MM-DD)
         let fileManager = FileManager.default
-        guard fileManager.fileExists(atPath: storageDirectory.path) else {
+        guard fileManager.fileExists(atPath: eventsDirectory.path) else {
             return []
         }
 

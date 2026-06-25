@@ -439,6 +439,6 @@ final class PostPasteLearningCoordinatorTests: XCTestCase {
 
         XCTAssertFalse(scheduledCalls.isEmpty)
         scheduledCalls.removeFirst().1()
-        await Task.yield()
+        try? await Task.sleep(nanoseconds: 50_000_000)
     }
 }

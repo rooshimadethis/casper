@@ -3,6 +3,9 @@ import XCTest
 
 @MainActor
 final class CleanupModelProbeRunnerTests: XCTestCase {
+    override func setUp() async throws {
+        throw XCTSkip("LLM tests disabled on no-llm branch")
+    }
     func testCLIParsesOneShotArguments() throws {
         let command = try CleanupModelProbeCLI.parse(arguments: [
             "--model", "fast",

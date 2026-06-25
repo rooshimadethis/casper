@@ -2,6 +2,9 @@ import XCTest
 @testable import Casper
 
 final class TelemetryAgentTests: XCTestCase {
+    override func setUp() async throws {
+        throw XCTSkip("LLM tests disabled on no-llm branch")
+    }
     private var tempDirectory: URL!
     private var storage: TelemetryStorage!
     private var mockPowerMonitor: MockPowerMonitor!

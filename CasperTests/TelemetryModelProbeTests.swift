@@ -16,6 +16,9 @@ import XCTest
 ///     -destination 'platform=macOS' -skipMacroValidation \
 ///     CODE_SIGNING_ALLOWED=NO -only-testing:CasperTests/TelemetryModelProbeTests
 final class TelemetryModelProbeTests: XCTestCase {
+    override func setUp() async throws {
+        throw XCTSkip("LLM tests disabled on no-llm branch")
+    }
 
     private let defaultEventsFile = "~/Library/Application Support/Casper/telemetry/events/telemetry_events_2026-06-24_15-58-20.jsonl"
 

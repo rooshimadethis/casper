@@ -12,6 +12,31 @@ enum DesktopUserEvent: Sendable, Codable {
     case appStalled(appName: String, durationSeconds: Double)
     case userHesitated(appName: String, durationSeconds: Double)
     case typingSession(appName: String, targetElement: String?, typedText: String, durationSeconds: Double)
+
+    var shortDescription: String {
+        switch self {
+        case .appActivated(let appName, _, _):
+            return "appActivated(\(appName))"
+        case .windowTitleChanged(let appName, let title):
+            return "windowTitleChanged(\(appName): \(title))"
+        case .textCopied(let text):
+            return "textCopied(len=\(text.count))"
+        case .screenOcrCaptured(let text):
+            return "screenOcrCaptured(len=\(text.count))"
+        case .commandExecuted(let cmd, let code, _):
+            return "commandExecuted(\(cmd), exit=\(code))"
+        case .customInput(let prompt):
+            return "customInput(\(prompt))"
+        case .mouseClicked(let appName, _, let count, _):
+            return "mouseClicked(\(appName), clicks=\(count))"
+        case .appStalled(let appName, let dur):
+            return "appStalled(\(appName), \(String(format: "%.1f", dur))s)"
+        case .userHesitated(let appName, let dur):
+            return "userHesitated(\(appName), \(String(format: "%.1f", dur))s)"
+        case .typingSession(let appName, _, _, let dur):
+            return "typingSession(\(appName), \(String(format: "%.1f", dur))s)"
+        }
+    }
 }
 
 /// Represents the accumulated real-time state of the user's workspace.

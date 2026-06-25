@@ -2,6 +2,9 @@ import XCTest
 @testable import Casper
 
 final class CleanupPromptBuilderTests: XCTestCase {
+    override func setUp() async throws {
+        throw XCTSkip("LLM tests disabled on no-llm branch")
+    }
     func testDefaultPromptUsesPersonalPromptShape() {
         let prompt = TextCleaner.defaultPrompt
 

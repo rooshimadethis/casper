@@ -15,10 +15,7 @@ HOME_APP_PATH="$HOME/Applications/${APP_NAME}.app"
 APP_INSTALL_PATH="${DOGFOOD_APP_PATH:-}"
 LAUNCH_AFTER_INSTALL="${LAUNCH_AFTER_INSTALL:-1}"
 QUIET_INSTALL_ON_LAUNCH="${QUIET_INSTALL_ON_LAUNCH:-1}"
-INCLUDE_SLOW_TESTS="${DOGFOOD_INCLUDE_SLOW_TESTS:-0}"
-SKIP_DEFAULT_TEST_FILTERS="${DOGFOOD_SKIP_DEFAULT_TEST_FILTERS:-0}"
 VERBOSE_XCODEBUILD="${DOGFOOD_VERBOSE_XCODEBUILD:-0}"
-SKIP_BRAND_ASSET_GENERATION="${DOGFOOD_SKIP_BRAND_ASSETS:-0}"
 
 log_step() {
   echo ""
@@ -64,25 +61,6 @@ run_xcodebuild_step() {
   return 1
 }
 
-generate_brand_assets() {
-  if [ "$SKIP_BRAND_ASSET_GENERATION" = "1" ]; then
-    log_step "Skipping brand asset generation because DOGFOOD_SKIP_BRAND_ASSETS=1"
-    return 0
-  fi
-
-  if [ ! -f "scripts/generate_brand_assets.swift" ]; then
-    return 0
-  fi
-
-  if [ ! -f "casper-logo.png" ] || [ ! -f "casper-plain.png" ]; then
-    log_step "Skipping brand asset generation because source logo files are missing"
-    return 0
-  fi
-
-  log_step "Refreshing generated brand assets..."
-  /usr/bin/swift scripts/generate_brand_assets.swift
-}
-
 resolve_install_path() {
   local registered_app_path=""
 
@@ -120,29 +98,11 @@ STAGING_DIR="$(mktemp -d "${TMPDIR:-/tmp}/casper-dogfood.XXXXXX")"
 STAGED_APP_PATH="${STAGING_DIR}/${APP_NAME}.app"
 TEST_LOG_PATH="${STAGING_DIR}/xcodebuild-test.log"
 BUILD_LOG_PATH="${STAGING_DIR}/xcodebuild-build.log"
-TEST_ARGS=("$@")
 
 cleanup() {
   rm -rf "$STAGING_DIR"
 }
 trap cleanup EXIT
-
-if [ "$SKIP_DEFAULT_TEST_FILTERS" != "1" ]; then
-  has_explicit_test_selection=0
-  for arg in "${TEST_ARGS[@]}"; do
-    case "$arg" in
-      -only-testing:*|-skip-testing:*|-testPlan)
-        has_explicit_test_selection=1
-        ;;
-    esac
-  done
-
-  if [ "$has_explicit_test_selection" = "0" ] && [ "$INCLUDE_SLOW_TESTS" != "1" ]; then
-    TEST_ARGS+=("-skip-testing:CasperTests/CleanupPromptEvalTests")
-  fi
-fi
-
-generate_brand_assets
 
 run_xcodebuild_step "Running tests before dogfood install..." "$TEST_LOG_PATH" test \
   -project "$PROJECT_PATH" \
@@ -152,10 +112,11 @@ run_xcodebuild_step "Running tests before dogfood install..." "$TEST_LOG_PATH" t
   -clonedSourcePackagesDirPath "$CLONED_SOURCE_PACKAGES_DIR_PATH" \
   -disableAutomaticPackageResolution \
   -skipMacroValidation \
+  -parallel-testing-enabled YES \
+  -parallel-testing-worker-count "$(sysctl -n hw.ncpu)" \
   CODE_SIGNING_ALLOWED=NO \
   CODE_SIGNING_REQUIRED=NO \
-  CODE_SIGN_IDENTITY='' \
-  "${TEST_ARGS[@]}"
+  CODE_SIGN_IDENTITY=''
 
 run_xcodebuild_step "Building signed app bundle for install..." "$BUILD_LOG_PATH" build \
   -project "$PROJECT_PATH" \

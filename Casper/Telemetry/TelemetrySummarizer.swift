@@ -27,6 +27,7 @@ final class TelemetrySummarizer: @unchecked Sendable {
     private let powerMonitor: any TelemetryPowerMonitoring
     private let cleanupManager: any LocalLLMStreaming
     private let targetModels: [LocalCleanupModelKind]
+    private weak var predictionTrainer: PredictionTrainer?
     
     private var processTask: Task<Void, Never>?
     private var timer: Timer?
@@ -35,11 +36,13 @@ final class TelemetrySummarizer: @unchecked Sendable {
         storage: TelemetryStorage,
         powerMonitor: any TelemetryPowerMonitoring,
         cleanupManager: any LocalLLMStreaming,
+        predictionTrainer: PredictionTrainer? = nil,
         targetModels: [LocalCleanupModelKind] = LocalCleanupModelKind.allCases
     ) {
         self.storage = storage
         self.powerMonitor = powerMonitor
         self.cleanupManager = cleanupManager
+        self.predictionTrainer = predictionTrainer
         self.targetModels = targetModels
     }
 
@@ -80,6 +83,7 @@ final class TelemetrySummarizer: @unchecked Sendable {
             }
             
             await self.processRawLogs()
+            self.predictionTrainer?.train(force: force)
         }
     }
 

@@ -97,9 +97,9 @@ This document contains canonical, project-specific context for developers and AI
     -only-testing:CasperTests/TelemetryAgentTests \
     -only-testing:CasperTests/RuntimeEnvironmentTests
   ```
-* **Why this matters:** Casper depends on cached Swift package checkouts outside the repo, the `LLM.swift` package requires `-skipMacroValidation` in CLI builds, and local validation can fail on machines without a matching `Mac Development` signing identity unless code signing is disabled for the test run.
+* **Why this matters:** Casper depends on cached Swift package checkouts outside the repo, the `LLM.swift` package requires `-skipMacroValidation` in CLI builds, and local validation can fail on machines without a matching `Mac Development` signing identity unless code signing is disabled for the test run. Read the logs of previous testing runs for more details on failures if you can instead of rerunning
 * **Hosted test guard:** `CasperApp` now treats `XCTestConfigurationFilePath` as a hard signal that the process is running as a hosted test app and skips onboarding plus app initialization side effects in that mode. Reuse `RuntimeEnvironment.isRunningTests` for any future startup behavior that should not run under `xcodebuild test`.
-* **Dogfood Install Command:** To validate, install, and launch a fresh local app build in one step, use:
+* **Dogfood Install Command:** When finished with testing , install, and launch a fresh local app build in one step, use:
   ```bash
   scripts/dogfood-install.sh \
     -only-testing:CasperTests/TelemetryStorageTests \

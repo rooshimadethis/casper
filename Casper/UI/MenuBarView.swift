@@ -173,6 +173,16 @@ struct MenuBarView: View {
             Button("Open Summary Folder") {
                 appState.openTelemetrySummaryDirectory()
             }
+
+            Divider()
+
+            Button("Show Prediction Overlay") {
+                appState.togglePredictionOverlay()
+            }
+
+            Button("Retrain Prediction Model") {
+                appState.retrainPredictionModel()
+            }
         }
         .padding(.bottom, 2)
     }

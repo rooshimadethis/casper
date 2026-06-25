@@ -46,6 +46,15 @@ final class TelemetryCollector: ObservableObject {
     private var keyboardMonitor: Any?
     private var localKeyboardMonitor: Any?
 
+    var onEvent: ((DesktopUserEvent) -> Void)?
+    var debugLogger: ((DebugLogCategory, String) -> Void)?
+
+    private func recordEvent(_ event: DesktopUserEvent, recordedAt: Date = Date()) {
+        try? storage.appendEvent(event, recordedAt: recordedAt)
+        debugLogger?(.prediction, "Collected: \(event.shortDescription)")
+        onEvent?(event)
+    }
+
     init(
         storage: TelemetryStorage,
         powerMonitor: any TelemetryPowerMonitoring,
@@ -120,7 +129,7 @@ final class TelemetryCollector: ObservableObject {
         flushActiveTypingSession()
         flushPendingClick()
         let event = DesktopUserEvent.commandExecuted(command: command, exitCode: exitCode, output: output)
-        try? storage.appendEvent(event)
+        recordEvent(event)
         recordUserInteraction()
     }
 
@@ -147,7 +156,7 @@ final class TelemetryCollector: ObservableObject {
             
             // Log App Activation
             let event = DesktopUserEvent.appActivated(appName: appName, bundleID: bundleID, windowTitle: activeTitle)
-            try? storage.appendEvent(event)
+            recordEvent(event)
             
             lastAppName = appName
             lastBundleID = bundleID
@@ -164,7 +173,7 @@ final class TelemetryCollector: ObservableObject {
             flushPendingClick()
             // Log Window Title Change
             let event = DesktopUserEvent.windowTitleChanged(appName: appName, windowTitle: activeTitle)
-            try? storage.appendEvent(event)
+            recordEvent(event)
             
             lastWindowTitle = activeTitle
             recordUserInteraction()
@@ -187,7 +196,7 @@ final class TelemetryCollector: ObservableObject {
                     processedText = text
                 }
                 let event = DesktopUserEvent.textCopied(text: processedText)
-                try? storage.appendEvent(event)
+                recordEvent(event)
                 recordUserInteraction()
             }
         }
@@ -199,7 +208,7 @@ final class TelemetryCollector: ObservableObject {
             Task {
                 if let ocrContext = await ocrService.captureContext(customWords: []) {
                     let event = DesktopUserEvent.screenOcrCaptured(text: ocrContext.windowContents)
-                    try? storage.appendEvent(event)
+                    recordEvent(event)
                 }
             }
         }
@@ -346,7 +355,7 @@ final class TelemetryCollector: ObservableObject {
             clickCount: pending.clickCount,
             selectedText: selectedText
         )
-        try? storage.appendEvent(clickEvent, recordedAt: pending.recordedAt)
+        recordEvent(clickEvent, recordedAt: pending.recordedAt)
     }
 
     private func isApplicationResponding(_ app: NSRunningApplication) -> Bool {
@@ -369,7 +378,7 @@ final class TelemetryCollector: ObservableObject {
                 if rawDuration >= 2.0 {
                     let duration = (rawDuration * 10).rounded() / 10.0
                     let event = DesktopUserEvent.appStalled(appName: stalledApp, durationSeconds: duration)
-                    try? storage.appendEvent(event)
+                    recordEvent(event)
                 }
                 stalledAppName = nil
                 stallStartTime = nil
@@ -383,7 +392,7 @@ final class TelemetryCollector: ObservableObject {
             if elapsedSinceInteraction >= 3.0 && elapsedSinceInteraction <= 8.0 {
                 let roundedElapsed = (elapsedSinceInteraction * 10).rounded() / 10.0
                 let event = DesktopUserEvent.userHesitated(appName: lastAppName, durationSeconds: roundedElapsed)
-                try? storage.appendEvent(event)
+                recordEvent(event)
                 didLogHesitationForCurrentFocus = true
             }
         }
@@ -616,7 +625,7 @@ final class TelemetryCollector: ObservableObject {
             durationSeconds: duration
         )
 
-        try? storage.appendEvent(event)
+        recordEvent(event)
 
         activeTypingAppName = ""
         activeTypingStartTime = nil

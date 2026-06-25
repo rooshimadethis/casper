@@ -7,6 +7,7 @@ enum DebugLogCategory: String, Codable {
     case cleanup = "Cleanup"
     case model = "Model"
     case performance = "Performance"
+    case prediction = "Prediction"
 }
 
 struct DebugLogEntry: Identifiable, Equatable, Codable {

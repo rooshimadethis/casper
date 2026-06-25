@@ -37,6 +37,7 @@ final class TextCleanupManagerTests: XCTestCase {
                 .qwen35_0_8b_q4_k_m,
                 .qwen35_2b_q4_k_m,
                 .qwen35_4b_q4_k_m,
+                .deepseek_r1_qwen_7b_q4_k_m,
             ]
         )
         XCTAssertEqual(
@@ -45,6 +46,7 @@ final class TextCleanupManagerTests: XCTestCase {
                 "Qwen 3.5 0.8B Q4_K_M (Very fast)",
                 "Qwen 3.5 2B Q4_K_M (Fast)",
                 "Qwen 3.5 4B Q4_K_M (Full)",
+                "DeepSeek R1 Distill Qwen 7B Q4_K_M",
             ]
         )
         XCTAssertEqual(
