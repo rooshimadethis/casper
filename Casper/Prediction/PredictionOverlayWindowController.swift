@@ -7,6 +7,7 @@ final class PredictionOverlayWindowController: NSObject {
     private var hostingController: NSHostingController<AnyView>?
     private var cancellables = Set<AnyCancellable>()
     private var currentPredictions: [Prediction] = []
+    private var currentChains: [ActionChainPrediction] = []
     private var isForciblyHidden = false
     private var isManuallyVisible = false
 
@@ -32,7 +33,7 @@ final class PredictionOverlayWindowController: NSObject {
         let predictions = predictor.topPredictions
         if !predictions.isEmpty {
             debugLogger?(.prediction, "Overlay shown (manual, \(predictions.count) predictions)")
-            showPanel(with: predictions)
+            showPanel(with: predictions, chains: predictor.predictActionChains(maxSteps: 4, beamWidth: 2))
         } else {
             debugLogger?(.prediction, "Overlay shown (manual, no predictions - empty state)")
             showEmptyPanel()
@@ -53,6 +54,7 @@ final class PredictionOverlayWindowController: NSObject {
                 guard let self else { return }
                 let hadPredictions = !currentPredictions.isEmpty
                 currentPredictions = predictions
+                currentChains = predictions.isEmpty ? [] : predictor.predictActionChains(maxSteps: 4, beamWidth: 2)
                 guard !isForciblyHidden else {
                     if !predictions.isEmpty {
                         debugLogger?(.prediction, "Prediction update ignored (overlay forcibly hidden)")
@@ -61,7 +63,7 @@ final class PredictionOverlayWindowController: NSObject {
                 }
                 if !predictions.isEmpty {
                     debugLogger?(.prediction, "Overlay shown with \(predictions.count) predictions")
-                    showPanel(with: predictions)
+                    showPanel(with: predictions, chains: currentChains)
                 } else if !isManuallyVisible {
                     if hadPredictions {
                         debugLogger?(.prediction, "Overlay auto-hidden (predictions cleared)")
@@ -72,9 +74,10 @@ final class PredictionOverlayWindowController: NSObject {
             .store(in: &cancellables)
     }
 
-    private func showPanel(with predictions: [Prediction]) {
+    private func showPanel(with predictions: [Prediction], chains: [ActionChainPrediction]) {
         let newRoot = AnyView(PredictionOverlayView(
             predictions: predictions,
+            chain: chains.first,
             onAction: { [weak self] prediction in self?.handleAction(prediction) },
             onDismiss: { [weak self] in self?.handleDismiss() }
         ))
@@ -122,7 +125,7 @@ final class PredictionOverlayWindowController: NSObject {
 
     private func configureAndShowPanel(hostingController: NSHostingController<AnyView>) {
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 340, height: 260),
+            contentRect: NSRect(x: 0, y: 0, width: 380, height: 300),
             styleMask: [.nonactivatingPanel, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -164,6 +167,7 @@ final class PredictionOverlayWindowController: NSObject {
         Task { await executor.execute(prediction) }
         predictor.consumePrediction()
         currentPredictions = []
+        currentChains = []
         hidePanel()
     }
 
@@ -171,6 +175,7 @@ final class PredictionOverlayWindowController: NSObject {
         debugLogger?(.prediction, "Overlay dismissed by user")
         predictor.consumePrediction()
         currentPredictions = []
+        currentChains = []
         hidePanel()
     }
 

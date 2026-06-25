@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PredictionOverlayView: View {
     let predictions: [Prediction]
+    let chain: ActionChainPrediction?
     let onAction: (Prediction) -> Void
     let onDismiss: () -> Void
 
@@ -23,6 +24,11 @@ struct PredictionOverlayView: View {
 
             Divider()
 
+            if let chain, !chain.steps.isEmpty {
+                ChainPreviewView(chain: chain)
+                Divider()
+            }
+
             ForEach(Array(predictions.enumerated()), id: \.offset) { index, prediction in
                 PredictionRowView(
                     prediction: prediction,
@@ -34,12 +40,54 @@ struct PredictionOverlayView: View {
                 }
             }
         }
-        .frame(width: 340)
+        .frame(width: 380)
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(.regularMaterial)
                 .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
         )
+    }
+}
+
+private struct ChainPreviewView: View {
+    let chain: ActionChainPrediction
+
+    private var visibleSteps: ArraySlice<PredictedActionStep> {
+        chain.steps.prefix(4)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Text("Likely Chain")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.secondary)
+                Spacer()
+                Text("\(Int(chain.confidence * 100))%")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .monospacedDigit()
+            }
+
+            VStack(alignment: .leading, spacing: 5) {
+                ForEach(Array(visibleSteps.enumerated()), id: \.offset) { index, step in
+                    HStack(alignment: .firstTextBaseline, spacing: 7) {
+                        Text(index == 0 ? "Next" : "Then")
+                            .font(.system(size: 10, weight: index == 0 ? .semibold : .regular))
+                            .foregroundColor(index == 0 ? .primary : .secondary)
+                            .frame(width: 28, alignment: .leading)
+
+                        Text(step.displayText)
+                            .font(.system(size: 11, weight: index == 0 ? .semibold : .regular))
+                            .foregroundColor(index == 0 ? .primary : .secondary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
     }
 }
 
@@ -81,6 +129,27 @@ private struct PredictionRowView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 6)
+    }
+}
+
+private extension PredictedActionStep {
+    var displayText: String {
+        switch self {
+        case .activateApp(_, let appName):
+            return "Switch to \(appName)"
+        case .pasteText(let text, let appName):
+            return "Paste \"\(Self.preview(text))\" in \(appName)"
+        case .typeText(let text, let appName):
+            return "Type \"\(Self.preview(text))\" in \(appName)"
+        case .clickElement(let description, let appName):
+            return "Click \"\(Self.preview(description))\" in \(appName)"
+        }
+    }
+
+    private static func preview(_ text: String) -> String {
+        let cleaned = text.replacingOccurrences(of: "\n", with: " ")
+        if cleaned.count <= 42 { return cleaned }
+        return String(cleaned.prefix(39)) + "..."
     }
 }
 
