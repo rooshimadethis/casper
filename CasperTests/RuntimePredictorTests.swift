@@ -156,6 +156,40 @@ final class RuntimePredictorTests: XCTestCase {
         XCTAssertEqual(predictor.currentPrediction?.displayTitle, "Switch to Chrome")
     }
 
+    func testSpecificActionOutranksBareAppSwitch() {
+        let trie = PpmTrie()
+        trie.insert(tokens: ["a:com.xcode", "a:com.chrome"])
+        trie.insert(tokens: ["a:com.xcode", "a:com.chrome"])
+        trie.insert(tokens: ["a:com.xcode", "k:Ghostty:terminal"])
+
+        let microStore = MicroStore()
+        microStore.record(value: "git status", forContext: "a:com.xcode → k:Ghostty:terminal", weight: 1)
+        let predictor = RuntimePredictor(trie: trie, confidenceThreshold: 0.0, microStore: microStore)
+
+        predictor.ingest(event: .appActivated(appName: "Xcode", bundleID: "com.xcode", windowTitle: ""))
+
+        XCTAssertEqual(predictor.currentPrediction?.token, "k:Ghostty:terminal")
+        XCTAssertEqual(predictor.currentPrediction?.suggestedContent, "git status")
+    }
+
+    func testSpecificTerminalPredictionCanPassBelowGlobalThreshold() {
+        let trie = PpmTrie()
+        trie.insert(tokens: ["a:com.editor", "m:Editor:AXImage"])
+        trie.insert(tokens: ["a:com.editor", "m:Editor:AXImage"])
+        trie.insert(tokens: ["a:com.editor", "m:Editor:AXImage"])
+        trie.insert(tokens: ["a:com.editor", "m:Editor:AXImage"])
+        trie.insert(tokens: ["a:com.editor", "k:Editor:terminal"])
+
+        let microStore = MicroStore()
+        microStore.record(value: "git status", forContext: "a:com.editor → k:Editor:terminal", weight: 1)
+        let predictor = RuntimePredictor(trie: trie, confidenceThreshold: 0.5, microStore: microStore)
+
+        predictor.ingest(event: .appActivated(appName: "Editor", bundleID: "com.editor", windowTitle: ""))
+
+        XCTAssertEqual(predictor.currentPrediction?.token, "k:Editor:terminal")
+        XCTAssertEqual(predictor.currentPrediction?.suggestedContent, "git status")
+    }
+
     func testMicroValueBelowCountFloor() {
         let trie = PpmTrie()
         trie.insert(tokens: ["k:Ghostty:unknown", "k:Ghostty:unknown"])
@@ -264,8 +298,6 @@ final class RuntimePredictorTests: XCTestCase {
 
         let chains = predictor.predictActionChains(maxSteps: 2, beamWidth: 1)
 
-        XCTAssertEqual(chains.first?.steps, [
-            .activateApp(bundleID: "com.mitchellh.ghostty", appName: "com.mitchellh.ghostty"),
-        ])
+        XCTAssertTrue(chains.isEmpty)
     }
 }

@@ -50,4 +50,29 @@ You should completely clear or reset the model's episodic context window based o
 Predict next high-probability automation from the registry. Output JSON only.
 
 
-MCP for interacting with the system
+Represent actions at three levels
+Right now you mostly have level 1.
+Level 1: primitive
+click "Commit"
+type "git status"
+
+Level 2: task step
+run test command
+create commit message
+open failing CI log
+paste copied error into chat
+
+Level 3: workflow
+fix failing test
+ship branch
+summarize meeting
+investigate crash
+The UI should mostly expose levels 2 and 3. Level 1 is just how Casper executes.
+
+Use the trie to roll out chains, then compress them
+RuntimePredictor.predictActionChains(...) already starts doing rollout. The missing piece is a chain interpreter:
+raw chain:
+a:Terminal → k:Terminal:terminal → x:Terminal:success → a:Xcode → m:Xcode:AXButton
+
+interpreted chain:
+"Run command, then return to Xcode and click the next build action"

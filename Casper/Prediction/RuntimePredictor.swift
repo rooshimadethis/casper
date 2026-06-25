@@ -57,13 +57,14 @@ final class RuntimePredictor: PredictionProviding {
         var candidates = [Candidate(context: slidingWindow, confidence: 1.0, steps: [])]
         var completed: [ActionChainPrediction] = []
 
+        let rolloutWidth = max(beamWidth, 8)
+
         for _ in 0..<maxSteps {
             var expanded: [Candidate] = []
 
             for candidate in candidates {
-                for rawPrediction in trie.predict(context: candidate.context).prefix(beamWidth) {
+                for rawPrediction in trie.predict(context: candidate.context).prefix(rolloutWidth) {
                     let combinedConfidence = candidate.confidence * rawPrediction.confidence
-                    guard combinedConfidence >= confidenceThreshold else { continue }
 
                     let nextContext = Self.advanceContext(candidate.context, with: rawPrediction.token)
                     guard let prediction = buildPrediction(
@@ -79,6 +80,10 @@ final class RuntimePredictor: PredictionProviding {
                         continue
                     }
 
+                    guard predictionMeetsThreshold(prediction) || Self.isActivationAfterSpecificAction(step, existingSteps: candidate.steps) else {
+                        continue
+                    }
+
                     let nextSteps = candidate.steps + [step]
                     expanded.append(Candidate(
                         context: nextContext,
@@ -90,7 +95,14 @@ final class RuntimePredictor: PredictionProviding {
             }
 
             candidates = expanded
-                .sorted { $0.confidence > $1.confidence }
+                .sorted {
+                    let lhsScore = Self.stepUtilityScore($0.steps, confidence: $0.confidence)
+                    let rhsScore = Self.stepUtilityScore($1.steps, confidence: $1.confidence)
+                    if lhsScore != rhsScore {
+                        return lhsScore > rhsScore
+                    }
+                    return $0.confidence > $1.confidence
+                }
                 .prefix(beamWidth)
                 .map { $0 }
 
@@ -98,10 +110,12 @@ final class RuntimePredictor: PredictionProviding {
         }
 
         return completed
-            .filter { !$0.steps.isEmpty }
+            .filter { Self.hasSpecificAction($0.steps) }
             .sorted {
-                if $0.steps.count != $1.steps.count {
-                    return $0.steps.count > $1.steps.count
+                let lhsScore = Self.chainUtilityScore($0)
+                let rhsScore = Self.chainUtilityScore($1)
+                if lhsScore != rhsScore {
+                    return lhsScore > rhsScore
                 }
                 return $0.confidence > $1.confidence
             }
@@ -127,22 +141,27 @@ final class RuntimePredictor: PredictionProviding {
         let rawPredictions = trie.predict(context: slidingWindow)
 
         var built: [Prediction] = []
-        for pred in rawPredictions.prefix(5) {
+        var discardedTokens: [String] = []
+        for pred in rawPredictions.prefix(8) {
             if let p = buildPrediction(from: pred.token, confidence: pred.confidence, context: slidingWindow) {
                 built.append(p)
+            } else {
+                discardedTokens.append(pred.token)
             }
         }
+        built = rankedPredictions(built).prefix(5).map { $0 }
         topPredictions = built
         predictionsSubject.send(built)
 
-        guard let top = built.first, top.confidence >= confidenceThreshold else {
+        guard let top = built.first, predictionMeetsThreshold(top) else {
             if currentPrediction != nil {
                 debugLogger?(.prediction, "Prediction cleared (below threshold)")
                 currentPrediction = nil
                 lastEmittedPrediction = nil
             } else {
                 let topHint = rawPredictions.first.map { " top=\($0.token):\(String(format: "%.2f", $0.confidence))" } ?? ""
-                debugLogger?(.prediction, "No prediction\(topHint) (threshold=\(confidenceThreshold))")
+                let discardedHint = discardedTokens.isEmpty ? "" : " discarded=[\(discardedTokens.joined(separator: ", "))]"
+                debugLogger?(.prediction, "No prediction\(topHint)\(discardedHint) (threshold=\(confidenceThreshold))")
             }
             return
         }
@@ -181,7 +200,7 @@ final class RuntimePredictor: PredictionProviding {
 
     private func buildPrediction(from token: String, confidence: Double, context: [String]) -> Prediction? {
         let micro = microValue(for: token, context: context)
-        return buildPrediction(from: token, confidence: confidence, microValue: micro?.value, microCount: micro?.count ?? 0)
+        return buildPrediction(from: token, confidence: adjustedConfidence(for: token, confidence: confidence), microValue: micro?.value, microCount: micro?.count ?? 0)
     }
 
     private func microValue(for token: String, context: [String]) -> (value: String, count: Double)? {
@@ -193,7 +212,7 @@ final class RuntimePredictor: PredictionProviding {
 
     private func microCountThreshold(for token: String) -> Double {
         if token.hasPrefix("k:") {
-            return token.contains(":terminal") || token.contains(":search") ? 1 : 2
+            return token.contains(":terminal") || token.contains(":search") ? 1 : 3
         }
         return 3
     }
@@ -224,9 +243,106 @@ final class RuntimePredictor: PredictionProviding {
         return nil
     }
 
+    private static func hasSpecificAction(_ steps: [PredictedActionStep]) -> Bool {
+        steps.contains { step in
+            switch step {
+            case .activateApp:
+                return false
+            case .pasteText, .typeText, .clickElement:
+                return true
+            }
+        }
+    }
+
+    private static func isActivationAfterSpecificAction(_ step: PredictedActionStep, existingSteps: [PredictedActionStep]) -> Bool {
+        guard case .activateApp = step else { return false }
+        return hasSpecificAction(existingSteps)
+    }
+
+    private static func chainUtilityScore(_ chain: ActionChainPrediction) -> Double {
+        let specificActionCount = chain.steps.filter { step in
+            switch step {
+            case .activateApp:
+                return false
+            case .pasteText, .typeText, .clickElement:
+                return true
+            }
+        }.count
+        let activationCount = chain.steps.count - specificActionCount
+        return chain.confidence
+            * (1.0 + Double(specificActionCount) * 0.45)
+            * (1.0 + Double(chain.steps.count) * 0.12)
+            * max(0.4, 1.0 - Double(activationCount) * 0.05)
+    }
+
     private func predictionAppName(from token: String) -> String {
         let rest = String(token.dropFirst(2))
         return rest.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init) ?? rest
+    }
+
+    private func adjustedConfidence(for token: String, confidence: Double) -> Double {
+        guard token.hasPrefix("a:") else { return confidence }
+        return confidence * 0.35
+    }
+
+    private func predictionMeetsThreshold(_ prediction: Prediction) -> Bool {
+        prediction.confidence >= threshold(for: prediction)
+    }
+
+    private func threshold(for prediction: Prediction) -> Double {
+        if prediction.token.hasPrefix("k:") {
+            if prediction.token.contains(":terminal") || prediction.token.contains(":search") {
+                return min(confidenceThreshold, 0.18)
+            }
+            return min(confidenceThreshold, 0.25)
+        }
+
+        if prediction.token.hasPrefix("m:") {
+            return min(confidenceThreshold, 0.35)
+        }
+
+        if prediction.token.hasPrefix("c:") {
+            return min(confidenceThreshold, 0.30)
+        }
+
+        return confidenceThreshold
+    }
+
+    private func rankedPredictions(_ predictions: [Prediction]) -> [Prediction] {
+        predictions.sorted {
+            let lhsScore = utilityScore(for: $0)
+            let rhsScore = utilityScore(for: $1)
+            if lhsScore != rhsScore {
+                return lhsScore > rhsScore
+            }
+            return $0.confidence > $1.confidence
+        }
+    }
+
+    private func utilityScore(for prediction: Prediction) -> Double {
+        if prediction.token.hasPrefix("k:") { return prediction.confidence * 1.35 }
+        if prediction.token.hasPrefix("c:") { return prediction.suggestedContent.isEmpty ? 0 : prediction.confidence * 1.2 }
+        if prediction.token.hasPrefix("m:") { return prediction.confidence * 1.1 }
+        if prediction.token.hasPrefix("a:") { return prediction.confidence * 0.75 }
+        return prediction.confidence
+    }
+
+    private static func stepUtilityScore(_ steps: [PredictedActionStep], confidence: Double) -> Double {
+        guard !steps.isEmpty else { return confidence * 0.4 }
+
+        let specificActionCount = steps.filter { step in
+            switch step {
+            case .activateApp:
+                return false
+            case .pasteText, .typeText, .clickElement:
+                return true
+            }
+        }.count
+        let activationCount = steps.count - specificActionCount
+
+        return confidence
+            * (1.0 + Double(specificActionCount) * 0.5)
+            * max(0.35, 1.0 - Double(activationCount) * 0.15)
     }
 
     private func buildPrediction(from token: String, confidence: Double, microValue: String? = nil, microCount: Double = 0) -> Prediction? {
