@@ -300,4 +300,56 @@ final class RuntimePredictorTests: XCTestCase {
 
         XCTAssertTrue(chains.isEmpty)
     }
+
+    func testPredictActionChainsDoesNotReturnSingleStepChains() {
+        let trie = PpmTrie()
+        trie.insert(tokens: [
+            "a:com.apple.dt.Xcode",
+            "k:Ghostty:terminal",
+        ])
+
+        let microStore = MicroStore()
+        microStore.record(
+            value: "git status",
+            forContext: "a:com.apple.dt.Xcode → k:Ghostty:terminal",
+            weight: 1
+        )
+
+        let predictor = RuntimePredictor(trie: trie, confidenceThreshold: 0.0, microStore: microStore)
+        predictor.ingest(event: .appActivated(appName: "Xcode", bundleID: "com.apple.dt.Xcode", windowTitle: ""))
+
+        let chains = predictor.predictActionChains(maxSteps: 2, beamWidth: 1)
+
+        XCTAssertTrue(chains.isEmpty)
+    }
+
+    func testPredictActionChainsRanksLongerContinuationAbovePrefix() {
+        let trie = PpmTrie()
+        trie.insert(tokens: [
+            "a:com.apple.dt.Xcode",
+            "k:Ghostty:terminal",
+            "a:com.apple.dt.Xcode",
+        ])
+        trie.insert(tokens: [
+            "k:Ghostty:terminal",
+            "a:com.apple.dt.Xcode",
+        ])
+
+        let microStore = MicroStore()
+        microStore.record(
+            value: "git status",
+            forContext: "a:com.apple.dt.Xcode → k:Ghostty:terminal",
+            weight: 1
+        )
+
+        let predictor = RuntimePredictor(trie: trie, confidenceThreshold: 0.0, microStore: microStore)
+        predictor.ingest(event: .appActivated(appName: "Xcode", bundleID: "com.apple.dt.Xcode", windowTitle: ""))
+
+        let chains = predictor.predictActionChains(maxSteps: 2, beamWidth: 2)
+
+        XCTAssertEqual(chains.first?.steps, [
+            .typeText(text: "git status", appName: "Ghostty"),
+            .activateApp(bundleID: "com.apple.dt.Xcode", appName: "Xcode"),
+        ])
+    }
 }

@@ -110,8 +110,11 @@ final class RuntimePredictor: PredictionProviding {
         }
 
         return completed
-            .filter { Self.hasSpecificAction($0.steps) }
+            .filter { Self.isUsefulChain($0.steps) }
             .sorted {
+                if $0.steps.count != $1.steps.count {
+                    return $0.steps.count > $1.steps.count
+                }
                 let lhsScore = Self.chainUtilityScore($0)
                 let rhsScore = Self.chainUtilityScore($1)
                 if lhsScore != rhsScore {
@@ -252,6 +255,10 @@ final class RuntimePredictor: PredictionProviding {
                 return true
             }
         }
+    }
+
+    private static func isUsefulChain(_ steps: [PredictedActionStep]) -> Bool {
+        steps.count >= 2 && hasSpecificAction(steps)
     }
 
     private static func isActivationAfterSpecificAction(_ step: PredictedActionStep, existingSteps: [PredictedActionStep]) -> Bool {
