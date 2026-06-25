@@ -112,15 +112,15 @@ final class RuntimePredictor: PredictionProviding {
         return completed
             .filter { Self.isUsefulChain($0.steps) }
             .sorted {
+                if $0.confidence != $1.confidence {
+                    return $0.confidence > $1.confidence
+                }
                 if $0.steps.count != $1.steps.count {
                     return $0.steps.count > $1.steps.count
                 }
                 let lhsScore = Self.chainUtilityScore($0)
                 let rhsScore = Self.chainUtilityScore($1)
-                if lhsScore != rhsScore {
-                    return lhsScore > rhsScore
-                }
-                return $0.confidence > $1.confidence
+                return lhsScore > rhsScore
             }
             .prefix(beamWidth)
             .map { $0 }

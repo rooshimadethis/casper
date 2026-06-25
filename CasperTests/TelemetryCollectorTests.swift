@@ -324,6 +324,53 @@ final class TelemetryCollectorTests: XCTestCase {
     }
 
     @MainActor
+    func testMouseClickResolvesAppNameFromFrontmostApp() throws {
+        // This test validates that the mouse click handler resolves the app name
+        // from the actual frontmost application rather than a cached value.
+        // Note: Full AXUIElement path requires accessibility permissions, so
+        // this test verifies the resolution logic indirectly via the collector's
+        // behavior during click processing (typing session flush + event recording).
+
+        let clickEvent = NSEvent.mouseEvent(
+            with: .leftMouseDown,
+            location: .zero,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: 0,
+            context: nil,
+            eventNumber: 0,
+            clickCount: 1,
+            pressure: 1.0
+        )!
+
+        collector.handleMouseClick(clickEvent)
+
+        // Force flush the pending click (if AX succeeded, it will write a mouseClicked event)
+        collector.flushActiveTypingSession()
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone.current
+        let dateString = formatter.string(from: Date())
+
+        let events = try storage.loadEvents(forDateString: dateString)
+        let clickEvents = events.compactMap { event -> String? in
+            if case .mouseClicked(let appName, _, _, _) = event {
+                return appName
+            }
+            return nil
+        }
+
+        // If AX permissions are granted, verify the app name matches the frontmost app.
+        // If AX is unavailable, no click event is produced (expected), so we skip.
+        if !clickEvents.isEmpty {
+            let expectedApp = NSWorkspace.shared.frontmostApplication?.localizedName ?? "Unknown"
+            XCTAssertEqual(clickEvents.first, expectedApp, "Mouse click appName should match the frontmost app at click time")
+        }
+    }
+
+    @MainActor
     func testTextCopiedTruncatesWhenLong() async throws {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()

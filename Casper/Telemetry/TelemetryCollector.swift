@@ -20,7 +20,6 @@ final class TelemetryCollector: ObservableObject {
     private var lastWindowTitle = ""
     private var lastChangeCount = 0
     private var lastEventTime = Date()
-    private var lastFocusChangeTime = Date()
     private var didLogHesitationForCurrentFocus = false
     
     // Click tracking state
@@ -161,7 +160,6 @@ final class TelemetryCollector: ObservableObject {
             lastAppName = appName
             lastBundleID = bundleID
             lastWindowTitle = activeTitle
-            lastFocusChangeTime = now
             didLogHesitationForCurrentFocus = false
             recordUserInteraction()
             
@@ -201,17 +199,6 @@ final class TelemetryCollector: ObservableObject {
             }
         }
 
-        // 4. Periodic OCR Capture trigger (run when user is active but on a 10 min window)
-        // Note: Check if 10 mins elapsed since focus change to take a text snapshot.
-        let timeSinceFocus = now.timeIntervalSince(lastFocusChangeTime)
-        if timeSinceFocus > 600 && timeSinceFocus < 605 { // small window to trigger once
-            Task {
-                if let ocrContext = await ocrService.captureContext(customWords: []) {
-                    let event = DesktopUserEvent.screenOcrCaptured(text: ocrContext.windowContents)
-                    recordEvent(event)
-                }
-            }
-        }
     }
 
     func handleMouseClick(_ event: NSEvent) {
@@ -231,7 +218,7 @@ final class TelemetryCollector: ObservableObject {
         if AXUIElementCopyElementAtPosition(systemWide, cgX, cgY, &element) == .success, let clicked = element {
             let label = resolveElementLabel(for: clicked)
             
-            let appName = lastAppName
+            let appName = NSWorkspace.shared.frontmostApplication?.localizedName ?? "Unknown"
             let clickCount = event.clickCount
             let now = Date()
             
@@ -555,6 +542,14 @@ final class TelemetryCollector: ObservableObject {
             representation = "<Esc>"
         case 117:
             representation = "<Delete>"
+        case 123:
+            representation = "<LeftArrow>"
+        case 124:
+            representation = "<RightArrow>"
+        case 125:
+            representation = "<DownArrow>"
+        case 126:
+            representation = "<UpArrow>"
         default:
             if characters == "\r" || characters == "\n" {
                 representation = "<Enter>"
@@ -578,7 +573,7 @@ final class TelemetryCollector: ObservableObject {
         if hasCtrl { modifierStr += "Ctrl+" }
         if hasOpt { modifierStr += "Opt+" }
         
-        let isSpecialKey = event.keyCode == 36 || event.keyCode == 48 || event.keyCode == 51 || event.keyCode == 53 || event.keyCode == 117
+        let isSpecialKey = event.keyCode == 36 || event.keyCode == 48 || event.keyCode == 51 || event.keyCode == 53 || event.keyCode == 117 || event.keyCode == 123 || event.keyCode == 124 || event.keyCode == 125 || event.keyCode == 126
         if hasShift {
             let hasOtherModifiers = hasCmd || hasCtrl || hasOpt
             if hasOtherModifiers || isSpecialKey {
