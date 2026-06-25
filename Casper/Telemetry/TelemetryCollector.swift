@@ -256,19 +256,22 @@ final class TelemetryCollector: ObservableObject {
     private func resolveElementLabel(for element: AXUIElement) -> String {
         var current: AXUIElement = element
         var depth = 0
+        let maxDepth = 7
         
-        while depth < 3 {
+        while depth < maxDepth {
             var roleValue: CFTypeRef?
             var titleValue: CFTypeRef?
             var valueValue: CFTypeRef?
             var descValue: CFTypeRef?
             var placeholderValue: CFTypeRef?
+            var identifierValue: CFTypeRef?
             
             AXUIElementCopyAttributeValue(current, kAXRoleAttribute as CFString, &roleValue)
             AXUIElementCopyAttributeValue(current, kAXTitleAttribute as CFString, &titleValue)
             AXUIElementCopyAttributeValue(current, kAXValueAttribute as CFString, &valueValue)
             AXUIElementCopyAttributeValue(current, kAXDescriptionAttribute as CFString, &descValue)
             AXUIElementCopyAttributeValue(current, "AXPlaceholderValue" as CFString, &placeholderValue)
+            AXUIElementCopyAttributeValue(current, kAXIdentifierAttribute as CFString, &identifierValue)
             
             let role = (roleValue as? String) ?? "UnknownRole"
             let title = (titleValue as? String) ?? ""
@@ -284,6 +287,7 @@ final class TelemetryCollector: ObservableObject {
             
             let desc = (descValue as? String) ?? ""
             let placeholder = (placeholderValue as? String) ?? ""
+            let identifier = (identifierValue as? String) ?? ""
             
             var details: [String] = []
             if !title.isEmpty { details.append("Title: \(title)") }
@@ -296,9 +300,18 @@ final class TelemetryCollector: ObservableObject {
             }
             if !desc.isEmpty { details.append("Description: \(desc)") }
             if !placeholder.isEmpty { details.append("Placeholder: \(placeholder)") }
+            if !identifier.isEmpty { details.append("ID: \(identifier)") }
             
             if !details.isEmpty {
                 return "\(role) (\(details.joined(separator: ", ")))"
+            }
+            
+            // For group-like containers with no direct label, probe children for AXStaticText
+            let groupRoles: Set<String> = ["AXGroup", "AXSplitGroup", "AXLayoutArea", "AXLayoutItem"]
+            if groupRoles.contains(role) {
+                if let childLabel = findChildLabel(in: current, role: role) {
+                    return childLabel
+                }
             }
             
             // Go to parent if details are empty
@@ -317,6 +330,41 @@ final class TelemetryCollector: ObservableObject {
         var originalRole: CFTypeRef?
         AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &originalRole)
         return (originalRole as? String) ?? "UnknownRole"
+    }
+    
+    private func findChildLabel(in element: AXUIElement, role: String) -> String? {
+        var childrenValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &childrenValue) == .success,
+              let children = childrenValue as? [AXUIElement] else {
+            return nil
+        }
+        
+        for child in children.prefix(15) {
+            var childRole: CFTypeRef?
+            var childValue: CFTypeRef?
+            var childTitle: CFTypeRef?
+            
+            AXUIElementCopyAttributeValue(child, kAXRoleAttribute as CFString, &childRole)
+            AXUIElementCopyAttributeValue(child, kAXValueAttribute as CFString, &childValue)
+            AXUIElementCopyAttributeValue(child, kAXTitleAttribute as CFString, &childTitle)
+            
+            let childRoleStr = (childRole as? String) ?? ""
+            let value = (childValue as? String) ?? ""
+            let title = (childTitle as? String) ?? ""
+            
+            if childRoleStr == "AXStaticText" || childRoleStr == "AXButton" {
+                let label = value.isEmpty ? title : value
+                if !label.isEmpty {
+                    let clean = label.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !clean.isEmpty {
+                        let truncated = clean.count > 120 ? clean.prefix(120) + "..." : clean
+                        return "\(role) > \(childRoleStr) (Value: \(truncated))"
+                    }
+                }
+            }
+        }
+        
+        return nil
     }
 
     private func flushPendingClick() {

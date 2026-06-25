@@ -1,3 +1,10 @@
+Typing filtering	Filter editor commands out of micro store population, or create a separate e: token type for them so they don't compete with k:
+Micro store threshold	Lower the micro count floor from 3 to 2 while data is sparse, or add recency boosting so today's patterns surface faster
+Command execution	Fix the telemetry collector to fire commandExecuted — Xcode builds, git commands, and terminal work are entirely invisible to the predictor
+Session summarization	The session summarizer appears stalled after 1 session — check session_progress.json and the summarization trigger
+Clipboard truncation	Filter out [Truncated Copy] prefixed clipboard events from prediction training — they're padding, not patterns
+
+
 current:
  watcher:
  - mark summary by priority/logicality?
