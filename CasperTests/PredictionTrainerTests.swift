@@ -243,6 +243,9 @@ final class PredictionTrainerTests: XCTestCase {
         let predictions = microStore.predict(for: contextHash)
         XCTAssertFalse(predictions.isEmpty)
         XCTAssertEqual(predictions.first?.value, "killall Finder")
+
+        let fallbackPredictions = microStore.predict(for: "k:Ghostty:unknown")
+        XCTAssertEqual(fallbackPredictions.first?.value, "killall Finder")
     }
 
     func testTrainPopulatesMicroForClickEvents() throws {

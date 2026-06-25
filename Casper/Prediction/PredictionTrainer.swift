@@ -158,9 +158,6 @@ final class PredictionTrainer: @unchecked Sendable {
 
                 insertedCount += 1
 
-                let contextTokens = tokenWindow + [token]
-                let contextHash = contextTokens.joined(separator: " → ")
-
                 tokenWindow.append(token)
                 if tokenWindow.count > PpmTrie.maxDepth {
                     tokenWindow = Array(tokenWindow.suffix(PpmTrie.maxDepth))
@@ -173,18 +170,18 @@ final class PredictionTrainer: @unchecked Sendable {
                 case .typingSession(_, _, let typedText, _):
                     if !isKeyboardShortcut(typedText),
                        let normalizedText = MicroValueNormalizer.normalizeTypedText(typedText, token: token) {
-                        microStore.record(value: normalizedText, forContext: contextHash, weight: weight)
+                        recordMicroValue(normalizedText, targetToken: token, contextBeforeTarget: Array(tokenWindow.dropLast()), weight: weight)
                     }
                 case .mouseClicked(_, let elementClicked, _, let selectedText):
                     if let normalizedTarget = MicroValueNormalizer.normalizeClickTarget(elementClicked) {
-                        microStore.record(value: normalizedTarget, forContext: contextHash, weight: weight)
+                        recordMicroValue(normalizedTarget, targetToken: token, contextBeforeTarget: Array(tokenWindow.dropLast()), weight: weight)
                     }
                     if let selectedText, !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        microStore.record(value: selectedText, forContext: contextHash, weight: weight)
+                        recordMicroValue(selectedText, targetToken: token, contextBeforeTarget: Array(tokenWindow.dropLast()), weight: weight)
                     }
                 case .commandExecuted(let command, _, _):
                     if let normalizedCommand = MicroValueNormalizer.normalizeCommand(command) {
-                        microStore.record(value: normalizedCommand, forContext: contextHash, weight: weight)
+                        recordMicroValue(normalizedCommand, targetToken: token, contextBeforeTarget: Array(tokenWindow.dropLast()), weight: weight)
                     }
                 default:
                     break
@@ -211,6 +208,19 @@ final class PredictionTrainer: @unchecked Sendable {
     private func isKeyboardShortcut(_ text: String) -> Bool {
         text.hasPrefix("<Cmd") || text.hasPrefix("<Ctrl") || text.hasPrefix("<Opt")
             || text.hasPrefix("<Shift") || text.hasPrefix("<Fn")
+    }
+
+    private func recordMicroValue(_ value: String, targetToken: String, contextBeforeTarget: [String], weight: Double) {
+        let maxDepth = min(contextBeforeTarget.count, PpmTrie.maxDepth)
+        for depth in stride(from: maxDepth, through: 0, by: -1) {
+            let keyTokens: [String]
+            if depth == 0 {
+                keyTokens = [targetToken]
+            } else {
+                keyTokens = Array(contextBeforeTarget.suffix(depth)) + [targetToken]
+            }
+            microStore.record(value: value, forContext: keyTokens.joined(separator: " → "), weight: weight)
+        }
     }
 
     private func timeDecayWeight(for date: Date) -> Double {
