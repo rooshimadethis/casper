@@ -35,6 +35,15 @@ final class MicroStore: Codable {
         }
     }
 
+    var allEntries: [(context: String, values: [(value: String, count: Int)])] {
+        lock.withLock {
+            store.map { context, values in
+                (context, values.map { ($0.key, $0.value) }.sorted { $0.1 > $1.1 })
+            }
+            .sorted { $0.context < $1.context }
+        }
+    }
+
     func prune(floor: Int) {
         lock.withLock {
             for (context, values) in store {

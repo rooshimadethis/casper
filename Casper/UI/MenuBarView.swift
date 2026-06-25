@@ -183,6 +183,10 @@ struct MenuBarView: View {
             Button("Retrain Prediction Model") {
                 appState.retrainPredictionModel()
             }
+
+            Button("Prediction Debug...") {
+                appState.showPredictionDebug()
+            }
         }
         .padding(.bottom, 2)
     }

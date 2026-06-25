@@ -10,6 +10,7 @@
 		025CD7EE4CF01B5FC4E07A05 /* SoundEffects.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3F277787BFFC38C4B83DD92 /* SoundEffects.swift */; };
 		02C7D71202FF601FBC237DD0 /* OCRContextTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAF98AB58E02C37900725614 /* OCRContextTests.swift */; };
 		06399D78CBB1ABD68416E8C4 /* RecordingSessionCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FAF9A8EFC76AC5993E6CA5E /* RecordingSessionCoordinatorTests.swift */; };
+		07741B5F2B243DE01F9AB9EB /* PredictionDebugWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BCE9738E516D4C7B94B12D4 /* PredictionDebugWindow.swift */; };
 		07D549F8FAC08C44F92FD414 /* MeetingQATools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1068FC6AA3790CF0855D2079 /* MeetingQATools.swift */; };
 		08C698059E0D6E5637F3952F /* CleanupModelProbeCLI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A95B64D9FBBC193B30E302E /* CleanupModelProbeCLI.swift */; };
 		09010ED326DFEF4B9933C195 /* TelemetrySummarizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8210C5C1FE0A8442285CC03A /* TelemetrySummarizer.swift */; };
@@ -266,6 +267,7 @@
 		18C311FFD8A6580DCBE03696 /* RecordingOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingOverlay.swift; sourceTree = "<group>"; };
 		18DF86ABEF1F5E36E8FE595B /* Casper.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Casper.entitlements; sourceTree = "<group>"; };
 		19FFF4F55C330344AB11D6BD /* ModelManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelManager.swift; sourceTree = "<group>"; };
+		1BCE9738E516D4C7B94B12D4 /* PredictionDebugWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PredictionDebugWindow.swift; sourceTree = "<group>"; };
 		1D22F69D038FA701BBB6172F /* IndexBuildEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndexBuildEvent.swift; sourceTree = "<group>"; };
 		1FA1AD0C1BD6B67BE8749468 /* GranolaImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GranolaImporter.swift; sourceTree = "<group>"; };
 		207BFE4120D4CF9C8040A1BD /* TelemetryCollector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryCollector.swift; sourceTree = "<group>"; };
@@ -286,7 +288,7 @@
 		2C185F3D460883C897BA387B /* IndexEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IndexEntry.swift; sourceTree = "<group>"; };
 		2C5E3AC91AD9ED2F242E2C2B /* RuntimeModelInventoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeModelInventoryTests.swift; sourceTree = "<group>"; };
 		2C61FBBF8D090F9E47497028 /* SpeechTranscriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechTranscriber.swift; sourceTree = "<group>"; };
-		2FCA91568B09CEA9D687AF91 /* Secrets.example */ = {isa = PBXFileReference; path = Secrets.example; sourceTree = "<group>"; };
+		2FCA91568B09CEA9D687AF91 /* Secrets.example */ = {isa = PBXFileReference; lastKnownFileType = text; path = Secrets.example; sourceTree = "<group>"; };
 		30AA420ED406D688230EABC3 /* CleanupPromptBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupPromptBuilder.swift; sourceTree = "<group>"; };
 		311EF28956A8C4D11BD0851C /* ShortcutCaptureState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutCaptureState.swift; sourceTree = "<group>"; };
 		3141609898F757CB40E777B7 /* KeyChordTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyChordTests.swift; sourceTree = "<group>"; };
@@ -323,7 +325,7 @@
 		52E6865F602908B0854BCA5C /* PerformanceTrace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceTrace.swift; sourceTree = "<group>"; };
 		5322EC72E15C0A5106753F8B /* MeetingTranscriptSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingTranscriptSettings.swift; sourceTree = "<group>"; };
 		53384B9FD07CED4ED6E01538 /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
-		5610E25E1D89F88E1D40BE2D /* CleanupModelProbe */ = {isa = PBXFileReference; includeInIndex = 0; path = CleanupModelProbe; sourceTree = BUILT_PRODUCTS_DIR; };
+		5610E25E1D89F88E1D40BE2D /* CleanupModelProbe */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = text; path = CleanupModelProbe; sourceTree = BUILT_PRODUCTS_DIR; };
 		562732092724FDD87B3EC866 /* casper-character.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "casper-character.png"; sourceTree = "<group>"; };
 		56A5F1FA676F4A219437179D /* MicroStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicroStore.swift; sourceTree = "<group>"; };
 		574C69A99E554914B948D9A3 /* TranscriptionLabEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionLabEntry.swift; sourceTree = "<group>"; };
@@ -626,6 +628,7 @@
 				56A5F1FA676F4A219437179D /* MicroStore.swift */,
 				A24A70ABCA19AB7F512A2615 /* PpmTrie.swift */,
 				F914349C146FCD52B6946EA3 /* Prediction.swift */,
+				1BCE9738E516D4C7B94B12D4 /* PredictionDebugWindow.swift */,
 				0D3CDD64416503493695418B /* PredictionOverlayView.swift */,
 				BC87C26C30F8D8383B176518 /* PredictionOverlayWindowController.swift */,
 				F222CCE19F32959415D9BDA5 /* PredictionProviding.swift */,
@@ -1039,7 +1042,6 @@
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					1D1E8313F0D3142C1AB255FE = {
-						DevelopmentTeam = BBVMGXR9AY;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -1254,6 +1256,7 @@
 				7CB17F5CF65DD90867B6989A /* PostPasteLearningCoordinator.swift in Sources */,
 				6EF4A88212ED3FC5BEDD98C6 /* PpmTrie.swift in Sources */,
 				E4A4BF44A3B0910892FE4B89 /* Prediction.swift in Sources */,
+				07741B5F2B243DE01F9AB9EB /* PredictionDebugWindow.swift in Sources */,
 				3795BBC3FEB5526D8CCC70C0 /* PredictionOverlayView.swift in Sources */,
 				DEFC760953CFA90B639E5728 /* PredictionOverlayWindowController.swift in Sources */,
 				C61617F1D0C80B6CBE3EF863 /* PredictionProviding.swift in Sources */,
@@ -1361,6 +1364,7 @@
 				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
 				CODE_SIGN_ENTITLEMENTS = Casper/Casper.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = 9P8MXPB2KF;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
 				INFOPLIST_FILE = Casper/Info.plist;
@@ -1545,6 +1549,7 @@
 				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
 				CODE_SIGN_ENTITLEMENTS = Casper/Casper.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = 9P8MXPB2KF;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
 				INFOPLIST_FILE = Casper/Info.plist;

@@ -120,6 +120,19 @@ final class PpmTrie: Codable {
         }
     }
 
+    func snapshot() -> TrieNodeSnapshot {
+        lock.withLock {
+            func convert(_ token: String, _ node: PpmTrieNode) -> TrieNodeSnapshot {
+                TrieNodeSnapshot(
+                    token: token,
+                    count: node.count,
+                    children: node.children.map { convert($0.key, $0.value) }
+                )
+            }
+            return convert("(root)", root)
+        }
+    }
+
     func prune(floor: Int) {
         lock.withLock {
             func shouldKeep(_ node: PpmTrieNode) -> Bool {
@@ -132,5 +145,17 @@ final class PpmTrie: Codable {
                 shouldKeep(child)
             }
         }
+    }
+}
+
+struct TrieNodeSnapshot: Identifiable {
+    let id = UUID()
+    let token: String
+    let count: Int
+    let children: [TrieNodeSnapshot]
+
+    func hasDescendant(matching filter: String) -> Bool {
+        if token.localizedCaseInsensitiveContains(filter) { return true }
+        return children.contains { $0.hasDescendant(matching: filter) }
     }
 }

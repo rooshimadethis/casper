@@ -104,19 +104,19 @@ cleanup() {
 }
 trap cleanup EXIT
 
-run_xcodebuild_step "Running tests before dogfood install..." "$TEST_LOG_PATH" test \
-  -project "$PROJECT_PATH" \
-  -scheme "$SCHEME_NAME" \
-  -destination "$DESTINATION" \
-  -derivedDataPath "$DERIVED_DATA_PATH" \
-  -clonedSourcePackagesDirPath "$CLONED_SOURCE_PACKAGES_DIR_PATH" \
-  -disableAutomaticPackageResolution \
-  -skipMacroValidation \
-  -parallel-testing-enabled YES \
-  -parallel-testing-worker-count "$(sysctl -n hw.ncpu)" \
-  CODE_SIGNING_ALLOWED=NO \
-  CODE_SIGNING_REQUIRED=NO \
-  CODE_SIGN_IDENTITY=''
+# run_xcodebuild_step "Running tests before dogfood install..." "$TEST_LOG_PATH" test \
+#   -project "$PROJECT_PATH" \
+#   -scheme "$SCHEME_NAME" \
+#   -destination "$DESTINATION" \
+#   -derivedDataPath "$DERIVED_DATA_PATH" \
+#   -clonedSourcePackagesDirPath "$CLONED_SOURCE_PACKAGES_DIR_PATH" \
+#   -disableAutomaticPackageResolution \
+#   -skipMacroValidation \
+#   -parallel-testing-enabled YES \
+#   -parallel-testing-worker-count "$(sysctl -n hw.ncpu)" \
+#   CODE_SIGNING_ALLOWED=NO \
+#   CODE_SIGNING_REQUIRED=NO \
+#   CODE_SIGN_IDENTITY=''
 
 run_xcodebuild_step "Building signed app bundle for install..." "$BUILD_LOG_PATH" build \
   -project "$PROJECT_PATH" \

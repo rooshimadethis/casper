@@ -127,6 +127,8 @@ class AppState: ObservableObject {
     let telemetrySummarizer: TelemetrySummarizer
     let telemetryReportWriter: TelemetryReportWriter
     let predictionTrainer: PredictionTrainer
+    let predictionTrie: PpmTrie
+    let predictionMicroStore: MicroStore
     let predictor: any PredictionProviding
     let executor: any ActionExecuting
     let predictionOverlayController: PredictionOverlayWindowController
@@ -267,14 +269,17 @@ class AppState: ObservableObject {
             }
             return PpmTrie()
         }()
-        let predictor = RuntimePredictor(trie: predictionTrie)
+        self.predictionTrie = predictionTrie
+        let predictionMicroStore = MicroStore()
+        self.predictionMicroStore = predictionMicroStore
+        let predictor = RuntimePredictor(trie: predictionTrie, microStore: predictionMicroStore)
         self.predictor = predictor
         let executor = DefaultActionExecutor()
         self.executor = executor
         collector.onEvent = { [weak predictor] event in
             predictor?.ingest(event: event)
         }
-        self.predictionTrainer = PredictionTrainer(storage: storage, trie: predictionTrie, powerMonitor: powerMonitor)
+        self.predictionTrainer = PredictionTrainer(storage: storage, trie: predictionTrie, microStore: predictionMicroStore, powerMonitor: powerMonitor)
         self.telemetrySummarizer = TelemetrySummarizer(storage: storage, powerMonitor: powerMonitor, cleanupManager: self.textCleanupManager, predictionTrainer: self.predictionTrainer)
         self.telemetryReportWriter = TelemetryReportWriter(storage: storage, powerMonitor: powerMonitor, cleanupManager: self.textCleanupManager)
         self.predictionOverlayController = PredictionOverlayWindowController(predictor: predictor, executor: executor)
@@ -1114,6 +1119,7 @@ class AppState: ObservableObject {
     private let cleanupTranscriptWindowController = CleanupTranscriptWindowController()
     private let debugLogWindowController = DebugLogWindowController()
     private let pepperChatWindowController = PepperChatWindowController()
+    private let predictionDebugWindowController = PredictionDebugWindowController()
     private lazy var meetingTranscriptWindowController: MeetingTranscriptWindowController = {
         let controller = MeetingTranscriptWindowController()
         controller.shouldFloatWhileRecording = { [weak self] in
@@ -1244,6 +1250,10 @@ class AppState: ObservableObject {
 
     func showDebugLog() {
         debugLogWindowController.show(debugLogStore: debugLogStore)
+    }
+
+    func showPredictionDebug() {
+        predictionDebugWindowController.show(trie: predictionTrie, microStore: predictionMicroStore)
     }
 
     func showPepperChat() {
