@@ -102,11 +102,11 @@ runCommand(String)
 
 The UI should know which steps are executable, which are preview-only, and which require confirmation.
 
-### Time decay currently drops older data
+### Time decay should preserve sparse historical data
 
-The design says older sessions should contribute a `0.5` weight. Current insertion paths convert weights to `Int`, which turns `0.5` into `0`.
+The predictor should not aggressively favor only the last day or two while telemetry is sparse. Workflows are expected to be stable enough that recent-month events should retain full weight, with fractional decay reserved for older history.
 
-That means older-than-48h patterns do not decay; they disappear from training. This makes the model more recent-only than intended and may weaken recurring weekly or occasional workflows.
+When fractional weights are used, insertion paths must preserve them instead of converting them to `Int`, because `0.5` would otherwise become `0` and older recurring workflows would disappear.
 
 ## Better Direction
 
@@ -204,7 +204,7 @@ The immediate next action is primary. The rest of the chain is preview/context.
 ## Near-Term Fixes Before Building Chains
 
 1. Decide whether `typingSession` should be `k:{appName}` or `k:{appName}:{elementType}` for the first dogfoodable chain version.
-2. Fix fractional time decay so `0.5` does not become `0`.
+2. Keep sparse telemetry from being over-decayed; recent-month events should stay full weight and fractional decay must not round to zero.
 3. Make `k:` predictions executable through the default executor when they have a micro value.
 4. Add a small internal `PredictedActionStep` abstraction before extending the UI.
 5. Add a chain rollout method beside the existing single-step predictor instead of replacing it immediately.

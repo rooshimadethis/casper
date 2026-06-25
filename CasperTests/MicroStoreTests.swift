@@ -10,6 +10,13 @@ final class MicroStoreTests: XCTestCase {
         )
     }
 
+    func testNormalizeCommandKeepsCommandAndSubcommand() {
+        XCTAssertEqual(
+            MicroValueNormalizer.normalizeCommand("swift test --filter MicroStoreTests"),
+            "swift test"
+        )
+    }
+
     func testNormalizeTypedTextRejectsLongMultilineProseOutsideTerminal() {
         XCTAssertNil(
             MicroValueNormalizer.normalizeTypedText("hello\nthis is a longer note", token: "k:Slack:text_field")
@@ -33,7 +40,7 @@ final class MicroStoreTests: XCTestCase {
         let result = store.predict(for: "ctx")
         XCTAssertEqual(result.count, 1)
         XCTAssertEqual(result.first?.value, "killall Finder")
-        XCTAssertEqual(result.first?.count, 1)
+        XCTAssertEqual(result.first?.count, 1.0)
     }
 
     func testMultipleValuesSortedByCount() {
@@ -43,7 +50,7 @@ final class MicroStoreTests: XCTestCase {
         store.record(value: "c", forContext: "ctx")
         let result = store.predict(for: "ctx")
         XCTAssertEqual(result.map(\.value), ["a", "b", "c"])
-        XCTAssertEqual(result.map(\.count), [5, 3, 1])
+        XCTAssertEqual(result.map(\.count), [5.0, 3.0, 1.0])
     }
 
     func testUnknownContextReturnsEmpty() {
@@ -56,7 +63,15 @@ final class MicroStoreTests: XCTestCase {
         let store = MicroStore()
         store.record(value: "a", forContext: "ctx", weight: 3)
         let result = store.predict(for: "ctx")
-        XCTAssertEqual(result.first?.count, 3)
+        XCTAssertEqual(result.first?.count, 3.0)
+    }
+
+    func testFractionalWeightIsRetained() {
+        let store = MicroStore()
+        store.record(value: "git push", forContext: "ctx", weight: 0.5)
+        let result = store.predict(for: "ctx")
+        XCTAssertEqual(result.first?.value, "git push")
+        XCTAssertEqual(result.first?.count, 0.5)
     }
 
     func testCountFloorPrunesRareValues() {
@@ -66,7 +81,7 @@ final class MicroStoreTests: XCTestCase {
         store.prune(floor: 3)
         let result = store.predict(for: "ctx")
         XCTAssertEqual(result.map(\.value), ["a"])
-        XCTAssertEqual(result.first?.count, 5)
+        XCTAssertEqual(result.first?.count, 5.0)
     }
 
     func testPruneRemovesEmptyContext() {
@@ -115,7 +130,7 @@ final class MicroStoreTests: XCTestCase {
 
         let result = store.predict(for: "ctx")
         let totalCount = result.reduce(0) { $0 + $1.count }
-        XCTAssertEqual(totalCount, iterations)
+        XCTAssertEqual(totalCount, Double(iterations))
     }
 
     func testPredictForContextSuffixFallsBackToShorterContext() {
@@ -129,7 +144,7 @@ final class MicroStoreTests: XCTestCase {
         ], targetToken: "k:Ghostty:terminal")
 
         XCTAssertEqual(result.first?.value, "git push")
-        XCTAssertEqual(result.first?.count, 2)
+        XCTAssertEqual(result.first?.count, 2.0)
     }
 
     func testPredictForContextSuffixPrefersMostSpecificMatch() {

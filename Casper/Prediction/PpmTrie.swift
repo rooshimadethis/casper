@@ -2,7 +2,7 @@ import Foundation
 
 final class PpmTrieNode: Codable {
     var children: [String: PpmTrieNode] = [:]
-    var count: Int = 0
+    var count: Double = 0
 }
 
 final class PpmTrie: Codable {
@@ -36,19 +36,18 @@ final class PpmTrie: Codable {
 
     func insert(tokens: [String], weight: Double = 1.0) {
         lock.withLock {
-            let weightInt = Int(weight)
             let maxLen = min(tokens.count, Self.maxDepth)
             for len in 1...maxLen {
                 let suffix = Array(tokens.suffix(len))
                 var node = root
-                node.count += weightInt
+                node.count += weight
                 for token in suffix {
                     let child = node.children[token] ?? {
                         let new = PpmTrieNode()
                         node.children[token] = new
                         return new
                     }()
-                    child.count += weightInt
+                    child.count += weight
                     node = child
                 }
             }
@@ -139,7 +138,7 @@ final class PpmTrie: Codable {
         }
     }
 
-    func prune(floor: Int) {
+    func prune(floor: Double) {
         lock.withLock {
             func shouldKeep(_ node: PpmTrieNode) -> Bool {
                 node.children = node.children.filter { _, child in
@@ -157,7 +156,7 @@ final class PpmTrie: Codable {
 struct TrieNodeSnapshot: Identifiable {
     let id = UUID()
     let token: String
-    let count: Int
+    let count: Double
     let children: [TrieNodeSnapshot]
 
     func hasDescendant(matching filter: String) -> Bool {

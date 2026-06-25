@@ -44,11 +44,13 @@ final class PredictionTrainerTests: XCTestCase {
         XCTAssertEqual(result.first?.token, "a:com.google.Chrome")
     }
 
-    func testTimeDecayWeightsTodayHigher() throws {
+    func testTimeDecayKeepsRecentMonthAtFullWeightAndDownweightsOlderHistory() throws {
         let today = Date()
-        let yesterday = today.addingTimeInterval(-86400 * 1.5)
+        let lastWeek = today.addingTimeInterval(-86400 * 7)
+        let olderThanMonth = today.addingTimeInterval(-86400 * 35)
         let todayStr = TelemetryStorageDateHelper.dateString(for: today)
-        let yesterdayStr = TelemetryStorageDateHelper.dateString(for: yesterday)
+        let lastWeekStr = TelemetryStorageDateHelper.dateString(for: lastWeek)
+        let olderThanMonthStr = TelemetryStorageDateHelper.dateString(for: olderThanMonth)
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -56,10 +58,8 @@ final class PredictionTrainerTests: XCTestCase {
         let eventsDir = tempDirectory.appendingPathComponent("events", isDirectory: true)
         try FileManager.default.createDirectory(at: eventsDir, withIntermediateDirectories: true)
 
-        // Today: app A → app B (weight 2x each, so [a:com.a → a:com.b] gets weight 4)
+        // Today: app A → app B at full weight.
         let todayEvents: [TelemetryEventRecord] = [
-            .init(recordedAt: today, event: .appActivated(appName: "A", bundleID: "com.a", windowTitle: "")),
-            .init(recordedAt: today, event: .appActivated(appName: "B", bundleID: "com.b", windowTitle: "")),
             .init(recordedAt: today, event: .appActivated(appName: "A", bundleID: "com.a", windowTitle: "")),
             .init(recordedAt: today, event: .appActivated(appName: "B", bundleID: "com.b", windowTitle: "")),
         ]
@@ -70,17 +70,29 @@ final class PredictionTrainerTests: XCTestCase {
         }
         try todayData.write(to: eventsDir.appendingPathComponent("telemetry_events_\(todayStr).jsonl"))
 
-        // Yesterday: app A → app C (weight 1x each, so [a:com.a → a:com.c] gets weight 2)
-        let yesterdayEvents: [TelemetryEventRecord] = [
-            .init(recordedAt: yesterday, event: .appActivated(appName: "A", bundleID: "com.a", windowTitle: "")),
-            .init(recordedAt: yesterday, event: .appActivated(appName: "C", bundleID: "com.c", windowTitle: "")),
+        // Last week: same pattern also stays at full weight.
+        let lastWeekEvents: [TelemetryEventRecord] = [
+            .init(recordedAt: lastWeek, event: .appActivated(appName: "A", bundleID: "com.a", windowTitle: "")),
+            .init(recordedAt: lastWeek, event: .appActivated(appName: "B", bundleID: "com.b", windowTitle: "")),
         ]
-        var yesterdayData = Data()
-        for rec in yesterdayEvents {
-            yesterdayData.append(try encoder.encode(rec))
-            yesterdayData.append("\n".data(using: .utf8)!)
+        var lastWeekData = Data()
+        for rec in lastWeekEvents {
+            lastWeekData.append(try encoder.encode(rec))
+            lastWeekData.append("\n".data(using: .utf8)!)
         }
-        try yesterdayData.write(to: eventsDir.appendingPathComponent("telemetry_events_\(yesterdayStr).jsonl"))
+        try lastWeekData.write(to: eventsDir.appendingPathComponent("telemetry_events_\(lastWeekStr).jsonl"))
+
+        // Older than a month: app A → app C contributes half-strength evidence.
+        let olderThanMonthEvents: [TelemetryEventRecord] = [
+            .init(recordedAt: olderThanMonth, event: .appActivated(appName: "A", bundleID: "com.a", windowTitle: "")),
+            .init(recordedAt: olderThanMonth, event: .appActivated(appName: "C", bundleID: "com.c", windowTitle: "")),
+        ]
+        var olderThanMonthData = Data()
+        for rec in olderThanMonthEvents {
+            olderThanMonthData.append(try encoder.encode(rec))
+            olderThanMonthData.append("\n".data(using: .utf8)!)
+        }
+        try olderThanMonthData.write(to: eventsDir.appendingPathComponent("telemetry_events_\(olderThanMonthStr).jsonl"))
 
         let monitor = MockPowerMonitor(idle: true, acPower: true)
         let trainer = PredictionTrainer(storage: storage, trie: trie, powerMonitor: monitor,
@@ -93,10 +105,10 @@ final class PredictionTrainerTests: XCTestCase {
         }
         wait(for: [expectation], timeout: 2.0)
 
-        // Context ["a:com.a"] should predict a:com.b (higher weight from today)
+        // Context ["a:com.a"] should predict a:com.b because the two recent-month
+        // observations outweigh the older-than-month half-strength observation.
         let predictions = trie.predict(context: ["a:com.a"])
         XCTAssertEqual(predictions.first?.token, "a:com.b")
-        // Today's pattern has more weight, so confidence should be > 0.5
         XCTAssertGreaterThan(predictions.first?.confidence ?? 0, 0.5)
     }
 
@@ -189,7 +201,7 @@ final class PredictionTrainerTests: XCTestCase {
         // Write separate per-day files so each gets its own tokenWindow.
         // Each file has appActivated → typingSession, contributing weight
         // to context "a:com.mitchellh.ghostty → k:Ghostty".
-        // Weights: 0.5 + 1.0 + 2.0 = 3.5 → Int total = 3, survives floor 3.
+        // All three days are inside the full-weight month window, so total 3.0 survives floor 2.
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         let eventsDir = tempDirectory.appendingPathComponent("events", isDirectory: true)
@@ -237,7 +249,7 @@ final class PredictionTrainerTests: XCTestCase {
         // Write separate per-day files so each gets its own tokenWindow.
         // Each file has appActivated → mouseClicked, contributing weight
         // to context "a:com.google.Chrome → m:Chrome:AXButton".
-        // Weights: 0.5 + 1.0 + 2.0 = 3.5 → Int total = 3, survives floor 3.
+        // All three days are inside the full-weight month window, so total 3.0 survives floor 2.
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         let eventsDir = tempDirectory.appendingPathComponent("events", isDirectory: true)
@@ -303,11 +315,11 @@ final class PredictionTrainerTests: XCTestCase {
         }
         wait(for: [expectation], timeout: 2.0)
 
-        // Each unique context has count 2 (today's weight 2.0), below floor 3
-        XCTAssertTrue(microStore.store.isEmpty)
+        // Today's full-weight entry now survives the sparse-data floor.
+        XCTAssertFalse(microStore.store.isEmpty)
     }
 
-    func testMicroValuesInheritTimeDecay() throws {
+    func testMicroValuesKeepRecentMonthAtFullWeight() throws {
         let today = Date()
         let yesterday = today.addingTimeInterval(-86400 * 1.5)
         let todayStr = TelemetryStorageDateHelper.dateString(for: today)
@@ -319,7 +331,7 @@ final class PredictionTrainerTests: XCTestCase {
         let eventsDir = tempDirectory.appendingPathComponent("events", isDirectory: true)
         try FileManager.default.createDirectory(at: eventsDir, withIntermediateDirectories: true)
 
-        // Yesterday: appActivated + typingSession → weight 1.0
+        // Yesterday: appActivated + typingSession stays full weight.
         let yesterdayEvents: [TelemetryEventRecord] = [
             .init(recordedAt: yesterday, event: .appActivated(appName: "Ghostty", bundleID: "com.mitchellh.ghostty", windowTitle: "")),
             .init(recordedAt: yesterday, event: .typingSession(appName: "Ghostty", targetElement: nil, typedText: "killall Finder", durationSeconds: 2.0)),
@@ -331,7 +343,7 @@ final class PredictionTrainerTests: XCTestCase {
         }
         try yesterdayData.write(to: eventsDir.appendingPathComponent("telemetry_events_\(yesterdayStr).jsonl"))
 
-        // Today: same pattern → weight 2.0
+        // Today: same pattern also stays full weight.
         let todayEvents: [TelemetryEventRecord] = [
             .init(recordedAt: today, event: .appActivated(appName: "Ghostty", bundleID: "com.mitchellh.ghostty", windowTitle: "")),
             .init(recordedAt: today, event: .typingSession(appName: "Ghostty", targetElement: nil, typedText: "killall Finder", durationSeconds: 2.0)),
@@ -356,20 +368,20 @@ final class PredictionTrainerTests: XCTestCase {
         wait(for: [expectation], timeout: 2.0)
 
         // Context hash: "a:com.mitchellh.ghostty → k:Ghostty:unknown"
-        // Yesterday's entry: count += 1 (from weight 1.0)
-        // Today's entry: count += 2 (from weight 2.0)
-        // Total: 3, which survives prune(floor: 3)
+        // Yesterday's entry: count += 1.0
+        // Today's entry: count += 1.0
+        // Total: 2.0, which survives prune(floor: 2)
         let contextHash = "a:com.mitchellh.ghostty → k:Ghostty:unknown"
         let predictions = microStore.predict(for: contextHash)
         XCTAssertEqual(predictions.first?.value, "killall Finder")
-        XCTAssertEqual(predictions.first?.count, 3)
+        XCTAssertEqual(predictions.first?.count, 2.0)
     }
 
     func testMicroSaveLoadRoundTrip() throws {
         // Write separate per-day files so each gets its own tokenWindow.
         // Each file has appActivated → typingSession, contributing weight
         // to context "a:com.mitchellh.ghostty → k:Ghostty".
-        // Weights: 0.5 + 1.0 + 2.0 = 3.5 → Int total = 3, survives floor 3.
+        // All three days are inside the full-weight month window, so total 3.0 survives floor 2.
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         let eventsDir = tempDirectory.appendingPathComponent("events", isDirectory: true)

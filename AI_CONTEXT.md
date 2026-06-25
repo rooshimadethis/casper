@@ -67,6 +67,12 @@ This document contains canonical, project-specific context for developers and AI
   * **Evaluation Heuristics:** Filter functions ensure the local LLM is only invoked during high-value events (e.g. CLI failures, manual queries, copy events).
   * **Just-in-Time (JIT) Recommendations:** The agent returns a JSON array of `DesktopAgentRecommendation` objects suggesting JIT actions like pasting context-aware content or executing Terminal scripts.
 
+### 🔮 Prediction Engine Direction
+* **Product shape:** Prediction work should optimize toward chain-of-actions suggestions, not isolated next-event hints. The goal is to recognize workflows like deploy/debug/reporting loops and surface the immediate next action with the rest of the likely chain as context.
+* **Architecture boundary:** `PpmTrie` should remain a low-level successor model that answers "what tends to happen next?" The product-level direction is `ActionChainPrediction` / `PredictedActionStep`, where chain rollout bridges through context tokens and only surfaces executable or previewable action steps.
+* **Micro state role:** `MicroStore` enriches predicted `k:` and `m:` steps with concrete text or click targets. It should support suffix fallback and action-specific thresholds so exact full-context matches are not required while telemetry is sparse.
+* **Telemetry weighting:** Prediction training should preserve sparse workflow evidence. Events from the recent month stay full weight; older history contributes fractional nonzero evidence rather than disappearing during integer conversion.
+
 ### 📊 Local Telemetry Session Summaries
 * **Location:** `Casper/Telemetry/`
 * **Storage Shape:** Raw telemetry is written as timestamped `TelemetryEventRecord` JSONL entries, not bare `DesktopUserEvent` values. `TelemetryStorage.loadEventRecords(...)` remains backward-compatible with legacy lines by synthesizing fallback timestamps from file date + line offset.

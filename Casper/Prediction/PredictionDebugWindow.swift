@@ -275,9 +275,9 @@ private struct MicroTabView: View {
     let microStore: MicroStore
 
     @State private var searchText = ""
-    @State private var entries: [(context: String, values: [(value: String, count: Int)])] = []
+    @State private var entries: [(context: String, values: [(value: String, count: Double)])] = []
 
-    private var filteredEntries: [(context: String, values: [(value: String, count: Int)])] {
+    private var filteredEntries: [(context: String, values: [(value: String, count: Double)])] {
         if searchText.isEmpty { return entries }
         return entries.filter { entry in
             entry.context.localizedCaseInsensitiveContains(searchText)
@@ -347,7 +347,7 @@ private struct MicroTabView: View {
 }
 
 private struct MicroContextSection: View {
-    let entry: (context: String, values: [(value: String, count: Int)])
+    let entry: (context: String, values: [(value: String, count: Double)])
 
     @State private var isExpanded = false
 
@@ -359,7 +359,7 @@ private struct MicroContextSection: View {
                         .font(.system(.caption, design: .monospaced))
                         .lineLimit(1)
                     Spacer()
-                    Text("\(v.count)")
+                    Text(Self.formatCount(v.count))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
@@ -386,6 +386,13 @@ private struct MicroContextSection: View {
         }
         .padding(.trailing, 8)
         .padding(.vertical, 2)
+    }
+
+    private static func formatCount(_ count: Double) -> String {
+        if count.rounded() == count {
+            return String(Int(count))
+        }
+        return String(format: "%.1f", count)
     }
 }
 

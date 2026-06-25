@@ -1,7 +1,7 @@
 import Foundation
 
 final class MicroStore: Codable {
-    var store: [String: [String: Int]] = [:]
+    var store: [String: [String: Double]] = [:]
     private let lock = NSRecursiveLock()
 
     enum CodingKeys: CodingKey {
@@ -12,7 +12,14 @@ final class MicroStore: Codable {
 
     required init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        store = try container.decode([String: [String: Int]].self, forKey: .store)
+        if let decoded = try? container.decode([String: [String: Double]].self, forKey: .store) {
+            store = decoded
+        } else {
+            let legacy = try container.decode([String: [String: Int]].self, forKey: .store)
+            store = legacy.mapValues { values in
+                values.mapValues(Double.init)
+            }
+        }
     }
 
     func encode(to encoder: Encoder) throws {
@@ -20,7 +27,7 @@ final class MicroStore: Codable {
         try container.encode(store, forKey: .store)
     }
 
-    func record(value: String, forContext contextHash: String, weight: Int = 1) {
+    func record(value: String, forContext contextHash: String, weight: Double = 1) {
         lock.withLock {
             store[contextHash, default: [:]][value, default: 0] += weight
         }
@@ -32,7 +39,7 @@ final class MicroStore: Codable {
         }
     }
 
-    func predict(for contextHash: String) -> [(value: String, count: Int)] {
+    func predict(for contextHash: String) -> [(value: String, count: Double)] {
         lock.withLock {
             guard let entries = store[contextHash] else { return [] }
             return entries
@@ -41,7 +48,7 @@ final class MicroStore: Codable {
         }
     }
 
-    func predict(forContext context: [String], targetToken: String) -> [(value: String, count: Int)] {
+    func predict(forContext context: [String], targetToken: String) -> [(value: String, count: Double)] {
         lock.withLock {
             let maxDepth = min(context.count, PpmTrie.maxDepth)
             for depth in stride(from: maxDepth, through: 0, by: -1) {
@@ -61,7 +68,7 @@ final class MicroStore: Codable {
         }
     }
 
-    var allEntries: [(context: String, values: [(value: String, count: Int)])] {
+    var allEntries: [(context: String, values: [(value: String, count: Double)])] {
         lock.withLock {
             store.map { context, values in
                 (context, values.map { ($0.key, $0.value) }.sorted { $0.1 > $1.1 })
@@ -70,7 +77,7 @@ final class MicroStore: Codable {
         }
     }
 
-    func prune(floor: Int) {
+    func prune(floor: Double) {
         lock.withLock {
             for (context, values) in store {
                 let filtered = values.filter { $0.value >= floor }

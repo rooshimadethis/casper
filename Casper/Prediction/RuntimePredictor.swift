@@ -184,14 +184,14 @@ final class RuntimePredictor: PredictionProviding {
         return buildPrediction(from: token, confidence: confidence, microValue: micro?.value, microCount: micro?.count ?? 0)
     }
 
-    private func microValue(for token: String, context: [String]) -> (value: String, count: Int)? {
+    private func microValue(for token: String, context: [String]) -> (value: String, count: Double)? {
         guard token.hasPrefix("k:") || token.hasPrefix("m:") else { return nil }
         let results = microStore.predict(forContext: context, targetToken: token)
         guard let top = results.first, top.count >= microCountThreshold(for: token) else { return nil }
         return top
     }
 
-    private func microCountThreshold(for token: String) -> Int {
+    private func microCountThreshold(for token: String) -> Double {
         if token.hasPrefix("k:") {
             return token.contains(":terminal") || token.contains(":search") ? 1 : 2
         }
@@ -229,7 +229,7 @@ final class RuntimePredictor: PredictionProviding {
         return rest.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init) ?? rest
     }
 
-    private func buildPrediction(from token: String, confidence: Double, microValue: String? = nil, microCount: Int = 0) -> Prediction? {
+    private func buildPrediction(from token: String, confidence: Double, microValue: String? = nil, microCount: Double = 0) -> Prediction? {
         if token.hasPrefix("k:") {
             guard let microValue else { return nil }
             let appName = predictionAppName(from: token)
@@ -237,7 +237,7 @@ final class RuntimePredictor: PredictionProviding {
                 token: token,
                 confidence: confidence,
                 displayTitle: "Type \"\(microValue)\" in \(appName)?",
-                displayDescription: "\(microCount) times before",
+                displayDescription: "\(Self.formatCount(microCount)) times before",
                 suggestedContent: microValue
             )
         }
@@ -279,5 +279,12 @@ final class RuntimePredictor: PredictionProviding {
         }
 
         return nil
+    }
+
+    private static func formatCount(_ count: Double) -> String {
+        if count.rounded() == count {
+            return String(Int(count))
+        }
+        return String(format: "%.1f", count)
     }
 }

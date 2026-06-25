@@ -86,6 +86,13 @@ final class PpmTrieTests: XCTestCase {
         XCTAssertGreaterThan(result.first?.confidence ?? 0, 0)
     }
 
+    func testFractionalWeightIsRetained() {
+        let trie = PpmTrie()
+        trie.insert(tokens: ["a:A", "a:B"], weight: 0.5)
+        let result = trie.predict(context: ["a:A"])
+        XCTAssertEqual(result.first?.token, "a:B")
+    }
+
     func testPruneBelowFloor() {
         let trie = PpmTrie()
         trie.insert(tokens: ["a:A", "a:B"])

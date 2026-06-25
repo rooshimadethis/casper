@@ -27,7 +27,7 @@ enum MicroValueNormalizer {
         guard trimmed.count <= 160 else { return nil }
 
         if token.contains(":terminal") {
-            return normalizeTerminalCommand(trimmed)
+            return normalizeCommand(trimmed)
         }
 
         guard trimmed.count <= 80 else { return nil }
@@ -62,7 +62,10 @@ enum MicroValueNormalizer {
         return role
     }
 
-    private static func normalizeTerminalCommand(_ command: String) -> String? {
+    static func normalizeCommand(_ command: String) -> String? {
+        let command = cleaned(command)
+        guard !command.isEmpty else { return nil }
+
         let parts = command.split(whereSeparator: { $0.isWhitespace }).map(String.init)
         guard let executable = parts.first else { return nil }
 

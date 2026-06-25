@@ -98,7 +98,7 @@ final class PredictionTrainer: @unchecked Sendable {
             let nodeCount = trie.nodeCount()
             debugLogger?(.prediction, "Training: trie saved (\(nodeCount) nodes)")
 
-            microStore.prune(floor: 3)
+            microStore.prune(floor: 2)
             try microStore.save(to: microStoreURL)
             debugLogger?(.prediction, "Training: microStore saved")
         } catch {
@@ -173,14 +173,18 @@ final class PredictionTrainer: @unchecked Sendable {
                 case .typingSession(_, _, let typedText, _):
                     if !isKeyboardShortcut(typedText),
                        let normalizedText = MicroValueNormalizer.normalizeTypedText(typedText, token: token) {
-                        microStore.record(value: normalizedText, forContext: contextHash, weight: Int(weight))
+                        microStore.record(value: normalizedText, forContext: contextHash, weight: weight)
                     }
                 case .mouseClicked(_, let elementClicked, _, let selectedText):
                     if let normalizedTarget = MicroValueNormalizer.normalizeClickTarget(elementClicked) {
-                        microStore.record(value: normalizedTarget, forContext: contextHash, weight: Int(weight))
+                        microStore.record(value: normalizedTarget, forContext: contextHash, weight: weight)
                     }
                     if let selectedText, !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        microStore.record(value: selectedText, forContext: contextHash, weight: Int(weight))
+                        microStore.record(value: selectedText, forContext: contextHash, weight: weight)
+                    }
+                case .commandExecuted(let command, _, _):
+                    if let normalizedCommand = MicroValueNormalizer.normalizeCommand(command) {
+                        microStore.record(value: normalizedCommand, forContext: contextHash, weight: weight)
                     }
                 default:
                     break
@@ -212,13 +216,8 @@ final class PredictionTrainer: @unchecked Sendable {
     private func timeDecayWeight(for date: Date) -> Double {
         let elapsed = Date().timeIntervalSince(date)
         let oneDay: TimeInterval = 86400
-        if elapsed < oneDay {
-            return 2.0
-        } else if elapsed < 2 * oneDay {
-            return 1.0
-        } else {
-            return 0.5
-        }
+        let oneMonth = 30 * oneDay
+        return elapsed < oneMonth ? 1.0 : 0.5
     }
 
     private var progressURL: URL {
