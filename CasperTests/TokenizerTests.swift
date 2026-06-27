@@ -38,6 +38,15 @@ final class TokenizerTests: XCTestCase {
         XCTAssertEqual(Tokenizer.tokenize(event), "m:Safari:AXButton")
     }
 
+    func testRightMouseClickProducesRToken() {
+        let event = DesktopUserEvent.rightMouseClicked(
+            appName: "Safari",
+            elementClicked: "AXButton (Title: Reload)",
+            clickCount: 1
+        )
+        XCTAssertEqual(Tokenizer.tokenize(event), "r:Safari:AXButton")
+    }
+
     func testMouseClickWithSelectionProducesSToken() {
         let event = DesktopUserEvent.mouseClicked(
             appName: "Safari",

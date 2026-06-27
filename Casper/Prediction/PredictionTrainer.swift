@@ -179,6 +179,10 @@ final class PredictionTrainer: @unchecked Sendable {
                     if let selectedText, !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         recordMicroValue(selectedText, targetToken: token, contextBeforeTarget: Array(tokenWindow.dropLast()), weight: weight)
                     }
+                case .rightMouseClicked(_, let elementClicked, _):
+                    if let normalizedTarget = MicroValueNormalizer.normalizeClickTarget(elementClicked) {
+                        recordMicroValue(normalizedTarget, targetToken: token, contextBeforeTarget: Array(tokenWindow.dropLast()), weight: weight)
+                    }
                 case .commandExecuted(let command, _, _):
                     if let normalizedCommand = MicroValueNormalizer.normalizeCommand(command) {
                         recordMicroValue(normalizedCommand, targetToken: token, contextBeforeTarget: Array(tokenWindow.dropLast()), weight: weight)

@@ -185,15 +185,17 @@ final class RuntimePredictor: PredictionProviding {
     }
 
     private static func shouldAdvanceRuntimeContext(for event: DesktopUserEvent) -> Bool {
-        guard case .mouseClicked(_, let elementClicked, _, let selectedText) = event else {
+        switch event {
+        case .mouseClicked(_, let elementClicked, _, let selectedText):
+            if let selectedText, !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return true
+            }
+            return clickHasConcreteLocation(elementClicked)
+        case .rightMouseClicked(_, let elementClicked, _):
+            return clickHasConcreteLocation(elementClicked)
+        default:
             return true
         }
-
-        if let selectedText, !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return true
-        }
-
-        return clickHasConcreteLocation(elementClicked)
     }
 
     private static func clickHasConcreteLocation(_ elementDescription: String) -> Bool {
@@ -210,7 +212,7 @@ final class RuntimePredictor: PredictionProviding {
             lastCopiedText = text
         case .typingSession(let appName, _, _, _):
             currentAppName = appName
-        case .mouseClicked(let appName, _, _, _):
+        case .mouseClicked(let appName, _, _, _), .rightMouseClicked(let appName, _, _):
             currentAppName = appName
         default:
             break

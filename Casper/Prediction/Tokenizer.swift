@@ -16,6 +16,9 @@ enum Tokenizer {
             }
             let role = extractRole(from: elementClicked)
             return "m:\(appName):\(role)"
+        case .rightMouseClicked(let appName, let elementClicked, _):
+            let role = extractRole(from: elementClicked)
+            return "r:\(appName):\(role)"
         case .typingSession(let appName, let targetElement, _, _):
             let elementType = classifyTargetElement(targetElement)
             return "k:\(appName):\(elementType)"

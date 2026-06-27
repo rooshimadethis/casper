@@ -53,7 +53,27 @@ final class TelemetrySanitizerTests: XCTestCase {
         } else {
             XCTFail("Sanitized event case mismatch")
         }
+    }
+
+    func testDesktopUserEventSanitizedRightClick() {
+        let event = DesktopUserEvent.rightMouseClicked(
+            appName: "Antigravity IDE",
+            elementClicked: "AXStaticText (Value: \u{EA60})",
+            clickCount: 1
+        )
         
+        let sanitizedEvent = event.sanitized()
+        
+        if case .rightMouseClicked(let appName, let elementClicked, let clickCount) = sanitizedEvent {
+            XCTAssertEqual(appName, "Antigravity IDE")
+            XCTAssertEqual(elementClicked, "AXStaticText (Value: [Icon: add])")
+            XCTAssertEqual(clickCount, 1)
+        } else {
+            XCTFail("Sanitized event case mismatch")
+        }
+    }
+        
+    func testTypingEventSanitized() {
         let typingEvent = DesktopUserEvent.typingSession(
             appName: "VS Code \u{EC1E}",
             targetElement: "Editor \u{EC10}",

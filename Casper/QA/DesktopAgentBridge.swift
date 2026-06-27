@@ -9,6 +9,7 @@ enum DesktopUserEvent: Sendable, Codable {
     case commandExecuted(command: String, exitCode: Int, output: String?)
     case customInput(prompt: String)
     case mouseClicked(appName: String, elementClicked: String, clickCount: Int, selectedText: String?)
+    case rightMouseClicked(appName: String, elementClicked: String, clickCount: Int)
     case appStalled(appName: String, durationSeconds: Double)
     case userHesitated(appName: String, durationSeconds: Double)
     case typingSession(appName: String, targetElement: String?, typedText: String, durationSeconds: Double)
@@ -29,6 +30,8 @@ enum DesktopUserEvent: Sendable, Codable {
             return "customInput(\(prompt))"
         case .mouseClicked(let appName, _, let count, _):
             return "mouseClicked(\(appName), clicks=\(count))"
+        case .rightMouseClicked(let appName, _, let count):
+            return "rightMouseClicked(\(appName), clicks=\(count))"
         case .appStalled(let appName, let dur):
             return "appStalled(\(appName), \(String(format: "%.1f", dur))s)"
         case .userHesitated(let appName, let dur):
@@ -102,7 +105,7 @@ final class DesktopAgentBridge: ObservableObject {
             context.lastCommandOutput = output
         case .customInput(let prompt):
             context.activeGoal = prompt
-        case .mouseClicked, .appStalled, .userHesitated, .typingSession:
+        case .mouseClicked, .rightMouseClicked, .appStalled, .userHesitated, .typingSession:
             break
         }
 
@@ -126,7 +129,7 @@ final class DesktopAgentBridge: ObservableObject {
             // Evaluate if switching to developer/productivity tools
             let lowerTitle = context.activeWindowTitle.lowercased()
             return lowerTitle.contains("error") || lowerTitle.contains("issue") || lowerTitle.contains("pr")
-        case .screenOcrCaptured, .mouseClicked, .appStalled, .userHesitated, .typingSession:
+        case .screenOcrCaptured, .mouseClicked, .rightMouseClicked, .appStalled, .userHesitated, .typingSession:
             return false // Periodical/user clicks shouldn't auto-evaluate unless requested
         }
     }
@@ -218,6 +221,12 @@ extension DesktopUserEvent {
                 elementClicked: TelemetrySanitizer.sanitize(element),
                 clickCount: clickCount,
                 selectedText: selectedText.map { TelemetrySanitizer.sanitize($0) }
+            )
+        case .rightMouseClicked(let app, let element, let clickCount):
+            return .rightMouseClicked(
+                appName: TelemetrySanitizer.sanitize(app),
+                elementClicked: TelemetrySanitizer.sanitize(element),
+                clickCount: clickCount
             )
         case .appStalled(let app, let duration):
             return .appStalled(appName: TelemetrySanitizer.sanitize(app), durationSeconds: duration)

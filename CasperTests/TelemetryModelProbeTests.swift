@@ -104,6 +104,9 @@ final class TelemetryModelProbeTests: XCTestCase {
                     msg += " (highlighted: \"\(truncated)\")"
                 }
                 output += msg + "\n"
+            case .rightMouseClicked(let app, let element, let clickCount):
+                let clickType = clickCount == 2 ? "Double-right-clicked" : (clickCount >= 3 ? "Triple-right-clicked" : "Right-clicked")
+                output += "\(prefix)\(timestamp) \(clickType) UI element \"\(element)\" in app \(app)\n"
             case .appStalled(let app, let duration):
                 output += "\(prefix)\(timestamp) App stalled: \(app) was unresponsive for \(String(format: "%.1f", duration))s\n"
             case .userHesitated(let app, let duration):

@@ -76,7 +76,7 @@ final class TelemetryCollector: ObservableObject {
         }
 
         // Global mouse click observer
-        clickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown]) { [weak self] event in
+        clickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
             MainActor.assumeIsolated {
                 self?.handleMouseClick(event)
             }
@@ -222,19 +222,29 @@ final class TelemetryCollector: ObservableObject {
             let clickCount = event.clickCount
             let now = Date()
             
-            pendingClickTimer?.invalidate()
-            
-            if clickCount > 1, let pending = pendingClickEvent, pending.element == label {
-                pendingClickEvent = (appName: appName, element: label, clickCount: clickCount, recordedAt: pending.recordedAt)
-            } else {
+            if event.type == .rightMouseDown {
                 flushPendingClick()
-                pendingClickEvent = (appName: appName, element: label, clickCount: clickCount, recordedAt: now)
-            }
-            
-            let delay = NSEvent.doubleClickInterval
-            pendingClickTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
-                Task { @MainActor in
-                    self?.flushPendingClick()
+                let clickEvent = DesktopUserEvent.rightMouseClicked(
+                    appName: appName,
+                    elementClicked: label,
+                    clickCount: clickCount
+                )
+                recordEvent(clickEvent, recordedAt: now)
+            } else {
+                pendingClickTimer?.invalidate()
+                
+                if clickCount > 1, let pending = pendingClickEvent, pending.element == label {
+                    pendingClickEvent = (appName: appName, element: label, clickCount: clickCount, recordedAt: pending.recordedAt)
+                } else {
+                    flushPendingClick()
+                    pendingClickEvent = (appName: appName, element: label, clickCount: clickCount, recordedAt: now)
+                }
+                
+                let delay = NSEvent.doubleClickInterval
+                pendingClickTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
+                    Task { @MainActor in
+                        self?.flushPendingClick()
+                    }
                 }
             }
         }
